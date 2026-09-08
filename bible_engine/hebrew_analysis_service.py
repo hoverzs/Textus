@@ -30,6 +30,11 @@ from bible_engine.hebrew_analysis_bundle import (
     TokenProvenance,
     VerseAnalysis,
 )
+from bible_engine.hebrew_analysis_repository import (
+    HebrewAnalysisRepository,
+    LocalHebrewAnalysisRepository,
+    VerseSyntaxData,
+)
 from bible_engine.hebrew_books import HebrewReferenceError, parse_hebrew_reference
 from bible_engine.hebrew_component_repository import (
     ComponentFidelityUnavailable,
@@ -40,12 +45,13 @@ from bible_engine.hebrew_morphology import decode_hebrew_morphology
 from bible_engine.hebrew_morphology_hu import COMPONENT_ROLE_HU, format_hebrew_morphology_hu
 from bible_engine.hebrew_parser import HebrewToken
 from bible_engine.hebrew_pattern_detection import detect_patterns
-from bible_engine.hebrew_token_identity import build_component_id, build_token_id
+from bible_engine.hebrew_token_identity import build_component_id, build_token_id, canonical_book_id_from_tahot_code
 from bible_engine.hebrew_token_repository import HebrewTokenRepository
 
 STEPBIBLE_SOURCE_COMMIT = "ea47bd4c7eab7375f2dca07086ccc356e95a4128"
 STEPBIBLE_ATTRIBUTION = "STEP Bible; www.STEPBible.org"
 STEPBIBLE_LICENSE = "CC BY 4.0"
+MACULA_SOURCE_COMMIT = "09f8ea9e25025841ec45e2b6e7fc01595a080568"  # tag 26.04.13
 
 _GRAMMAR_MARKER_STRONG_PREFIX = "H9"
 
@@ -71,12 +77,19 @@ class HebrewAnalysisService:
         production_db_path: str | Path | None = None,
         component_fidelity_db_path: str | Path | None = None,
         hungarian_lexicon_path: str | Path | None = None,
+        linguistic_repository: HebrewAnalysisRepository | None = None,
     ) -> None:
         self._token_repository = HebrewTokenRepository(production_db_path)
         self._component_fidelity_db_path = component_fidelity_db_path
         self._lexicon_repository = HebrewHungarianLexiconRepository(
             *(() if hungarian_lexicon_path is None else (hungarian_lexicon_path,))
         )
+        # Phase 2D: syntax/phrase/clause/semantic-role/coreference data —
+        # NEVER token/morphology/lexical data, which stays on the Phase 2C
+        # path above unchanged (see this module's docstring). Defaults to
+        # the local SQLite mirror; pass a SupabaseHebrewAnalysisRepository
+        # for the production-capable read path.
+        self._linguistic_repository: HebrewAnalysisRepository = linguistic_repository or LocalHebrewAnalysisRepository()
 
     def get_hebrew_analysis(self, reference: str) -> HebrewAnalysisBundle:
         """``reference`` is a Hungarian-style Old Testament reference
@@ -94,6 +107,10 @@ class HebrewAnalysisService:
         result = self._token_repository.passage(book_code, chapter, verse_start, verse_end)
         if result.status != "ok":
             raise HebrewAnalysisUnavailable(result.status, f"Hebrew passage unavailable: {reference} ({result.status})")
+
+        # book_code was already validated against OT_BOOKS by
+        # parse_hebrew_reference above, so this bridge cannot fail here.
+        canonical_book_id = canonical_book_id_from_tahot_code(book_code)
 
         tokens = list(result.tokens)
         has_component_fidelity = True
@@ -125,14 +142,14 @@ class HebrewAnalysisService:
         language = "mixed" if len(languages) > 1 else (next(iter(languages), "hebrew"))
 
         verses = tuple(
-            self._build_verse_analysis(book_code, chapter_num, verse_num, verses_map, text_by_verse)
+            self._build_verse_analysis(canonical_book_id, chapter_num, verse_num, verses_map, text_by_verse)
             for chapter_num, verse_num in sorted(verses_map)
         )
 
         reference_str = (
-            f"{book_code}.{chapter}.{verse_start}"
+            f"{canonical_book_id}.{chapter}.{verse_start}"
             if verse_start == verse_end
-            else f"{book_code}.{chapter}.{verse_start}-{verse_end}"
+            else f"{canonical_book_id}.{chapter}.{verse_start}-{verse_end}"
         )
 
         if not has_component_fidelity:
@@ -146,19 +163,23 @@ class HebrewAnalysisService:
                 )
             )
 
+        has_syntax = any(v.phrases or v.clauses or v.syntax_relations for v in verses)
+        has_semantic_roles = any(v.semantic_roles for v in verses)
+        has_participants = any(v.participants for v in verses)
+        notes = ["Nincs gyök-adat (Fázis 2C/2D-ben nem elérhető deterministikus héber gyök-forrás)."]
+        if not has_syntax:
+            notes.append("Ehhez a szakaszhoz nincs importált MACULA mondattani (frázis/mellékmondat) adat.")
+
         coverage = CoverageReport(
             has_morphology=True,
             has_component_fidelity=has_component_fidelity,
-            has_syntax=False,
-            has_semantic_roles=False,
-            has_participants=False,
+            has_syntax=has_syntax,
+            has_semantic_roles=has_semantic_roles,
+            has_participants=has_participants,
             has_roots=False,
             token_count=len(tokens),
             fully_decoded_token_count=fully_decoded_count,
-            notes=(
-                "Fázis 2D (MACULA) előtt: nincs mondattani elemzés, nincs szemantikai szerepcímkézés, "
-                "nincs gyök-adat.",
-            ),
+            notes=tuple(notes),
         )
 
         return HebrewAnalysisBundle(
@@ -175,21 +196,29 @@ class HebrewAnalysisService:
 
     def _build_verse_analysis(
         self,
-        book_code: str,
+        canonical_book_id: str,
         chapter_num: int,
         verse_num: int,
         verses_map: dict[tuple[int, int], list[TokenAnalysis]],
         text_by_verse: dict[tuple[int, int], list[str]],
     ) -> VerseAnalysis:
+        verse_id = f"{canonical_book_id}.{chapter_num}.{verse_num}"
         verse_tokens = verses_map[(chapter_num, verse_num)]
+        syntax: VerseSyntaxData = self._linguistic_repository.get_verse_syntax(verse_id)
         verse = VerseAnalysis(
-            verse_id=f"{book_code}.{chapter_num}.{verse_num}",
+            verse_id=verse_id,
             chapter=chapter_num,
             verse=verse_num,
             hebrew_text=" ".join(text_by_verse[(chapter_num, verse_num)]),
             hebrew_text_plain=" ".join(text_by_verse[(chapter_num, verse_num)]),
             versification_note="",
             tokens=tuple(verse_tokens),
+            phrases=syntax.phrases,
+            clauses=syntax.clauses,
+            syntax_relations=syntax.syntax_relations,
+            semantic_roles=syntax.semantic_roles,
+            participants=syntax.participants,
+            coreference=syntax.coreference,
             text_critical=tuple(self._text_critical_notes(verse_tokens)),
         )
         return replace(verse, detected_patterns=detect_patterns(verse))
@@ -332,6 +361,14 @@ class HebrewAnalysisService:
                 license="",
                 attribution="Textus",
             ),
+            DatasetProvenance(
+                dataset_id="macula_hebrew_lowfat",
+                display_name="MACULA Hebrew Linguistic Datasets (lowfat)",
+                source_repository="Clear-Bible/macula-hebrew",
+                source_commit=MACULA_SOURCE_COMMIT,
+                license="CC BY 4.0",
+                attribution="MACULA Hebrew Linguistic Datasets, available at https://github.com/Clear-Bible/macula-hebrew/",
+            ),
         )
 
 
@@ -341,6 +378,7 @@ def get_hebrew_analysis(
     production_db_path: str | Path | None = None,
     component_fidelity_db_path: str | Path | None = None,
     hungarian_lexicon_path: str | Path | None = None,
+    linguistic_repository: HebrewAnalysisRepository | None = None,
 ) -> HebrewAnalysisBundle:
     """Module-level convenience wrapper — builds a fresh
     ``HebrewAnalysisService`` per call. For repeated lookups within one
@@ -350,6 +388,7 @@ def get_hebrew_analysis(
         production_db_path=production_db_path,
         component_fidelity_db_path=component_fidelity_db_path,
         hungarian_lexicon_path=hungarian_lexicon_path,
+        linguistic_repository=linguistic_repository,
     )
     return service.get_hebrew_analysis(reference)
 

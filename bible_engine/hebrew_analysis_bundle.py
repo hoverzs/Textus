@@ -266,7 +266,10 @@ class TokenAnalysis:
 
 @dataclass(frozen=True)
 class PhraseAnalysis:
-    """Reserved for Phase 2D (MACULA). Never populated in Phase 2C."""
+    """Populated from MACULA (Phase 2D) where the source tree supplies a
+    phrase-level group — see ``bible_engine.hebrew_macula_importer``.
+    Structurally present but always empty in Phase 2C, since no
+    deterministic local source supplied it yet."""
 
     phrase_id: str
     phrase_type: str
@@ -279,7 +282,8 @@ class PhraseAnalysis:
 
 @dataclass(frozen=True)
 class ClauseAnalysis:
-    """Reserved for Phase 2D (MACULA). Never populated in Phase 2C."""
+    """Populated from MACULA (Phase 2D) where the source tree supplies a
+    clause-level group. Structurally present but always empty in Phase 2C."""
 
     clause_id: str
     clause_type: str
@@ -296,20 +300,60 @@ class ClauseAnalysis:
 
 
 @dataclass(frozen=True)
-class SemanticRole:
-    """Reserved for Phase 2D (MACULA). Never populated in Phase 2C."""
+class SyntaxRelation:
+    """One MACULA parent/child syntax edge (Phase 2D), normalized where
+    MACULA's own ``role`` code maps confidently to a known relation type
+    (subject/predicate/object/modifier) and left as ``"other"`` — with the
+    source code still preserved verbatim in ``source_role_code`` — when it
+    does not. Never a stronger semantic claim than MACULA itself encodes."""
 
-    role_id: str
-    role_type: str  # "agent" | "patient" | "theme" | "experiencer" | "recipient" | "location" | ...
-    token_ids: tuple[str, ...]
-    predicate_id: str
+    relation_id: str
+    relation_type: str  # "subject" | "predicate" | "object" | "modifier" | "other"
+    source_role_code: str  # MACULA's own role attribute, verbatim
+    parent_token_id: str | None
+    child_token_id: str | None
     source_dataset: str
 
 
 @dataclass(frozen=True)
+class CoreferenceLink:
+    """One MACULA ``subjref``/``participantref`` edge (Phase 2D) — a
+    referring token pointing at a ``ParticipantMention``. Kept separate
+    from ``ParticipantMention`` itself: one participant can be the target
+    of several referring links (e.g. a pronoun and a possessive suffix
+    both referring back to the same antecedent)."""
+
+    link_id: str
+    referring_token_id: str | None
+    participant_id: str
+    relation_type: str  # "subjref" | "participantref" (MACULA attribute name, verbatim)
+    source_dataset: str
+
+
+@dataclass(frozen=True)
+class SemanticRole:
+    """Populated from MACULA's ``frame`` attribute (Phase 2D) where
+    present — PropBank-style Arg0/Arg1/... codes. ``role_type`` is a
+    LIGHTLY-labeled, non-authoritative convenience mapping for the two
+    most stable conventions (A0 -> agent, A1 -> patient); ``role_code`` is
+    always the real source of truth, kept verbatim. Structurally present
+    but always empty in Phase 2C."""
+
+    role_id: str
+    role_type: str  # "agent" | "patient" | "" (empty when no confident mapping exists)
+    token_ids: tuple[str, ...]
+    predicate_id: str
+    source_dataset: str
+    role_code: str = ""  # MACULA's own frame role code, verbatim, e.g. "A0"
+
+
+@dataclass(frozen=True)
 class ParticipantMention:
-    """Reserved for a future coreference source (e.g. ACAI). Never
-    populated in Phase 2C."""
+    """Populated from MACULA's ``subjref``/``participantref`` targets
+    (Phase 2D) where present — see ``CoreferenceLink`` for the referring
+    edges that point at each participant here. Also reserved for a future
+    ACAI-sourced coreference layer. Structurally present but always empty
+    in Phase 2C."""
 
     mention_id: str
     token_ids: tuple[str, ...]
@@ -331,8 +375,10 @@ class VerseAnalysis:
     tokens: tuple[TokenAnalysis, ...]
     phrases: tuple[PhraseAnalysis, ...] = ()
     clauses: tuple[ClauseAnalysis, ...] = ()
+    syntax_relations: tuple[SyntaxRelation, ...] = ()
     semantic_roles: tuple[SemanticRole, ...] = ()
     participants: tuple[ParticipantMention, ...] = ()
+    coreference: tuple[CoreferenceLink, ...] = ()
     detected_patterns: tuple[DetectedPattern, ...] = ()
     text_critical: tuple[TextCriticalNote, ...] = ()
 
@@ -362,13 +408,14 @@ class HebrewAnalysisBundle:
     warnings: tuple[BundleWarning, ...] = ()
 
 
-BUNDLE_SCHEMA_VERSION = "2c.0.0"
+BUNDLE_SCHEMA_VERSION = "2d.0.0"
 
 __all__ = [
     "BUNDLE_SCHEMA_VERSION",
     "BundleWarning",
     "ClauseAnalysis",
     "ComponentAnalysis",
+    "CoreferenceLink",
     "CoverageReport",
     "DatasetProvenance",
     "DetectedPattern",
@@ -379,6 +426,7 @@ __all__ = [
     "PhraseAnalysis",
     "RootInfo",
     "SemanticRole",
+    "SyntaxRelation",
     "TextCriticalNote",
     "TokenAnalysis",
     "TokenProvenance",

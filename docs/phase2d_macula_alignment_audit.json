@@ -1,0 +1,1009 @@
+{
+  "macula_source": {
+    "repository": "Clear-Bible/macula-hebrew",
+    "revision_tag": "26.04.13",
+    "commit": "09f8ea9e25025841ec45e2b6e7fc01595a080568",
+    "representation": "WLC/lowfat",
+    "license": "CC BY 4.0",
+    "attribution": "MACULA Hebrew Linguistic Datasets, available at https://github.com/Clear-Bible/macula-hebrew/"
+  },
+  "tahot_source_revision": "phase2b",
+  "files_processed": 929,
+  "files_skipped": [
+    "macula-hebrew-lowfat.xml: unrecognized MACULA book code ''"
+  ],
+  "books_processed": [
+    "1Ch",
+    "1Ki",
+    "1Sa",
+    "2Ch",
+    "2Ki",
+    "2Sa",
+    "Amo",
+    "Dan",
+    "Deu",
+    "Ecc",
+    "Est",
+    "Exo",
+    "Ezk",
+    "Ezr",
+    "Gen",
+    "Hab",
+    "Hag",
+    "Hos",
+    "Isa",
+    "Jdg",
+    "Jer",
+    "Job",
+    "Jol",
+    "Jon",
+    "Jos",
+    "Lam",
+    "Lev",
+    "Mal",
+    "Mic",
+    "Nam",
+    "Neh",
+    "Num",
+    "Oba",
+    "Pro",
+    "Psa",
+    "Rut",
+    "Sng",
+    "Zec",
+    "Zep"
+  ],
+  "books_missing_from_macula": [],
+  "verses_processed": 23213,
+  "tokens_processed": 305635,
+  "macula_leaf_count": 475911,
+  "macula_group_count": 340933,
+  "alignment": {
+    "exact": 153433,
+    "composite": 138944,
+    "validated_fallback": 7432,
+    "unresolved": 5826,
+    "total": 305635,
+    "exact_pct": 50.2,
+    "composite_pct": 45.46,
+    "validated_fallback_pct": 2.43,
+    "unresolved_pct": 1.91
+  },
+  "alignment_by_language": {
+    "hebrew_books": {
+      "exact": 149241,
+      "composite": 134953,
+      "validated_fallback": 6760,
+      "unresolved": 5006
+    },
+    "aramaic_books": {
+      "exact": 4192,
+      "composite": 3991,
+      "validated_fallback": 672,
+      "unresolved": 820
+    }
+  },
+  "per_book": {
+    "Gen": {
+      "verses": 1533,
+      "tokens": 20614,
+      "exact": 10076,
+      "composite": 10311,
+      "validated_fallback": 149,
+      "unresolved": 78
+    },
+    "Exo": {
+      "verses": 1213,
+      "tokens": 16713,
+      "exact": 8472,
+      "composite": 7984,
+      "validated_fallback": 199,
+      "unresolved": 58
+    },
+    "Lev": {
+      "verses": 859,
+      "tokens": 11950,
+      "exact": 5864,
+      "composite": 5917,
+      "validated_fallback": 133,
+      "unresolved": 36
+    },
+    "Num": {
+      "verses": 1289,
+      "tokens": 16413,
+      "exact": 8649,
+      "composite": 7513,
+      "validated_fallback": 196,
+      "unresolved": 55
+    },
+    "Deu": {
+      "verses": 959,
+      "tokens": 14294,
+      "exact": 6754,
+      "composite": 7164,
+      "validated_fallback": 252,
+      "unresolved": 124
+    },
+    "Jos": {
+      "verses": 658,
+      "tokens": 10051,
+      "exact": 4828,
+      "composite": 4797,
+      "validated_fallback": 231,
+      "unresolved": 195
+    },
+    "Jdg": {
+      "verses": 618,
+      "tokens": 9893,
+      "exact": 4819,
+      "composite": 4799,
+      "validated_fallback": 175,
+      "unresolved": 100
+    },
+    "Rut": {
+      "verses": 85,
+      "tokens": 1294,
+      "exact": 555,
+      "composite": 646,
+      "validated_fallback": 34,
+      "unresolved": 59
+    },
+    "1Sa": {
+      "verses": 811,
+      "tokens": 13323,
+      "exact": 6283,
+      "composite": 6214,
+      "validated_fallback": 430,
+      "unresolved": 396
+    },
+    "2Sa": {
+      "verses": 695,
+      "tokens": 11053,
+      "exact": 5232,
+      "composite": 4927,
+      "validated_fallback": 460,
+      "unresolved": 434
+    },
+    "1Ki": {
+      "verses": 817,
+      "tokens": 13140,
+      "exact": 6526,
+      "composite": 6060,
+      "validated_fallback": 296,
+      "unresolved": 258
+    },
+    "2Ki": {
+      "verses": 719,
+      "tokens": 12280,
+      "exact": 6100,
+      "composite": 5433,
+      "validated_fallback": 374,
+      "unresolved": 373
+    },
+    "1Ch": {
+      "verses": 943,
+      "tokens": 10774,
+      "exact": 5332,
+      "composite": 4851,
+      "validated_fallback": 392,
+      "unresolved": 199
+    },
+    "2Ch": {
+      "verses": 822,
+      "tokens": 13314,
+      "exact": 6209,
+      "composite": 6545,
+      "validated_fallback": 345,
+      "unresolved": 215
+    },
+    "Ezr": {
+      "verses": 280,
+      "tokens": 3755,
+      "exact": 1876,
+      "composite": 1491,
+      "validated_fallback": 231,
+      "unresolved": 157
+    },
+    "Neh": {
+      "verses": 405,
+      "tokens": 5319,
+      "exact": 2514,
+      "composite": 2485,
+      "validated_fallback": 206,
+      "unresolved": 114
+    },
+    "Est": {
+      "verses": 167,
+      "tokens": 3052,
+      "exact": 1355,
+      "composite": 1521,
+      "validated_fallback": 83,
+      "unresolved": 93
+    },
+    "Job": {
+      "verses": 1070,
+      "tokens": 8343,
+      "exact": 4557,
+      "composite": 3458,
+      "validated_fallback": 144,
+      "unresolved": 184
+    },
+    "Psa": {
+      "verses": 2527,
+      "tokens": 19595,
+      "exact": 10491,
+      "composite": 8736,
+      "validated_fallback": 159,
+      "unresolved": 209
+    },
+    "Pro": {
+      "verses": 915,
+      "tokens": 6915,
+      "exact": 4279,
+      "composite": 2330,
+      "validated_fallback": 138,
+      "unresolved": 168
+    },
+    "Ecc": {
+      "verses": 222,
+      "tokens": 2988,
+      "exact": 1627,
+      "composite": 1262,
+      "validated_fallback": 46,
+      "unresolved": 53
+    },
+    "Sng": {
+      "verses": 117,
+      "tokens": 1249,
+      "exact": 581,
+      "composite": 629,
+      "validated_fallback": 25,
+      "unresolved": 14
+    },
+    "Isa": {
+      "verses": 1291,
+      "tokens": 16931,
+      "exact": 9283,
+      "composite": 6972,
+      "validated_fallback": 425,
+      "unresolved": 251
+    },
+    "Jer": {
+      "verses": 1364,
+      "tokens": 21835,
+      "exact": 11512,
+      "composite": 8932,
+      "validated_fallback": 766,
+      "unresolved": 625
+    },
+    "Lam": {
+      "verses": 154,
+      "tokens": 1542,
+      "exact": 786,
+      "composite": 521,
+      "validated_fallback": 148,
+      "unresolved": 87
+    },
+    "Ezk": {
+      "verses": 1273,
+      "tokens": 18730,
+      "exact": 8859,
+      "composite": 8629,
+      "validated_fallback": 715,
+      "unresolved": 527
+    },
+    "Dan": {
+      "verses": 357,
+      "tokens": 5920,
+      "exact": 2316,
+      "composite": 2500,
+      "validated_fallback": 441,
+      "unresolved": 663
+    },
+    "Hos": {
+      "verses": 197,
+      "tokens": 2381,
+      "exact": 1314,
+      "composite": 1024,
+      "validated_fallback": 28,
+      "unresolved": 15
+    },
+    "Jol": {
+      "verses": 73,
+      "tokens": 957,
+      "exact": 524,
+      "composite": 422,
+      "validated_fallback": 9,
+      "unresolved": 2
+    },
+    "Amo": {
+      "verses": 146,
+      "tokens": 2042,
+      "exact": 1130,
+      "composite": 839,
+      "validated_fallback": 62,
+      "unresolved": 11
+    },
+    "Oba": {
+      "verses": 21,
+      "tokens": 291,
+      "exact": 149,
+      "composite": 132,
+      "validated_fallback": 7,
+      "unresolved": 3
+    },
+    "Jon": {
+      "verses": 48,
+      "tokens": 688,
+      "exact": 329,
+      "composite": 355,
+      "validated_fallback": 4,
+      "unresolved": 0
+    },
+    "Mic": {
+      "verses": 105,
+      "tokens": 1396,
+      "exact": 737,
+      "composite": 623,
+      "validated_fallback": 25,
+      "unresolved": 11
+    },
+    "Nam": {
+      "verses": 47,
+      "tokens": 558,
+      "exact": 311,
+      "composite": 220,
+      "validated_fallback": 9,
+      "unresolved": 18
+    },
+    "Hab": {
+      "verses": 56,
+      "tokens": 671,
+      "exact": 362,
+      "composite": 289,
+      "validated_fallback": 12,
+      "unresolved": 8
+    },
+    "Zep": {
+      "verses": 53,
+      "tokens": 767,
+      "exact": 441,
+      "composite": 315,
+      "validated_fallback": 9,
+      "unresolved": 2
+    },
+    "Hag": {
+      "verses": 38,
+      "tokens": 600,
+      "exact": 306,
+      "composite": 284,
+      "validated_fallback": 8,
+      "unresolved": 2
+    },
+    "Zec": {
+      "verses": 211,
+      "tokens": 3128,
+      "exact": 1598,
+      "composite": 1444,
+      "validated_fallback": 57,
+      "unresolved": 29
+    },
+    "Mal": {
+      "verses": 55,
+      "tokens": 876,
+      "exact": 497,
+      "composite": 370,
+      "validated_fallback": 9,
+      "unresolved": 0
+    }
+  },
+  "phrases": 238809,
+  "clauses": 102124,
+  "syntax_edges": 793631,
+  "semantic_roles": 110831,
+  "participants": 24943,
+  "coreference": 45222,
+  "unresolved_examples_sample": [
+    {
+      "verse_ref": "Gen.4.8",
+      "word_index": 501,
+      "surface": "נֵלְכָה",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Gen.4.8",
+      "word_index": 502,
+      "surface": "הַ/שָּׂדֶה",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Gen.8.17",
+      "word_index": 14,
+      "surface": "הַיְצֵ֣א",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Gen.8.17",
+      "word_index": 15,
+      "surface": "אִתָּ֑/ךְ",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.8.17",
+      "word_index": 20,
+      "surface": "עַל\\־",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.8.17",
+      "word_index": 21,
+      "surface": "הָ/אָֽרֶץ\\׃",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.13.3",
+      "word_index": 12,
+      "surface": "אָֽהֳל/וֹ֙",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Gen.13.3",
+      "word_index": 14,
+      "surface": "בֵּ֥ין",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 3 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.13.3",
+      "word_index": 17,
+      "surface": "וּ/בֵ֥ין",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.14.2",
+      "word_index": 16,
+      "surface": "צְבוֹיִ֔ם",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Gen.14.2",
+      "word_index": 17,
+      "surface": "וּ/מֶ֥לֶךְ",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.14.2",
+      "word_index": 18,
+      "surface": "בֶּ֖לַע",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.14.8",
+      "word_index": 9,
+      "surface": "צְבוֹיִ֔ם",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Gen.14.8",
+      "word_index": 10,
+      "surface": "וּ/מֶ֥לֶךְ",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.14.8",
+      "word_index": 11,
+      "surface": "בֶּ֖לַע",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.14.8",
+      "word_index": 14,
+      "surface": "וַ/יַּֽעַרְכ֤וּ",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.14.8",
+      "word_index": 16,
+      "surface": "מִלְחָמָ֔ה",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.14.8",
+      "word_index": 17,
+      "surface": "בְּ/עֵ֖מֶק",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.14.17",
+      "word_index": 9,
+      "surface": "כְּדָרְ\\־לָעֹ֔מֶר",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.24.33",
+      "word_index": 1,
+      "surface": "וַ/יּוּשַׂ֤ם",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Gen.24.33",
+      "word_index": 2,
+      "surface": "לְ/פָנָי/ו֙",
+      "reason": "component count mismatch (TAHOT 3 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.24.33",
+      "word_index": 3,
+      "surface": "לֶ/אֱכֹ֔ל",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 3 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.24.33",
+      "word_index": 5,
+      "surface": "לֹ֣א",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.24.33",
+      "word_index": 10,
+      "surface": "דְּבָרָ֑/י",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.24.33",
+      "word_index": 12,
+      "surface": "דַּבֵּֽר\\׃",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.25.23",
+      "word_index": 5,
+      "surface": "גוֹיִם֙",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Gen.25.23",
+      "word_index": 6,
+      "surface": "בְּ/בִטְנֵ֔/ךְ",
+      "reason": "component count mismatch (TAHOT 3 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.25.23",
+      "word_index": 7,
+      "surface": "וּ/שְׁנֵ֣י",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 3 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.25.23",
+      "word_index": 8,
+      "surface": "לְאֻמִּ֔ים",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.25.23",
+      "word_index": 9,
+      "surface": "מִ/מֵּעַ֖יִ/ךְ",
+      "reason": "component count mismatch (TAHOT 3 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.25.23",
+      "word_index": 10,
+      "surface": "יִפָּרֵ֑דוּ",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 3 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.25.23",
+      "word_index": 11,
+      "surface": "וּ/לְאֹם֙",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.25.23",
+      "word_index": 13,
+      "surface": "יֶֽאֱמָ֔ץ",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.25.23",
+      "word_index": 14,
+      "surface": "וְ/רַ֖ב",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.25.23",
+      "word_index": 15,
+      "surface": "יַעֲבֹ֥ד",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.27.3",
+      "word_index": 11,
+      "surface": "צָֽיִד\\׃",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Gen.27.29",
+      "word_index": 3,
+      "surface": "וְ/יִֽשְׁתַּחֲו֤וּ",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Gen.27.29",
+      "word_index": 5,
+      "surface": "לְאֻמִּ֔ים",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.27.29",
+      "word_index": 8,
+      "surface": "לְ/אַחֶ֔י/ךָ",
+      "reason": "component count mismatch (TAHOT 3 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.27.29",
+      "word_index": 9,
+      "surface": "וְ/יִשְׁתַּחֲוּ֥וּ",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 3 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.27.29",
+      "word_index": 11,
+      "surface": "בְּנֵ֣י",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.27.29",
+      "word_index": 12,
+      "surface": "אִמֶּ֑/ךָ",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.27.29",
+      "word_index": 14,
+      "surface": "אָר֔וּר",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.27.29",
+      "word_index": 15,
+      "surface": "וּֽ/מְבָרֲכֶ֖י/ךָ",
+      "reason": "component count mismatch (TAHOT 3 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.27.29",
+      "word_index": 16,
+      "surface": "בָּרֽוּךְ\\׃",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 3 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.30.11",
+      "word_index": 3,
+      "surface": "בָּ֣א//גָ֑ד",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Gen.30.11",
+      "word_index": 4,
+      "surface": "וַ/תִּקְרָ֥א",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.36.5",
+      "word_index": 4,
+      "surface": "יְע֥וּשׁ",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Gen.36.5",
+      "word_index": 5,
+      "surface": "וְ/אֶת\\־",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.36.5",
+      "word_index": 6,
+      "surface": "יַעְלָ֖ם",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.36.5",
+      "word_index": 7,
+      "surface": "וְ/אֶת\\־",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.36.5",
+      "word_index": 8,
+      "surface": "קֹ֑רַח",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.36.5",
+      "word_index": 14,
+      "surface": "ל֖/וֹ",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.36.5",
+      "word_index": 16,
+      "surface": "כְּנָֽעַן\\׃",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.36.14",
+      "word_index": 14,
+      "surface": "יְע֥וּשׁ",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Gen.36.14",
+      "word_index": 15,
+      "surface": "וְ/אֶת\\־",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.36.14",
+      "word_index": 16,
+      "surface": "יַעְלָ֖ם",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.36.14",
+      "word_index": 17,
+      "surface": "וְ/אֶת\\־",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.36.14",
+      "word_index": 18,
+      "surface": "קֹֽרַח\\׃",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.39.20",
+      "word_index": 11,
+      "surface": "אֲסִירֵ֥י",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Gen.39.20",
+      "word_index": 12,
+      "surface": "הַ/מֶּ֖לֶךְ",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.39.20",
+      "word_index": 13,
+      "surface": "אֲסוּרִ֑ים",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.39.20",
+      "word_index": 14,
+      "surface": "וַֽ/יְהִי\\־",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.39.20",
+      "word_index": 15,
+      "surface": "שָׁ֖ם",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.39.20",
+      "word_index": 16,
+      "surface": "בְּ/בֵ֥ית",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.43.28",
+      "word_index": 8,
+      "surface": "וַ/יִּֽשְׁתַּחֲוּֽוּ\\׃",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Gen.49.10",
+      "word_index": 11,
+      "surface": "שִׁיל֔וֹ",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Gen.49.10",
+      "word_index": 12,
+      "surface": "וְ/ל֖/וֹ",
+      "reason": "component count mismatch (TAHOT 3 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.49.10",
+      "word_index": 13,
+      "surface": "יִקְּהַ֥ת",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 3 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.49.11",
+      "word_index": 3,
+      "surface": "עִיר֔/וֹ",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Gen.49.11",
+      "word_index": 4,
+      "surface": "וְ/לַ/שֹּׂרֵקָ֖ה",
+      "reason": "component count mismatch (TAHOT 3 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.49.11",
+      "word_index": 5,
+      "surface": "בְּנִ֣י",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 4 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.49.11",
+      "word_index": 6,
+      "surface": "אֲתֹנ֑/וֹ",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.49.11",
+      "word_index": 7,
+      "surface": "כִּבֵּ֤ס",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.49.11",
+      "word_index": 8,
+      "surface": "בַּ/יַּ֙יִן֙",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.49.11",
+      "word_index": 10,
+      "surface": "וּ/בְ/דַם\\־",
+      "reason": "component count mismatch (TAHOT 3 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.49.11",
+      "word_index": 11,
+      "surface": "עֲנָבִ֖ים",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 3 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Gen.49.11",
+      "word_index": 12,
+      "surface": "סוּתֽ/וֹ\\׃",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Exod.4.2",
+      "word_index": 4,
+      "surface": "מַה/־/זֶּ֣ה",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Exod.4.2",
+      "word_index": 5,
+      "surface": "בְ/יָדֶ֑/ךָ",
+      "reason": "component count mismatch (TAHOT 3 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Exod.4.2",
+      "word_index": 6,
+      "surface": "וַ/יֹּ֖אמֶר",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Exod.4.2",
+      "word_index": 7,
+      "surface": "מַטֶּֽה\\׃",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 3 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Exod.16.2",
+      "word_index": 1,
+      "surface": "וַ/יִּלּ֜וֹנוּ",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Exod.16.2",
+      "word_index": 2,
+      "surface": "כָּל\\־",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Exod.16.2",
+      "word_index": 8,
+      "surface": "וְ/עַֽל\\־",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Exod.16.2",
+      "word_index": 9,
+      "surface": "אַהֲרֹ֖ן",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Exod.16.2",
+      "word_index": 10,
+      "surface": "בַּ/מִּדְבָּֽר\\׃",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Exod.16.7",
+      "word_index": 14,
+      "surface": "תַלִּ֖ינוּ",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Exod.16.7",
+      "word_index": 15,
+      "surface": "עָלֵֽי/נוּ\\׃",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Exod.21.8",
+      "word_index": 6,
+      "surface": "ל֥/וֹ",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Exod.21.8",
+      "word_index": 8,
+      "surface": "וְ/הֶפְדָּ֑/הּ",
+      "reason": "component count mismatch (TAHOT 3 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Exod.21.8",
+      "word_index": 9,
+      "surface": "לְ/עַ֥ם",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 3 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Exod.21.8",
+      "word_index": 10,
+      "surface": "נָכְרִ֛י",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Exod.21.8",
+      "word_index": 13,
+      "surface": "לְ/מָכְרָ֖/הּ",
+      "reason": "component count mismatch (TAHOT 3 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Exod.21.8",
+      "word_index": 15,
+      "surface": "בָֽ/הּ\\׃",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 3 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Exod.22.4",
+      "word_index": 9,
+      "surface": "בְּעִיר֔/וֹ",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Exod.22.4",
+      "word_index": 12,
+      "surface": "אַחֵ֑ר",
+      "reason": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Exod.22.4",
+      "word_index": 14,
+      "surface": "שָׂדֵ֛/הוּ",
+      "reason": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+    },
+    {
+      "verse_ref": "Exod.22.26",
+      "word_index": 3,
+      "surface": "כְסוּת/וֹ֙",
+      "reason": "no MACULA leaves found for this word position"
+    },
+    {
+      "verse_ref": "Exod.22.26",
+      "word_index": 4,
+      "surface": "לְ/בַדָּ֔/הּ",
+      "reason": "component count mismatch (TAHOT 3 vs MACULA 2 leaves) and no surface corroboration"
+    }
+  ],
+  "elapsed_seconds": 718.3
+}

@@ -28,6 +28,58 @@
       "enabled": true
     },
     {
+      "id": "stepbible_tehmc",
+      "name": "STEPBible TEHMC Hebrew morphology code expansion (vendored)",
+      "source_type": "text",
+      "language": "heb",
+      "version": "ea47bd4c7eab7375f2dca07086ccc356e95a4128",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "local_path": "data/stepbible_sources/TEHMC.txt",
+      "required": false,
+      "enabled": true,
+      "usage_note": "Phase 2B: authoritative morphology-code reference used to verify bible_engine/hebrew_morphology.py; not read at runtime."
+    },
+    {
+      "id": "stepbible_tbesh_source",
+      "name": "STEPBible TBESH Hebrew lexicon source (vendored)",
+      "source_type": "text",
+      "language": "heb",
+      "version": "ea47bd4c7eab7375f2dca07086ccc356e95a4128",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "local_path": "data/stepbible_sources/TBESH.txt",
+      "required": false,
+      "enabled": true,
+      "usage_note": "Phase 2B: authoritative source used to rebuild data/generated/tbesh_lexicon_runtime.sqlite3; not read at runtime."
+    },
+    {
+      "id": "hebrew_component_fidelity",
+      "name": "Textus Hebrew component-fidelity store (Phase 2C)",
+      "source_type": "sqlite",
+      "language": "heb",
+      "version": "ea47bd4c7eab7375f2dca07086ccc356e95a4128",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "local_path": "data/generated/hebrew_component_fidelity.sqlite3",
+      "required": false,
+      "enabled": true,
+      "usage_note": "Restores prefix/core/suffix surface+gloss dropped by the TAHOT runtime pruning step; rebuilt from vendored TAHOT TSVs (not committed) via scripts/build_hebrew_component_fidelity_store.py."
+    },
+    {
+      "id": "macula_hebrew_lowfat",
+      "name": "MACULA Hebrew Linguistic Datasets (lowfat, Clear-Bible/macula-hebrew)",
+      "source_type": "json",
+      "language": "heb",
+      "version": "26.04.13",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "local_path": "docs/phase2d_macula_alignment_audit.json",
+      "required": false,
+      "enabled": false,
+      "usage_note": "Phase 2D: raw MACULA XML (WLC/lowfat, commit 09f8ea9e25025841ec45e2b6e7fc01595a080568) is never committed — see docs/hebrew_analysis_v2_phase2d.md for the pinned fetch path. local_path here points at the small committed alignment-audit summary, the only artifact this source produces in git; the full normalized import lives in a local SQLite store (dev) or Supabase (production), neither committed."
+    },
+    {
       "id": "stepbible_tbesg",
       "name": "STEPBible TBESG Greek lexicon",
       "source_type": "sqlite",
