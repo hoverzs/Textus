@@ -1,0 +1,56 @@
+<?xml version='1.0' encoding='utf-8'?>
+<chapter lang="he" id="GEN 36">
+  <sentence id="GEN 36:5">
+    <p>
+      <milestone unit="verse" id="GEN 36:5">GEN 36:5</milestone> וְאָהֳלִֽיבָמָה֙ יָֽלְדָ֔ה אֶת־יְע֥וּשׁ וְאֶת־יַעְלָ֖ם וְאֶת־קֹ֑רַח אֵ֚לֶּה בְּנֵ֣י עֵשָׂ֔ו אֲשֶׁ֥ר יֻלְּדוּ־ל֖וֹ בְּאֶ֥רֶץ כְּנָֽעַן׃</p>
+    <wg>
+      <w xml:id="o010360050011" english="and" morph="C" pos="conjunction" gloss="and" transliteration="wə" ref="GEN 36:5!1" stronglemma="וְ" greek="καὶ" greekstrong="2532" strongnumberx="2050b" unicode="וְ" class="cj" lang="H" lemma="וְ">וְ</w>
+      <wg class="cl" rule="S-V-O">
+        <w role="s" xml:id="o010360050012" mandarin="阿何利巴玛" english="Oholibamah" morph="Np" pos="noun" after=" " type="proper" gloss="Oholibamah" transliteration="ʾohŏliyḇāmāh" ref="GEN 36:5!1" sdbh="000171001001000" stronglemma="אׇהֳלִיבָמָה" lexdomain="003001007" coredomain="" greek="ελιβεμα" strongnumberx="0173" unicode="אָהֳלִֽיבָמָה֙" class="noun" lang="H" lemma="אׇהֳלִיבָמָה">אָהֳלִֽיבָמָה֙</w>
+        <w role="v" xml:id="o010360050021" mandarin="生" english="bore" morph="Vqp3fs" pos="verb" after=" " type="qatal" gloss="she.bore" transliteration="yāləḏāh" ref="GEN 36:5!2" sdbh="002931001001000" stronglemma="יָלַד" lexdomain="002002002003" coredomain="121 030" sensenumber="1" frame="A0:010360050012; A1:010360050051;010360050071;010360050091;" greek="ἔτεκεν" greekstrong="5088" strongnumberx="3205" unicode="יָֽלְדָ֔ה" class="verb" lang="H" lemma="יָלַד" gender="feminine" number="singular" stem="qal" person="third">יָֽלְדָ֔ה</w>
+        <wg role="o" class="np" rule="Conj3Np" head="true">
+          <wg class="np" rule="OmpNP">
+            <w xml:id="o010360050031" morph="To" pos="particle" after="־" type="direct object marker" gloss="(et)" transliteration="ʾeṯ-" ref="GEN 36:5!3" sdbh="000792003001000" stronglemma="אֵת" lexdomain="001004001017" coredomain="027 007" strongnumberx="0853" unicode="אֶת־" class="om" lang="H" lemma="אֵת">אֶת</w>
+            <w xml:id="o010360050051" mandarin="耶乌施" english="Jeush" morph="Np" pos="noun" after=" " type="proper" gloss="Jeush" transliteration="**yəʿûš" ref="GEN 36:5!5" sdbh="002986001001000" stronglemma="יְעוּשׁ" lexdomain="003001007" coredomain="" greek="ιεους" strongnumberx="3266" unicode="יְע֥וּשׁ" class="noun" lang="H" lemma="יְעוּשׁ">יְע֥וּשׁ</w>
+          </wg>
+          <w xml:id="o010360050061" mandarin="和" english="and" morph="C" pos="conjunction" gloss="and" transliteration="wə" ref="GEN 36:5!6" stronglemma="וְ" greek="καὶ" greekstrong="2532" strongnumberx="2050b" unicode="וְ" class="cj" lang="H" lemma="וְ">וְ</w>
+          <wg class="np" rule="OmpNP">
+            <w xml:id="o010360050062" morph="To" pos="particle" after="־" type="direct object marker" gloss="(et)" transliteration="ʾeṯ-" ref="GEN 36:5!6" sdbh="000792003001000" stronglemma="אֵת" lexdomain="001004001017" coredomain="027 007" strongnumberx="0853" unicode="אֶת־" class="om" lang="H" lemma="אֵת">אֶת</w>
+            <w xml:id="o010360050071" mandarin="雅兰" english="Jalam" morph="Np" pos="noun" after=" " type="proper" gloss="Jalam" transliteration="yaʿlām" ref="GEN 36:5!7" sdbh="003000001001000" stronglemma="יַעְלָם" lexdomain="003001007" coredomain="" greek="ιεγλομ" strongnumberx="3281" unicode="יַעְלָ֖ם" class="noun" lang="H" lemma="יַעְלָם">יַעְלָ֖ם</w>
+          </wg>
+          <w xml:id="o010360050081" mandarin="和" english="and" morph="C" pos="conjunction" gloss="and" transliteration="wə" ref="GEN 36:5!8" stronglemma="וְ" greek="καὶ" greekstrong="2532" strongnumberx="2050b" unicode="וְ" class="cj" lang="H" lemma="וְ">וְ</w>
+          <wg class="np" rule="OmpNP" head="true">
+            <w xml:id="o010360050082" morph="To" pos="particle" after="־" type="direct object marker" gloss="(et)" transliteration="ʾeṯ-" ref="GEN 36:5!8" sdbh="000792003001000" stronglemma="אֵת" lexdomain="001004001017" coredomain="027 007" strongnumberx="0853" unicode="אֶת־" class="om" lang="H" lemma="אֵת">אֶת</w>
+            <w xml:id="o010360050091" mandarin="可拉" english="Korah" morph="Np" pos="noun" after=" " type="proper" gloss="Korah" transliteration="qōraḥ" ref="GEN 36:5!9" sdbh="006574001001000" stronglemma="קֹרַח" lexdomain="003001007" coredomain="" greek="κορε" greekstrong="2879" strongnumberx="7141" unicode="קֹ֑רַח" class="noun" lang="H" lemma="קֹרַח">קֹ֑רַח</w>
+          </wg>
+        </wg>
+      </wg>
+      <wg class="cl" rule="S-P">
+        <w role="s" xml:id="o010360050101" mandarin="这些" english="these" morph="Pdxcp" pos="pronoun" after=" " type="demonstrative" gloss="these" transliteration="ʾēlleh" ref="GEN 36:5!10" sdbh="000394001001000" stronglemma="אֵלֶּה" lexdomain="004003" coredomain="" greek="οὗτοι" greekstrong="3778" strongnumberx="0428" unicode="אֵ֚לֶּה" class="adj" lang="H" lemma="אֵלֶּה" gender="common" number="plural" person="unknown: x">אֵ֚לֶּה</w>
+        <wg role="p" class="np" rule="NpRelp" head="true">
+          <wg class="np" rule="NPofNP" head="true">
+            <w xml:id="o010360050111" mandarin="儿子" english="sons" morph="Ncmpc" pos="noun" after=" " type="common" gloss="[were].the.sons" transliteration="bənēy" ref="GEN 36:5!11" sdbh="001040001001000" stronglemma="בֵּן" lexdomain="001001002003012" coredomain="062 121 129" sensenumber="1" greek="υἱοὶ" greekstrong="5207" strongnumberx="1121" unicode="בְּנֵ֣י" class="noun" lang="H" lemma="בֵּן" gender="masculine" number="plural" state="construct">בְּנֵ֣י</w>
+            <w xml:id="o010360050121" mandarin="以扫" english="Esau" morph="Np" pos="noun" after=" " type="proper" gloss="of.Esau" transliteration="ʿēśāw" ref="GEN 36:5!12" sdbh="005700001001000" stronglemma="עֵשָׂו" lexdomain="003001007" coredomain="" greek="ησαυ" greekstrong="2269" strongnumberx="6215" unicode="עֵשָׂ֔ו" class="noun" lang="H" lemma="עֵשָׂו">עֵשָׂ֔ו</w>
+          </wg>
+          <wg class="relp" rule="relCL">
+            <w xml:id="o010360050131" english="who" morph="Tr" pos="particle" after=" " type="relative" gloss="who" transliteration="ʾăšer" ref="GEN 36:5!13" stronglemma="אֲשֶׁר" greek="οἳ" greekstrong="3739" strongnumberx="0834" unicode="אֲשֶׁ֥ר" class="rel" lang="H" lemma="אֲשֶׁר">אֲשֶׁ֥ר</w>
+            <wg class="cl" rule="V-PP-PP" head="true">
+              <w role="v" xml:id="o010360050141" mandarin="生" english="born" morph="VPp3cp" pos="verb" after="־" type="qatal" gloss="they.were.born" transliteration="yulləḏû-" ref="GEN 36:5!14" sdbh="002931001001000" stronglemma="יָלַד" lexdomain="002002002003" coredomain="121 030" sensenumber="1" frame="A1:010360050111;" subjref="010360050111" greek="ἐγένοντο" greekstrong="1096" strongnumberx="3205" unicode="יֻלְּדוּ־" class="verb" lang="H" lemma="יָלַד" gender="common" number="plural" stem="pual" person="third">יֻלְּדוּ</w>
+              <wg role="pp" class="pp" rule="PrepNp" head="true">
+                <w xml:id="o010360050151" mandarin="给" english="to" morph="R" pos="preposition" gloss="to" ref="GEN 36:5!15" stronglemma="לְ" strongnumberx="3807a" unicode="ל" class="prep" lang="H" lemma="לְ">ל֖</w>
+                <w xml:id="o010360050152" mandarin="他" english="him" morph="Sp3ms" pos="suffix" after=" " type="pronominal" gloss="him" ref="GEN 36:5!15" stronglemma="הוּא" participantref="010360050121" greek="αὐτῷ" greekstrong="846" strongnumberx="2050c" unicode="֖וֹ" class="pron" lang="H" lemma="הוּא" gender="masculine" number="singular" person="third">וֹ</w>
+              </wg>
+              <wg role="pp" class="pp" rule="PrepNp" head="true">
+                <w xml:id="o010360050161" mandarin="在" english="in" morph="R" pos="preposition" gloss="in" transliteration="bə" ref="GEN 36:5!16" stronglemma="בְּ" greek="ἐν" greekstrong="1722" strongnumberx="0871a" unicode="בְּ" class="prep" lang="H" lemma="בְּ">בְּ</w>
+                <wg class="np" rule="NPofNP" head="true">
+                  <w xml:id="o010360050162" mandarin="地" english="land" morph="Ncbsc" pos="noun" after=" " type="common" gloss="the.land" transliteration="ʾereṣ" ref="GEN 36:5!16" sdbh="000715001001000" stronglemma="אֶרֶץ" lexdomain="001005002002001" coredomain="185 097 007" sensenumber="1" greek="γῇ" greekstrong="1093" strongnumberx="0776" unicode="אֶ֥רֶץ" class="noun" lang="H" lemma="אֶרֶץ" gender="both" number="singular" state="construct">אֶ֥רֶץ</w>
+                  <w xml:id="o010360050171" mandarin="迦南" english="Canaan" morph="Np" pos="noun" after="׃" type="proper" gloss="of.Canaan" transliteration="kənāʿan:" ref="GEN 36:5!17" sdbh="003355001002000" stronglemma="כְּנַעַן" lexdomain="003001010" coredomain="" greek="ξανααν" greekstrong="5477" strongnumberx="3667" unicode="כְּנָֽעַן" class="noun" lang="H" lemma="כְּנַעַן">כְּנָֽעַן</w>
+                </wg>
+              </wg>
+            </wg>
+          </wg>
+        </wg>
+      </wg>
+    </wg>
+  </sentence>
+</chapter>

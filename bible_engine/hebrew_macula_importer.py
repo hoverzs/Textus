@@ -25,7 +25,7 @@ from dataclasses import dataclass
 
 from bible_engine.hebrew_analysis_bundle import MorphologyFacts
 from bible_engine.hebrew_component_repository import ComponentFidelityUnavailable, restore_component_fidelity
-from bible_engine.hebrew_macula_alignment import align_token
+from bible_engine.hebrew_macula_alignment import TokenAlignment, align_token
 from bible_engine.hebrew_morphology import decode_hebrew_morphology
 from bible_engine.hebrew_parser import HebrewToken
 from bible_engine.hebrew_token_identity import build_token_id
@@ -219,19 +219,21 @@ def _import_verse(
         source_node_id_by_macula_id,
     )
 
-    token_id_by_word_index: dict[int, str] = {}
+    confirmed_alignments: list[TokenAlignment] = []
     for token in tokens:
         enriched = restored.get(token.stable_key, token)
         token_id = build_token_id(tahot_book_code, chapter_number, verse_number, token.word_index)
-        token_id_by_word_index[token.word_index] = token_id
         alignment = align_token(enriched, token_id, combined_sentence)
         _record_alignment(store, alignment, source_node_id_by_macula_id, textus_dataset_version_id, macula_dataset_version_id)
         if alignment.alignment_type == "EXACT":
             stats.exact += 1
+            confirmed_alignments.append(alignment)
         elif alignment.alignment_type == "COMPOSITE":
             stats.composite += 1
+            confirmed_alignments.append(alignment)
         elif alignment.alignment_type == "VALIDATED_FALLBACK":
             stats.validated_fallback += 1
+            confirmed_alignments.append(alignment)
         else:
             stats.unresolved += 1
             if len(stats.unresolved_examples) < 200:
@@ -239,7 +241,14 @@ def _import_verse(
                     {"verse_ref": verse_ref, "word_index": token.word_index, "surface": enriched.surface, "reason": alignment.evidence}
                 )
 
-    macula_leaf_id_to_token_id = _resolve_leaf_to_token_map(combined_sentence, token_id_by_word_index)
+    # Phase 2D.1 §12: a MACULA leaf is only mapped to a Textus token id here
+    # when that token's OWN alignment was actually confirmed (EXACT/
+    # COMPOSITE/VALIDATED_FALLBACK) — never from the raw coincidence that a
+    # leaf's ref_word_number equals some token's word_index. An UNRESOLVED
+    # token contributes NOTHING to this map, so no phrase/clause/syntax-edge/
+    # semantic-role/coreference fact below can ever silently attach to a
+    # token whose correspondence to that leaf was never actually verified.
+    macula_leaf_id_to_token_id = _resolve_leaf_to_token_map(confirmed_alignments)
 
     phrase_id_by_group: dict[str, int] = {}
     clause_id_by_group: dict[str, int] = {}
@@ -381,12 +390,18 @@ def _merged_sentence(sentences: list[MaculaSentence]) -> MaculaSentence:
     return MaculaSentence(sentence_id=sentences[0].sentence_id, root_group_id=sentences[0].root_group_id, leaves=tuple(leaves), groups=tuple(groups))
 
 
-def _resolve_leaf_to_token_map(sentence: MaculaSentence, token_id_by_word_index: dict[int, str]) -> dict[str, str]:
+def _resolve_leaf_to_token_map(confirmed_alignments: list[TokenAlignment]) -> dict[str, str]:
+    """Only leaves that a CONFIRMED alignment (§Phase 2D.1 §12 in the
+    calling function's comment) actually paired with a token contribute a
+    mapping here — never derived from raw ref_word_number/word_index
+    coincidence, which can silently be wrong exactly when alignment
+    recovery (a nonzero offset) or an outright UNRESOLVED result means
+    that coincidence does not hold."""
     mapping: dict[str, str] = {}
-    for leaf in sentence.leaves:
-        token_id = token_id_by_word_index.get(leaf.ref_word_number)
-        if token_id:
-            mapping[leaf.macula_node_id] = token_id
+    for alignment in confirmed_alignments:
+        for component in alignment.components:
+            if component.macula_leaf_id:
+                mapping[component.macula_leaf_id] = alignment.token_id
     return mapping
 
 

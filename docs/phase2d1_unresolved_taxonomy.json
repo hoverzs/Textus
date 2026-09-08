@@ -1,0 +1,978 @@
+{
+  "total_unresolved": 1424,
+  "category_counts": {
+    "component_segmentation_mismatch": 589,
+    "textual_reference_numbering_gap": 126,
+    "ketiv_qere": 128,
+    "maqaf_related_segmentation": 205,
+    "surface_normalization_difference": 116,
+    "macula_missing_node": 15,
+    "aramaic_specific_segmentation": 245
+  },
+  "direction_counts": {
+    "component_segmentation_mismatch:tahot_more": 244,
+    "component_segmentation_mismatch:ambiguous_recovery": 293,
+    "component_segmentation_mismatch:macula_more": 52
+  },
+  "samples": {
+    "component_segmentation_mismatch": [
+      {
+        "verse_ref": "Gen.3.16",
+        "token_id": "Gen.3.16:16",
+        "surface": "בָּֽ/ךְ\\׃\\ \\ס",
+        "word_index": 16,
+        "language": "hebrew",
+        "direction": "tahot_more",
+        "evidence": "component count mismatch (TAHOT 3 vs MACULA 2 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Gen.9.7",
+        "token_id": "Gen.9.7:7",
+        "surface": "בָֽ/הּ\\׃\\ \\ס",
+        "word_index": 7,
+        "language": "hebrew",
+        "direction": "tahot_more",
+        "evidence": "component count mismatch (TAHOT 3 vs MACULA 2 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Gen.14.8",
+        "token_id": "Gen.14.8:10",
+        "surface": "וּ/מֶ֥לֶךְ",
+        "word_index": 10,
+        "language": "hebrew",
+        "direction": "ambiguous_recovery",
+        "evidence": "ambiguous ref-number recovery: 3 nearby candidates (ref=11, ref=8, ref=6) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Gen.23.20",
+        "token_id": "Gen.23.20:11",
+        "surface": "חֵֽת\\׃\\ \\ס",
+        "word_index": 11,
+        "language": "hebrew",
+        "direction": "tahot_more",
+        "evidence": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Gen.27.29",
+        "token_id": "Gen.27.29:9",
+        "surface": "וְ/יִשְׁתַּחֲוּ֥וּ",
+        "word_index": 9,
+        "language": "hebrew",
+        "direction": "ambiguous_recovery",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=10, ref=4) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Gen.27.29",
+        "token_id": "Gen.27.29:10",
+        "surface": "לְ/ךָ֖",
+        "word_index": 10,
+        "language": "hebrew",
+        "direction": "ambiguous_recovery",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=11, ref=5) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Gen.30.11",
+        "token_id": "Gen.30.11:7",
+        "surface": "גָּֽד\\׃",
+        "word_index": 7,
+        "language": "hebrew",
+        "direction": "ambiguous_recovery",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=9, ref=5) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Exod.4.2",
+        "token_id": "Exod.4.2:6",
+        "surface": "וַ/יֹּ֖אמֶר",
+        "word_index": 6,
+        "language": "hebrew",
+        "direction": "ambiguous_recovery",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=8, ref=1) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Exod.11.8",
+        "token_id": "Exod.11.8:22",
+        "surface": "אָֽף\\׃\\ \\ס",
+        "word_index": 22,
+        "language": "hebrew",
+        "direction": "tahot_more",
+        "evidence": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Exod.17.16",
+        "token_id": "Exod.17.16:11",
+        "surface": "דֹּֽר\\׃\\ \\פ",
+        "word_index": 11,
+        "language": "hebrew",
+        "direction": "tahot_more",
+        "evidence": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Exod.20.12",
+        "token_id": "Exod.20.12:15",
+        "surface": "לָֽ/ךְ\\׃\\ \\ס",
+        "word_index": 15,
+        "language": "hebrew",
+        "direction": "tahot_more",
+        "evidence": "component count mismatch (TAHOT 3 vs MACULA 2 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Exod.21.8",
+        "token_id": "Exod.21.8:7",
+        "surface": "יְעָדָ֖/הּ",
+        "word_index": 7,
+        "language": "hebrew",
+        "direction": "macula_more",
+        "evidence": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Exod.21.8",
+        "token_id": "Exod.21.8:13",
+        "surface": "לְ/מָכְרָ֖/הּ",
+        "word_index": 13,
+        "language": "hebrew",
+        "direction": "tahot_more",
+        "evidence": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Exod.21.34",
+        "token_id": "Exod.21.34:9",
+        "surface": "לּֽ/וֹ\\׃\\ \\ס",
+        "word_index": 9,
+        "language": "hebrew",
+        "direction": "tahot_more",
+        "evidence": "component count mismatch (TAHOT 3 vs MACULA 2 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Exod.21.36",
+        "token_id": "Exod.21.36:19",
+        "surface": "לּֽ/וֹ\\׃\\ \\ס",
+        "word_index": 19,
+        "language": "hebrew",
+        "direction": "tahot_more",
+        "evidence": "component count mismatch (TAHOT 3 vs MACULA 2 leaves) and no surface corroboration"
+      }
+    ],
+    "textual_reference_numbering_gap": [
+      {
+        "verse_ref": "Gen.4.8",
+        "token_id": "Gen.4.8:501",
+        "surface": "נֵלְכָה",
+        "word_index": 501,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Gen.4.8",
+        "token_id": "Gen.4.8:502",
+        "surface": "הַ/שָּׂדֶה",
+        "word_index": 502,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Num.26.40",
+        "token_id": "Num.26.40:501",
+        "surface": "לְ/אַרְדְּ",
+        "word_index": 501,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Judg.16.13",
+        "token_id": "Judg.16.13:2501",
+        "surface": "וְ/תָקַעַתְּ",
+        "word_index": 2501,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Judg.16.13",
+        "token_id": "Judg.16.13:2502",
+        "surface": "בְּ/יָתֵד",
+        "word_index": 2502,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Judg.16.13",
+        "token_id": "Judg.16.13:2503",
+        "surface": "אֶל\\־",
+        "word_index": 2503,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Judg.16.13",
+        "token_id": "Judg.16.13:2504",
+        "surface": "הַ/קִּיר",
+        "word_index": 2504,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Judg.16.13",
+        "token_id": "Judg.16.13:2505",
+        "surface": "וְ/חָלִיתִי",
+        "word_index": 2505,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Judg.16.13",
+        "token_id": "Judg.16.13:2506",
+        "surface": "וְ/הָיִיתִי",
+        "word_index": 2506,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Judg.16.13",
+        "token_id": "Judg.16.13:2507",
+        "surface": "כְּ/אַחַד",
+        "word_index": 2507,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Judg.16.13",
+        "token_id": "Judg.16.13:2508",
+        "surface": "הָ/אָדָם\\׃",
+        "word_index": 2508,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "1Sam.10.1",
+        "token_id": "1Sam.10.1:1401",
+        "surface": "לְ/נָגִיד",
+        "word_index": 1401,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "1Sam.10.1",
+        "token_id": "1Sam.10.1:1402",
+        "surface": "עַל\\־",
+        "word_index": 1402,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "1Sam.10.1",
+        "token_id": "1Sam.10.1:1403",
+        "surface": "עַמּ/וֹ",
+        "word_index": 1403,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "1Sam.10.1",
+        "token_id": "1Sam.10.1:1404",
+        "surface": "עַל\\־",
+        "word_index": 1404,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      }
+    ],
+    "ketiv_qere": [
+      {
+        "verse_ref": "Gen.14.2",
+        "token_id": "Gen.14.2:16",
+        "surface": "צְבוֹיִ֔ם",
+        "word_index": 16,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Gen.30.11",
+        "token_id": "Gen.30.11:3",
+        "surface": "בָּ֣א//גָ֑ד",
+        "word_index": 3,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Exod.4.2",
+        "token_id": "Exod.4.2:4",
+        "surface": "מַה/־/זֶּ֣ה",
+        "word_index": 4,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Num.23.13",
+        "token_id": "Num.23.13:4",
+        "surface": "לְכָ/ה",
+        "word_index": 4,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Num.32.7",
+        "token_id": "Num.32.7:2",
+        "surface": "תְנִיא֔וּ/ן",
+        "word_index": 2,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Deut.5.10",
+        "token_id": "Deut.5.10:6",
+        "surface": "מִצְוֹתָֽ/י\\׃\\ \\ס",
+        "word_index": 6,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Deut.22.15",
+        "token_id": "Deut.22.15:8",
+        "surface": "הַֽ/נַּעֲרָ֛ה",
+        "word_index": 8,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=10, ref=4) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Deut.33.2",
+        "token_id": "Deut.33.2:15",
+        "surface": "אֵ֥שׁ//דָּ֖ת",
+        "word_index": 15,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Josh.18.24",
+        "token_id": "Josh.18.24:2",
+        "surface": "הָֽ/עַמֹּנָ֛ה",
+        "word_index": 2,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Josh.19.22",
+        "token_id": "Josh.19.22:4",
+        "surface": "וְ/שַׁחֲצִ֙ימָה֙",
+        "word_index": 4,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Judg.9.8",
+        "token_id": "Judg.9.8:9",
+        "surface": "מָלְכָ֥/ה",
+        "word_index": 9,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Judg.16.25",
+        "token_id": "Judg.16.25:2",
+        "surface": "",
+        "word_index": 2,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Judg.19.3",
+        "token_id": "Judg.19.3:8",
+        "surface": "לַ/הֲשִׁיבָ֔/הּ",
+        "word_index": 8,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Ruth.3.12",
+        "token_id": "Ruth.3.12:5",
+        "surface": "",
+        "word_index": 5,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "1Sam.9.1",
+        "token_id": "1Sam.9.1:4",
+        "surface": "",
+        "word_index": 4,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      }
+    ],
+    "maqaf_related_segmentation": [
+      {
+        "verse_ref": "Gen.14.17",
+        "token_id": "Gen.14.17:9",
+        "surface": "כְּדָרְ\\־לָעֹ֔מֶר",
+        "word_index": 9,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "component count mismatch (TAHOT 2 vs MACULA 1 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Gen.36.5",
+        "token_id": "Gen.36.5:5",
+        "surface": "וְ/אֶת\\־",
+        "word_index": 5,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=6, ref=8) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Gen.36.5",
+        "token_id": "Gen.36.5:7",
+        "surface": "וְ/אֶת\\־",
+        "word_index": 7,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=8, ref=6) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Gen.36.14",
+        "token_id": "Gen.36.14:15",
+        "surface": "וְ/אֶת\\־",
+        "word_index": 15,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=16, ref=18) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Gen.36.14",
+        "token_id": "Gen.36.14:17",
+        "surface": "וְ/אֶת\\־",
+        "word_index": 17,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=18, ref=16) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Exod.22.26",
+        "token_id": "Exod.22.26:11",
+        "surface": "כִּֽי\\־",
+        "word_index": 11,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=12, ref=16) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Exod.22.26",
+        "token_id": "Exod.22.26:15",
+        "surface": "כִּֽי\\־",
+        "word_index": 15,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=16, ref=12) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Lev.16.21",
+        "token_id": "Lev.16.21:18",
+        "surface": "כָּל\\־",
+        "word_index": 18,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=19, ref=14) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Num.14.36",
+        "token_id": "Num.14.36:11",
+        "surface": "אֶת\\־",
+        "word_index": 11,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=12, ref=6) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Num.21.32",
+        "token_id": "Num.21.32:9",
+        "surface": "אֶת\\־",
+        "word_index": 9,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=10, ref=4) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Deut.2.33",
+        "token_id": "Deut.2.33:9",
+        "surface": "וְ/אֶת\\־",
+        "word_index": 9,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=10, ref=7) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Deut.13.16",
+        "token_id": "Deut.13.16:11",
+        "surface": "וְ/אֶת\\־",
+        "word_index": 11,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=12, ref=16) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Deut.13.16",
+        "token_id": "Deut.13.16:15",
+        "surface": "וְ/אֶת\\־",
+        "word_index": 15,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=16, ref=12) all fully corroborated — refusing to guess"
+      },
+      {
+        "verse_ref": "Deut.30.16",
+        "token_id": "Deut.30.16:1",
+        "surface": "אִם\\־",
+        "word_index": 1,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 1 by position (1 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Josh.3.4",
+        "token_id": "Josh.3.4:13",
+        "surface": "אֲשֶׁר\\־",
+        "word_index": 13,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "ambiguous ref-number recovery: 2 nearby candidates (ref=14, ref=18) all fully corroborated — refusing to guess"
+      }
+    ],
+    "surface_normalization_difference": [
+      {
+        "verse_ref": "Exod.21.8",
+        "token_id": "Exod.21.8:8",
+        "surface": "וְ/הֶפְדָּ֑/הּ",
+        "word_index": 8,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 8 by position (2 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Exod.22.4",
+        "token_id": "Exod.22.4:17",
+        "surface": "יְשַׁלֵּֽם\\׃\\ \\ס",
+        "word_index": 17,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 17 by position (2 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Exod.22.26",
+        "token_id": "Exod.22.26:4",
+        "surface": "לְ/בַדָּ֔/הּ",
+        "word_index": 4,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 4 by position (2 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Deut.13.16",
+        "token_id": "Deut.13.16:10",
+        "surface": "אֹתָ֧/הּ",
+        "word_index": 10,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 10 by position (1 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Deut.22.15",
+        "token_id": "Deut.22.15:4",
+        "surface": "וְ/אִמָּ֑/הּ",
+        "word_index": 4,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 4 by position (2 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Deut.22.16",
+        "token_id": "Deut.22.16:12",
+        "surface": "וַ/יִּשְׂנָאֶֽ/הָ\\׃",
+        "word_index": 12,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 12 by position (2 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Deut.22.21",
+        "token_id": "Deut.22.21:7",
+        "surface": "אָבִ֗י/הָ",
+        "word_index": 7,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 7 by position (1 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Deut.22.21",
+        "token_id": "Deut.22.21:8",
+        "surface": "וּ/סְקָלוּ/הָ֩",
+        "word_index": 8,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 8 by position (2 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Deut.22.21",
+        "token_id": "Deut.22.21:10",
+        "surface": "עִירָ֤/הּ",
+        "word_index": 10,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 10 by position (1 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Deut.22.21",
+        "token_id": "Deut.22.21:19",
+        "surface": "אָבִ֑י/הָ",
+        "word_index": 19,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 19 by position (1 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Deut.22.23",
+        "token_id": "Deut.22.23:7",
+        "surface": "וּ/מְצָאָ֥/הּ",
+        "word_index": 7,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 7 by position (2 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Deut.22.25",
+        "token_id": "Deut.22.25:17",
+        "surface": "עִמָּ֖/הּ",
+        "word_index": 17,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 17 by position (1 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Deut.22.29",
+        "token_id": "Deut.22.29:14",
+        "surface": "עִנָּ֔/הּ",
+        "word_index": 14,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 14 by position (1 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Deut.22.29",
+        "token_id": "Deut.22.29:17",
+        "surface": "שַׁלְּחָ֖/ה",
+        "word_index": 17,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 17 by position (1 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Deut.30.16",
+        "token_id": "Deut.30.16:2",
+        "surface": "תִּשְׁמַע",
+        "word_index": 2,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 2 by position (1 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      }
+    ],
+    "macula_missing_node": [
+      {
+        "verse_ref": "1Sam.13.1",
+        "token_id": "1Sam.13.1:101",
+        "surface": "שְׁלֹשִׁים",
+        "word_index": 101,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "1Sam.13.1",
+        "token_id": "1Sam.13.1:401",
+        "surface": "וְ/אַרְבָּעִ֣ים",
+        "word_index": 401,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "1Chr.6.13",
+        "token_id": "1Chr.6.13:301",
+        "surface": "יוֹאֵל",
+        "word_index": 301,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "1Chr.6.44",
+        "token_id": "1Chr.6.44:402",
+        "surface": "יֻטָּה",
+        "word_index": 402,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "1Chr.6.44",
+        "token_id": "1Chr.6.44:404",
+        "surface": "מִגְרָשֶׁי/הָ",
+        "word_index": 404,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "1Chr.6.45",
+        "token_id": "1Chr.6.45:202",
+        "surface": "גִּבְעוֹן",
+        "word_index": 202,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "1Chr.6.45",
+        "token_id": "1Chr.6.45:204",
+        "surface": "מִגְרָשֶׁי/הָ",
+        "word_index": 204,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "1Chr.7.25",
+        "token_id": "1Chr.7.25:301",
+        "surface": "בְּנ/וֹ",
+        "word_index": 301,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "1Chr.8.29",
+        "token_id": "1Chr.8.29:201",
+        "surface": "יְעִיאֵל",
+        "word_index": 201,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Ezra.8.5",
+        "token_id": "Ezra.8.5:101",
+        "surface": "זַתּוּא",
+        "word_index": 101,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Ezra.8.10",
+        "token_id": "Ezra.8.10:101",
+        "surface": "בָּנִי",
+        "word_index": 101,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Ps.56.8",
+        "token_id": "Ps.56.8:201",
+        "surface": "אֵין",
+        "word_index": 201,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Prov.23.5",
+        "token_id": "Prov.23.5:12",
+        "surface": "הַ/שָּׁמָֽיִם\\׃\\ \\פ",
+        "word_index": 12,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Lam.4.3",
+        "token_id": "Lam.4.3:12",
+        "surface": "בַּ/מִּדְבָּֽר\\׃\\ \\ס",
+        "word_index": 12,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Ezek.23.43",
+        "token_id": "Ezek.23.43:6",
+        "surface": "תַזְנוּתֶ֖/הָ",
+        "word_index": 6,
+        "language": "hebrew",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      }
+    ],
+    "aramaic_specific_segmentation": [
+      {
+        "verse_ref": "Ezra.4.9",
+        "token_id": "Ezra.4.9:14",
+        "surface": "בָבְלָיֵ/א֙",
+        "word_index": 14,
+        "language": "aramaic",
+        "direction": "",
+        "evidence": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Ezra.4.9",
+        "token_id": "Ezra.4.9:15",
+        "surface": "שֽׁוּשַׁנְכָיֵ֔/א",
+        "word_index": 15,
+        "language": "aramaic",
+        "direction": "",
+        "evidence": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Ezra.4.9",
+        "token_id": "Ezra.4.9:17",
+        "surface": "עֵלְמָיֵֽ/א\\׃",
+        "word_index": 17,
+        "language": "aramaic",
+        "direction": "",
+        "evidence": "no MACULA leaves found for this word position"
+      },
+      {
+        "verse_ref": "Ezra.4.12",
+        "token_id": "Ezra.4.12:19",
+        "surface": "וְ/אֻשַּׁיָּ֖/א",
+        "word_index": 19,
+        "language": "aramaic",
+        "direction": "",
+        "evidence": "component count mismatch (TAHOT 2 vs MACULA 3 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Ezra.4.16",
+        "token_id": "Ezra.4.16:18",
+        "surface": "לָֽ/ךְ\\׃\\ \\פ",
+        "word_index": 18,
+        "language": "aramaic",
+        "direction": "",
+        "evidence": "component count mismatch (TAHOT 3 vs MACULA 2 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Ezra.4.23",
+        "token_id": "Ezra.4.23:8",
+        "surface": "מַלְכָּ֔/א",
+        "word_index": 8,
+        "language": "aramaic",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 8 by position (1 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Ezra.4.23",
+        "token_id": "Ezra.4.23:13",
+        "surface": "סָפְרָ֖/א",
+        "word_index": 13,
+        "language": "aramaic",
+        "direction": "",
+        "evidence": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Ezra.4.23",
+        "token_id": "Ezra.4.23:19",
+        "surface": "יְה֣וּדָיֵ֔/א",
+        "word_index": 19,
+        "language": "aramaic",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 19 by position (1 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Ezra.4.23",
+        "token_id": "Ezra.4.23:23",
+        "surface": "וְ/חָֽיִל\\׃\\ \\ס",
+        "word_index": 23,
+        "language": "aramaic",
+        "direction": "",
+        "evidence": "component count mismatch (TAHOT 3 vs MACULA 2 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Ezra.5.1",
+        "token_id": "Ezra.5.1:9",
+        "surface": "יְה֣וּדָיֵ֔/א",
+        "word_index": 9,
+        "language": "aramaic",
+        "direction": "",
+        "evidence": "component count mismatch (TAHOT 1 vs MACULA 2 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Ezra.5.1",
+        "token_id": "Ezra.5.1:16",
+        "surface": "עֲלֵי/הֽוֹן\\׃\\ \\ס",
+        "word_index": 16,
+        "language": "aramaic",
+        "direction": "",
+        "evidence": "component count mismatch (TAHOT 3 vs MACULA 1 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Ezra.5.2",
+        "token_id": "Ezra.5.2:18",
+        "surface": "אֱלָהָ֖/א",
+        "word_index": 18,
+        "language": "aramaic",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 18 by position (1 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Ezra.5.2",
+        "token_id": "Ezra.5.2:20",
+        "surface": "לְ/הֽוֹן\\׃\\ \\פ",
+        "word_index": 20,
+        "language": "aramaic",
+        "direction": "",
+        "evidence": "component count mismatch (TAHOT 3 vs MACULA 1 leaves) and no surface corroboration"
+      },
+      {
+        "verse_ref": "Ezra.5.12",
+        "token_id": "Ezra.5.12:15",
+        "surface": "וּ/בַיְתָ֤/ה",
+        "word_index": 15,
+        "language": "aramaic",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 15 by position (2 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      },
+      {
+        "verse_ref": "Ezra.5.12",
+        "token_id": "Ezra.5.12:17",
+        "surface": "סַתְרֵ֔/הּ",
+        "word_index": 17,
+        "language": "aramaic",
+        "direction": "",
+        "evidence": "component count matched MACULA ref word number 17 by position (1 component(s)/leaf(ves)) but zero corroborating surface/lemma/strong evidence — treated as unresolved rather than a position-only guess"
+      }
+    ]
+  }
+}

@@ -51,6 +51,24 @@ DEFAULT_LOCAL_LINGUISTIC_STORE_PATH = ROOT / "data" / "generated" / "hebrew_ling
 
 MACULA_DATASET_ID = "macula_hebrew_lowfat"
 
+# Phase 2D.1 §12 — the future AI-interpretation layer must be able to tell
+# how much of a verse's syntax data is actually grounded in a CONFIRMED
+# token alignment before treating it as reliable:
+#   FULLY_GROUNDED_SYNTAX    — syntax data exists and every token in the
+#                               verse has a confirmed (non-UNRESOLVED)
+#                               alignment.
+#   PARTIALLY_GROUNDED_SYNTAX — syntax data exists, but at least one token
+#                               in the verse is UNRESOLVED (that token
+#                               contributes no syntax fact at all — see
+#                               hebrew_macula_importer._resolve_leaf_to_token_map
+#                               — but OTHER tokens' facts are still present).
+#   NO_GROUNDED_SYNTAX        — no syntax data was imported for this verse
+#                               at all (e.g. no local/Supabase store
+#                               configured, or MACULA had nothing for it).
+SYNTAX_GROUNDING_FULL = "FULLY_GROUNDED_SYNTAX"
+SYNTAX_GROUNDING_PARTIAL = "PARTIALLY_GROUNDED_SYNTAX"
+SYNTAX_GROUNDING_NONE = "NO_GROUNDED_SYNTAX"
+
 
 @dataclass(frozen=True)
 class VerseSyntaxData:
@@ -60,6 +78,7 @@ class VerseSyntaxData:
     semantic_roles: tuple[SemanticRole, ...] = ()
     participants: tuple[ParticipantMention, ...] = ()
     coreference: tuple[CoreferenceLink, ...] = ()
+    syntax_grounding: str = SYNTAX_GROUNDING_NONE
 
     @property
     def has_syntax(self) -> bool:
@@ -220,6 +239,22 @@ def _read_verse_syntax(connection: sqlite3.Connection, verse_ref: str) -> VerseS
         for row in coref_rows
     )
 
+    has_syntax = bool(phrases or clauses or syntax_relations)
+    grounding = SYNTAX_GROUNDING_NONE
+    if has_syntax:
+        alignment_counts = connection.execute(
+            """
+            SELECT a.alignment_type, COUNT(*) c
+            FROM hebrew_token_alignments a
+            JOIN hebrew_tokens t ON t.token_id = a.token_id
+            JOIN hebrew_verses v ON v.id = t.verse_id
+            WHERE v.verse_ref = ?
+            GROUP BY a.alignment_type
+            """,
+            (verse_ref,),
+        ).fetchall()
+        grounding = _grounding_from_counts({row["alignment_type"]: row["c"] for row in alignment_counts})
+
     return VerseSyntaxData(
         phrases=phrases,
         clauses=clauses,
@@ -227,7 +262,16 @@ def _read_verse_syntax(connection: sqlite3.Connection, verse_ref: str) -> VerseS
         semantic_roles=semantic_roles,
         participants=participants,
         coreference=coreference,
+        syntax_grounding=grounding,
     )
+
+
+def _grounding_from_counts(counts: dict[str, int]) -> str:
+    unresolved = counts.get("UNRESOLVED", 0)
+    confirmed = sum(v for k, v in counts.items() if k != "UNRESOLVED")
+    if confirmed == 0 and unresolved == 0:
+        return SYNTAX_GROUNDING_NONE
+    return SYNTAX_GROUNDING_PARTIAL if unresolved > 0 else SYNTAX_GROUNDING_FULL
 
 
 class SupabaseHebrewAnalysisRepository:
@@ -278,13 +322,39 @@ class SupabaseHebrewAnalysisRepository:
             coref_rows = client.table("hebrew_coreference").select(
                 "id, referring_token_id, participant_id, relation_type"
             ).eq("verse_ref", verse_ref).execute().data or []
+
+            alignment_counts: dict[str, int] = {}
+            has_syntax = bool(phrase_rows or clause_rows or edge_rows)
+            if has_syntax:
+                verse_rows = client.table("hebrew_verses").select("id").eq("verse_ref", verse_ref).limit(1).execute().data or []
+                if verse_rows:
+                    token_rows = client.table("hebrew_tokens").select("token_id").eq(
+                        "verse_id", verse_rows[0]["id"]
+                    ).execute().data or []
+                    token_ids = [row["token_id"] for row in token_rows]
+                    if token_ids:
+                        alignment_rows = client.table("hebrew_token_alignments").select("token_id, alignment_type").in_(
+                            "token_id", token_ids
+                        ).execute().data or []
+                        seen: dict[str, str] = {}
+                        for row in alignment_rows:
+                            # multiple rows per COMPOSITE token (one per component) — any
+                            # non-UNRESOLVED row for a token_id means that token is confirmed.
+                            if row["token_id"] not in seen or row["alignment_type"] != "UNRESOLVED":
+                                seen[row["token_id"]] = row["alignment_type"]
+                        for alignment_type in seen.values():
+                            alignment_counts[alignment_type] = alignment_counts.get(alignment_type, 0) + 1
         except Exception:  # noqa: BLE001 - fail-closed, see module docstring
             return VerseSyntaxData()
 
-        return _assemble_from_rows(phrase_rows, clause_rows, membership_rows, edge_rows, role_rows, participant_rows, coref_rows)
+        return _assemble_from_rows(
+            phrase_rows, clause_rows, membership_rows, edge_rows, role_rows, participant_rows, coref_rows, alignment_counts
+        )
 
 
-def _assemble_from_rows(phrase_rows, clause_rows, membership_rows, edge_rows, role_rows, participant_rows, coref_rows) -> VerseSyntaxData:
+def _assemble_from_rows(
+    phrase_rows, clause_rows, membership_rows, edge_rows, role_rows, participant_rows, coref_rows, alignment_counts=None
+) -> VerseSyntaxData:
     tokens_by_phrase: dict[int, list[str]] = {}
     tokens_by_clause: dict[int, list[str]] = {}
     for row in membership_rows:
@@ -373,6 +443,7 @@ def _assemble_from_rows(phrase_rows, clause_rows, membership_rows, edge_rows, ro
     return VerseSyntaxData(
         phrases=phrases, clauses=clauses, syntax_relations=syntax_relations,
         semantic_roles=semantic_roles, participants=participants, coreference=coreference,
+        syntax_grounding=_grounding_from_counts(alignment_counts or {}),
     )
 
 
@@ -381,6 +452,9 @@ __all__ = [
     "HebrewAnalysisRepository",
     "LocalHebrewAnalysisRepository",
     "MACULA_DATASET_ID",
+    "SYNTAX_GROUNDING_FULL",
+    "SYNTAX_GROUNDING_NONE",
+    "SYNTAX_GROUNDING_PARTIAL",
     "SupabaseHebrewAnalysisRepository",
     "VerseSyntaxData",
 ]

@@ -219,6 +219,7 @@ class HebrewAnalysisService:
             semantic_roles=syntax.semantic_roles,
             participants=syntax.participants,
             coreference=syntax.coreference,
+            syntax_grounding=syntax.syntax_grounding,
             text_critical=tuple(self._text_critical_notes(verse_tokens)),
         )
         return replace(verse, detected_patterns=detect_patterns(verse))

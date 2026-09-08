@@ -381,6 +381,13 @@ class VerseAnalysis:
     coreference: tuple[CoreferenceLink, ...] = ()
     detected_patterns: tuple[DetectedPattern, ...] = ()
     text_critical: tuple[TextCriticalNote, ...] = ()
+    # "FULLY_GROUNDED_SYNTAX" | "PARTIALLY_GROUNDED_SYNTAX" | "NO_GROUNDED_SYNTAX"
+    # (bible_engine.hebrew_analysis_repository's SYNTAX_GROUNDING_* constants
+    # are the authoritative values — Phase 2D.1 §12: lets a future AI
+    # consumer tell whether every token behind this verse's phrases/
+    # clauses/roles/coreference has a CONFIRMED alignment, some do, or none
+    # do, before treating the syntax data as reliable.)
+    syntax_grounding: str = "NO_GROUNDED_SYNTAX"
 
 
 # ---------------------------------------------------------------------------

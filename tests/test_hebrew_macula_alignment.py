@@ -137,16 +137,25 @@ def test_alignment_handles_bethlehem_compound_as_exact_pair():
     assert by_word[11].alignment_type == "EXACT"  # לֶ֣חֶם
 
 
-def test_alignment_ketiv_qere_gap_reported_not_silently_shifted():
+def test_alignment_ketiv_qere_gap_recovered_via_bounded_search_not_silently_shifted():
     """Ruth 1:8 word_index 10 is a genuine Ketiv/Qere case (Ketiv
-    יַעֲשֶׂה, Qere יַ֣עַשׂ) that MACULA's own ref-numbering skips entirely
-    — see docs/hebrew_analysis_v2_phase2d.md §5. The aligner must report
-    this honestly (UNRESOLVED with a clear reason), never silently guess
-    a shifted position."""
+    יַעֲשֶׂה, Qere יַ֣עַשׂ): MACULA's own ref-numbering skips ref=10 for
+    this word and instead carries it at ref=11, shifting every later word
+    in the verse by +1 too — see docs/hebrew_analysis_v2_phase2d1.md §5/§8.
+
+    Phase 2D reported this honestly as UNRESOLVED (no blind guess). Phase
+    2D.1's bounded, evidence-gated nearby-ref-number search recovers all
+    19 words of this verse deterministically — but the recovered
+    alignment is STILL never claimed as EXACT/COMPOSITE (full certainty is
+    never invented just because a nearby position happens to corroborate):
+    it stays capped at VALIDATED_FALLBACK, with the exact offset and
+    original-position failure recorded in evidence."""
     aligned = _aligned_tokens("Rut", 1, 8, RUTH_FIXTURE, "RUT 1:8")
     by_word = {token.word_index: alignment for token, alignment in aligned}
-    assert by_word[10].alignment_type == "UNRESOLVED"
-    assert "no MACULA leaves found" in by_word[10].evidence
+    assert by_word[10].alignment_type == "VALIDATED_FALLBACK"
+    assert "recovered via bounded local ref-number search" in by_word[10].evidence
+    assert "offset=+1" in by_word[10].evidence
+    assert all(a.alignment_type != "UNRESOLVED" for a in by_word.values())
 
 
 def test_alignment_no_fuzzy_matching_when_sentence_missing():
@@ -182,7 +191,7 @@ def ruth_linguistic_store(tmp_path):
 
 def test_importer_produces_phrases_clauses_roles_coreference(ruth_linguistic_store):
     store_path, stats = ruth_linguistic_store
-    assert stats.verses_processed == 4  # RUT 1:1, 1:3, 1:8, 1:16
+    assert stats.verses_processed == 5  # RUT 1:1, 1:2, 1:3, 1:8, 1:16
     assert stats.phrases > 0
     assert stats.clauses > 0
     assert stats.semantic_roles > 0
@@ -190,7 +199,12 @@ def test_importer_produces_phrases_clauses_roles_coreference(ruth_linguistic_sto
     assert stats.coreference > 0
     assert stats.exact > 0
     assert stats.composite > 0
-    assert stats.unresolved >= 1  # the Ruth 1:8 Ketiv/Qere gap
+    # Phase 2D.1: the Ruth 1:8 Ketiv/Qere gap is now recovered as
+    # VALIDATED_FALLBACK (see test_alignment_ketiv_qere_gap_recovered_via_bounded_search_not_silently_shifted)
+    # rather than staying UNRESOLVED — no unresolved tokens remain across
+    # this fixture's 4 verses.
+    assert stats.validated_fallback > 0
+    assert stats.unresolved == 0
 
 
 def test_importer_is_idempotent_rerun_same_counts(tmp_path):

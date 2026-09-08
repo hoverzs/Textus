@@ -26,6 +26,7 @@ class _FakeQuery:
         self._table = table
         self._eq_filters: dict[str, object] = {}
         self._in_filters: dict[str, list] = {}
+        self._limit: int | None = None
 
     def select(self, _columns: str) -> "_FakeQuery":
         return self
@@ -38,6 +39,10 @@ class _FakeQuery:
         self._in_filters[key] = values
         return self
 
+    def limit(self, n: int) -> "_FakeQuery":
+        self._limit = n
+        return self
+
     def execute(self) -> _FakeResponse:
         matches = [
             row
@@ -45,6 +50,8 @@ class _FakeQuery:
             if all(row.get(k) == v for k, v in self._eq_filters.items())
             and all(row.get(k) in values for k, values in self._in_filters.items())
         ]
+        if self._limit is not None:
+            matches = matches[: self._limit]
         return _FakeResponse(matches)
 
 
@@ -88,6 +95,17 @@ def _seed_ruth_1_1_data() -> dict[str, list[dict]]:
         "hebrew_coreference": [
             {"id": 1, "referring_token_id": "Ruth.1.1:16", "participant_id": 1, "relation_type": "participantref", "verse_ref": "Ruth.1.1"},
         ],
+        "hebrew_verses": [
+            {"id": 100, "verse_ref": "Ruth.1.1"},
+        ],
+        "hebrew_tokens": [
+            {"token_id": "Ruth.1.1:3", "verse_id": 100},
+            {"token_id": "Ruth.1.1:4", "verse_id": 100},
+        ],
+        "hebrew_token_alignments": [
+            {"token_id": "Ruth.1.1:3", "alignment_type": "EXACT"},
+            {"token_id": "Ruth.1.1:4", "alignment_type": "COMPOSITE"},
+        ],
     }
 
 
@@ -111,6 +129,23 @@ def test_supabase_repository_assembles_verse_syntax_from_fake_client(monkeypatch
     assert syntax.has_syntax
     assert syntax.has_semantic_roles
     assert syntax.has_participants
+    assert syntax.syntax_grounding == repository_module.SYNTAX_GROUNDING_FULL
+
+
+def test_supabase_repository_partial_grounding_when_verse_has_an_unresolved_token(monkeypatch):
+    """Phase 2D.1 §12: if even one token in the verse is UNRESOLVED, the
+    verse's syntax_grounding must report PARTIALLY_GROUNDED_SYNTAX, not
+    FULLY_GROUNDED_SYNTAX — even though the syntax facts that ARE present
+    (for the confirmed tokens) are still returned."""
+    data = _seed_ruth_1_1_data()
+    data["hebrew_tokens"].append({"token_id": "Ruth.1.1:5", "verse_id": 100})
+    data["hebrew_token_alignments"].append({"token_id": "Ruth.1.1:5", "alignment_type": "UNRESOLVED"})
+    monkeypatch.setattr("supabase_client.get_supabase_client", lambda: _FakeClient(data))
+
+    repository = SupabaseHebrewAnalysisRepository()
+    syntax = repository.get_verse_syntax("Ruth.1.1")
+    assert syntax.has_syntax
+    assert syntax.syntax_grounding == repository_module.SYNTAX_GROUNDING_PARTIAL
 
 
 def test_supabase_repository_fail_closed_on_missing_client(monkeypatch):
