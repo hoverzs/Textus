@@ -363,7 +363,23 @@ def import_tbesh_lexicon(
     connection: sqlite3.Connection,
     needed_strongs: set[str] | None = None,
 ) -> int:
-    count = 0
+    """Import TBESH, keying every entry by its OWN identity first.
+
+    Phase 2A — two passes, because ``uStrong`` is a cross-reference, not an
+    identity (see ``HebrewLexiconEntry.identity_strong_ids``):
+
+    1. Every record is written under its eStrong/dStrong ids. These are real
+       claims, so a later record may still legitimately replace an earlier one.
+    2. uStrong-only ids are then filled in as a last-resort fallback with
+       ``INSERT OR IGNORE`` semantics, so a derived record ("in Aramaic of",
+       "a Name of", "combination of", ...) can never overwrite the genuine
+       entry of the lexeme it merely points at.
+
+    Before this change a single ``for strong_id in entry.strong_ids`` loop with
+    ``INSERT OR REPLACE`` let derived records clobber base lexemes, which is how
+    אֲשֶׁר (H0834A) came to display כַּאֲשֶׁר's gloss.
+    """
+    entries: list[HebrewLexiconEntry] = []
     for raw_line in Path(source_path).read_text(encoding="utf-8-sig").splitlines():
         if not raw_line.strip() or raw_line.startswith(("=", "$")) or raw_line.startswith("eStrong#"):
             continue
@@ -373,10 +389,26 @@ def import_tbesh_lexicon(
             continue
         if needed_strongs is not None and not needed_strongs.intersection(entry.strong_ids):
             continue
-        for strong_id in entry.strong_ids:
+        entries.append(entry)
+
+    count = 0
+    claimed: set[str] = set()
+    for entry in entries:
+        for strong_id in entry.identity_strong_ids:
             if needed_strongs is not None and strong_id not in needed_strongs:
                 continue
             _insert_lexicon_entry(connection, strong_id, entry)
+            claimed.add(strong_id)
+            count += 1
+
+    for entry in entries:
+        for strong_id in entry.reference_strong_ids:
+            if strong_id in claimed:
+                continue
+            if needed_strongs is not None and strong_id not in needed_strongs:
+                continue
+            _insert_lexicon_entry(connection, strong_id, entry)
+            claimed.add(strong_id)
             count += 1
     return count
 

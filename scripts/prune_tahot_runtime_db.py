@@ -43,6 +43,45 @@ Eltávolított/átalakított `tokens` oszlopok:
 Megtartott táblák (futásidőben ténylegesen használtak):
   - metadata, books, tokens, token_strong_ids, ketiv_qere
 
+FONTOS — PHASE 2A, VISSZAÁLLÍTHATÓSÁGI SZERZŐDÉS
+================================================
+A metszés VESZTESÉGES a komponens-szintű adatra nézve, és a Phase 2B/2C
+(összetett szerkezetek: elöljárószó+névelő, birtokos suffixum, status
+constructus-lánc) pontosan ezt az adatot igényli. Konkrétan a futásidejű
+DB-ből hiányzik, és a `_token_from_normalized_row()` ezért pótolja/torzítja:
+
+  - komponensenkénti `surface`  -> prefix/suffix üres, a core a TELJES
+    szóalakot kapja (a `/` elválasztóval együtt);
+  - komponensenkénti `morphology_code` -> minden komponens az ÖSSZETETT
+    kódot kapja (pl. `HR/Ncfsa`) a saját szegmense helyett;
+  - komponensenkénti `gloss` -> mindig üres;
+  - `source_token_id` (pl. `Rut.1.1#01=L`) -> a felfelé mutató, sorszintű
+    kapcsolat az eredeti TAHOT sorhoz elveszik (a jövőbeli OSHB/MACULA
+    illesztés horgonya).
+
+Ez a veszteség NEM végleges: az adat determinisztikusan újraépíthető, mert
+    (a) a metszés csak a KIMENETET csonkítja, a forrást nem;
+    (b) a `bible_engine/hebrew_parser._build_components()` a négy hivatalos
+        TAHOT TSV-ből mindezt hiánytalanul előállítja;
+    (c) a teljes séma (`hebrew_sqlite.create_schema`) továbbra is tartalmazza
+        a `token_components` táblát és a fenti oszlopokat.
+
+Determinisztikus visszaállítási út (offline, a Phase 2C normalizált store
+építésekor):
+
+    1. Szerezd be a négy hivatalos TAHOT fájlt a STEPBible/STEPBible-Data
+       repóból (CC BY 4.0), valamint a TBESH lexikont.
+    2. `python scripts/build_hebrew_prototype_db.py`  ->  TELJES DB
+       (`token_components`, `expanded_strong_tags`, `source_token_id`
+       mind jelen van). EZT a fájlt NE metszd.
+    3. A metszést csak a git-be commitolt, KIZÁRÓLAG megjelenítésre szolgáló
+       futásidejű másolaton futtasd.
+
+Amíg a Phase 2C nem szállítja a normalizált, több részre bontott store-t
+(ld. docs/hebrew_analysis_v2_inventory.md §15.3), a metszett DB marad a
+production artefaktum — de a fenti lépések garantálják, hogy a komponens-
+szintű adat bármikor visszanyerhető, és nem kell újra levezetni.
+
 Használat:
     python scripts/prune_tahot_runtime_db.py
 """

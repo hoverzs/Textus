@@ -129,9 +129,13 @@ def test_2_ot_exegesis_prompt_contains_real_hebrew_token_block():
     prompt = result["exegesis_prompt"]
     assert "EREDETI NYELVI TOKENEK (helyi adatbázisból, kizárólagos forrás):" in prompt
     assert "lemma:" in prompt
-    assert "morf:" in prompt
     assert "Strong:" in prompt
     assert "H7225" in prompt
+    # Phase 2A: the exegesis prompt reuses the same Hebrew token block, so it
+    # must also carry the already-decoded morphology rather than a raw code.
+    assert "morf-kód: HVqp3ms" in prompt
+    assert "igetörzs: qal" in prompt
+    assert "igealak: perfectum" in prompt
 
 
 # =============================================================================

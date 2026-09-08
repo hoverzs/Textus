@@ -25,6 +25,12 @@ PART_OF_SPEECH_HU = {
     "Interrogative": "kérdő partikula",
     "Relative": "vonatkozó partikula",
     "Interjection": "indulatszó",
+    # Phase 2B — decode_hebrew_morphology sets part_of_speech to the same
+    # PARTICLE_FORMS value as particle_type (see hebrew_morphology.py, the
+    # function_code == "T" branch), so every particle subtype needs an entry
+    # here too, or it leaks through _shape_details()'s include_pos path.
+    "Conditional": "feltételes/okhatározó partikula",
+    "Demonstrative": "mutató partikula",
 }
 
 NOUN_TYPE_HU = {"Common": "köznév", "Proper": "tulajdonnév", "Gentilic": "népnév", "Title": "titulus"}
@@ -45,6 +51,9 @@ PARTICLE_TYPE_HU = {
     "Relative": "vonatkozó partikula",
     "Conjunction": "kötőszói partikula",
     "Interjection": "indulatszó",
+    # Phase 2B — TEHMC-confirmed corrections (see hebrew_morphology.PARTICLE_FORMS):
+    "Conditional": "feltételes/okhatározó partikula",  # was mislabelled "Conjunction" (HTc/ATc, 6047 tokens: כִּי "hogy/mert", דִּי "hogy/aki")
+    "Demonstrative": "mutató partikula",  # was mislabelled "Interrogative" (HTm/ATm, 2664 tokens: זֶה/זֹאת/אֵלֶּה "ez/az/ezek")
 }
 
 STEM_HU = {
@@ -66,6 +75,14 @@ STEM_HU = {
     "Tiphil": "tifil",
     "Hitpael": "hitpael",
     "Nithpael": "nitpael",
+    # Phase 2B — TEHMC-authoritative stems added once STEMS_BY_LANGUAGE made
+    # them reachable (previously unnamed/unreached, see hebrew_morphology.py):
+    "Hitpeel": "hitpeel",  # Aramaic passive/reflexive t-stem — distinct from "Ithpeel"
+    "Hothpaal": "hotpaal",  # Hebrew rare passive/reflexive — TEHMC classifies it Reflexive, not Passive
+    "Ishtaphel": "istafel",  # Aramaic causative-reflexive — distinct spelling from Hebrew "Hishtaphel"
+    "Polal": "polal",  # TEHMC-defined; unattested in this TAHOT edition
+    "Pael": "pael",  # Aramaic — distinct from Hebrew "Piel" (both simple-intensive, different names)
+    "Hitpaal": "hitpaal",  # TEHMC's exact spelling (previously only "Hithpaal" was mapped, with an extra 'h')
 }
 
 VERB_FORM_HU = {
@@ -96,9 +113,23 @@ SUFFIX_TYPE_HU = {
     "Pronominal": "birtokos",
     "Object": "tárgyi",
     "Directional": "irányjelölő",
-    "Emphatic": "nyomatékosító",
+    # Phase 2B — TEHMC-confirmed corrections (see hebrew_morphology.SUFFIX_TYPES):
+    "Paragogic Nun": "paragogikus nun",  # was mislabelled "Emphatic" (Sn, 309 tokens)
+    "Paragogic Hé": "paragogikus hé",  # previously unmapped entirely (Sh, 407 tokens)
 }
-COMPONENT_ROLE_HU = {"prefix": "prefixum", "core": "lexikai mag", "suffix": "suffixum", "composite": "összetett alak"}
+PREPOSITION_TYPE_HU = {"Definite": "határozott névelővel"}
+
+# A "core" komponens az a szóelem, amelynek a TAHOT dStrong-mezőjében kapcsos
+# zárójeles {Hxxxx} Strong-száma van (ld. hebrew_parser._core_index): vagyis a
+# szóalak LEXÉMÁT HORDOZÓ tagja, a rátapadó prefixumok (waw, elöljárószó,
+# névelő) és suffixumok (birtokos/tárgyi rag) nélkül.
+#
+# Ez NEM a héber gyök. A gyök (pl. ב־ר־א) külön, önálló normalizált mező lesz,
+# és külön adatforrást igényel — a jelenlegi TAHOT/TBESH adat nem tartalmazza
+# (ld. docs/hebrew_analysis_v2_phase2a.md). Ezért a korábbi "lexikai mag"
+# címkét NEM "gyök"-re cseréltük — az új nyelvi hibát okozna —, hanem a
+# ténylegesen leírt dologra: "alapszó".
+COMPONENT_ROLE_HU = {"prefix": "prefixum", "core": "alapszó", "suffix": "suffixum", "composite": "összetett alak"}
 
 STATUS_HU = {
     "fully_decoded": "teljesen feloldott morfológia",
@@ -136,6 +167,22 @@ TECHNICAL_LEAK_TERMS = frozenset(
         "Tiphil",
         "Hitpael",
         "Nithpael",
+        # Phase 2B — the remaining STEM_HU terms were reachable even before
+        # this phase but were missing from leak detection; closing that gap
+        # here since it directly touches the same table.
+        "Hishtaphel",
+        "Aphel",
+        "Haphel",
+        "Peal",
+        "Peil",
+        "Ithpeel",
+        "Hithpaal",
+        "Shaphel",
+        # Phase 2B — newly reachable via STEMS_BY_LANGUAGE:
+        "Hitpeel",
+        "Hothpaal",
+        "Ishtaphel",
+        "Polal",
         "Perfect",
         "Imperfect",
         "Consecutive Imperfect",
@@ -169,6 +216,11 @@ TECHNICAL_LEAK_TERMS = frozenset(
         "Gentilic",
         "Numerical position",
         "Numerical",
+        # Phase 2B — TEHMC-confirmed additions:
+        "Conditional",
+        "Demonstrative",
+        "Paragogic Nun",
+        "Paragogic Hé",
         "fully_decoded",
         "partially_decoded",
         "unresolved",
@@ -225,6 +277,7 @@ def format_hebrew_morphology_rows_hu(morphology: HebrewMorphology | Mapping[str,
         ("Névmási típus", _hu(data, "pronoun_type", PRONOUN_TYPE_HU)),
         ("Tulajdonnévi típus", _hu(data, "proper_name_type", PROPER_NAME_TYPE_HU)),
         ("Partikulatípus", _hu(data, "particle_type", PARTICLE_TYPE_HU)),
+        ("Elöljárótípus", _hu(data, "preposition_type", PREPOSITION_TYPE_HU)),
         ("Igetörzs", _hu(data, "verb_stem", STEM_HU)),
         ("Igealak", _hu(data, "verb_conjugation", VERB_FORM_HU)),
         ("Személy", _hu(data, "person", PERSON_HU)),
@@ -314,6 +367,7 @@ def _shape_details(data: Mapping[str, object], *, include_pos: bool) -> str:
         ("pronoun_type", PRONOUN_TYPE_HU),
         ("proper_name_type", PROPER_NAME_TYPE_HU),
         ("particle_type", PARTICLE_TYPE_HU),
+        ("preposition_type", PREPOSITION_TYPE_HU),
     ):
         if data.get(field):
             value = _hu(data, field, mapping)

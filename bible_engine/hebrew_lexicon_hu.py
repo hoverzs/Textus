@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -105,11 +106,34 @@ class HebrewHungarianLexiconRepository:
         )
         self.aliases = self.tbesh_repository.aliases
 
-    def lookup(self, strong_id: str) -> HebrewHungarianLexiconResolution:
+    def lookup(
+        self, strong_id: str, *, expected_lemma: str = ""
+    ) -> HebrewHungarianLexiconResolution:
+        """Resolve a Hungarian lexical record for ``strong_id``.
+
+        ``expected_lemma`` is the lemma TAHOT assigns to the token being looked
+        up. When supplied and it disagrees consonantally with the stored record,
+        a warning is attached: the record then describes a *different word*.
+
+        Phase 2A — this is not hypothetical. The Hungarian lexicon was generated
+        from a TBESH import that indexed cross-reference rows under the Strong id
+        of the lexeme they point at, so 299 records (134232 corpus tokens)
+        currently describe the wrong word — e.g. H3068G (יהוה) carrying
+        שָׁלוֹם "béke". ``scripts/audit_hebrew_lexicon_lemma_consistency.py``
+        enumerates them. Until those records are regenerated, the deterministic
+        layer must not present them as this word's meaning without saying so.
+        """
         requested = normalize_hebrew_strong_id(strong_id)
         direct = self.entries.get(requested)
         if direct is not None:
-            return _hu_resolution("direct", requested, requested, direct, None)
+            return _hu_resolution(
+                "direct",
+                requested,
+                requested,
+                direct,
+                None,
+                warnings=_lemma_mismatch_warnings(direct, expected_lemma),
+            )
 
         alias = self.aliases.get(requested)
         if alias:
@@ -122,11 +146,30 @@ class HebrewHungarianLexiconRepository:
                     target,
                     target_entry,
                     None,
-                    warnings=(f"Magyar lexikai rekord alias alapján: {requested} → {target}",),
+                    warnings=(f"Magyar lexikai rekord alias alapján: {requested} → {target}",)
+                    + _lemma_mismatch_warnings(target_entry, expected_lemma),
                 )
 
         fallback = self.tbesh_repository.lookup(requested)
         if fallback.entry is not None:
+            # Phase 2A — a cross-reference row is NOT this lexeme's definition
+            # (see HebrewLexiconRepository.lookup). Surface it as such instead
+            # of presenting another word's gloss as this word's base meaning.
+            if fallback.resolution_type == "cross_reference":
+                return HebrewHungarianLexiconResolution(
+                    resolution_type="tbesh_cross_reference",
+                    requested_strong_id=requested,
+                    resolved_strong_id=fallback.resolved_strong_id or fallback.matched_strong_id,
+                    entry=None,
+                    tbesh_fallback=fallback,
+                    source=fallback.entry.source_name,
+                    warnings=(
+                        "Ehhez a Strong/STEP azonosítóhoz még nincs magyar lexikai rekord.",
+                        "A megjelenített angol szótári rekord nem ennek a szónak a saját "
+                        "szócikke, hanem egy rá hivatkozó (arámi megfelelő / névváltozat / "
+                        "összetétel) rekord — az alapjelentés megállapításához nem elegendő.",
+                    ),
+                )
             return HebrewHungarianLexiconResolution(
                 resolution_type="tbesh_fallback",
                 requested_strong_id=requested,
@@ -144,6 +187,29 @@ class HebrewHungarianLexiconRepository:
             tbesh_fallback=fallback,
             warnings=("Nincs lexikai adat ehhez a Strong/STEP azonosítóhoz.",),
         )
+
+
+def _consonants(text: str) -> str:
+    """Consonantal skeleton, so pointing differences alone never trigger a warning."""
+    decomposed = unicodedata.normalize("NFD", text or "")
+    return "".join(ch for ch in decomposed if not unicodedata.combining(ch)).replace("־", "").strip()
+
+
+LEMMA_MISMATCH_WARNING = (
+    "A magyar lexikai rekord egy MÁSIK szóalakhoz tartozik ({record}), mint amit "
+    "a szövegben kiválasztottál ({token}) — az itt látható alapjelentés ezért "
+    "nem megbízható ehhez a szóhoz."
+)
+
+
+def _lemma_mismatch_warnings(
+    entry: HebrewHungarianLexiconEntry, expected_lemma: str
+) -> tuple[str, ...]:
+    if not expected_lemma or not entry.lemma:
+        return ()
+    if _consonants(entry.lemma) == _consonants(expected_lemma):
+        return ()
+    return (LEMMA_MISMATCH_WARNING.format(record=entry.lemma, token=expected_lemma),)
 
 
 def _hu_resolution(

@@ -70,6 +70,20 @@ def tahot_book_code_from_ruf_code(ruf_code: str) -> str | None:
     return _RUF_TO_TAHOT.get((ruf_code or "").upper())
 
 
+def ruf_code_from_tahot_code(tahot_code: str) -> str | None:
+    """Bridge for ``HebrewAnalysisBundle.passage`` — TAHOT's own book code
+    (e.g. ``"1Sa"``) to the RUF code shared with ``textus_kb.books``
+    (e.g. ``"1SA"``), which in turn resolves to the canonical OSIS-like
+    book id via ``textus_kb.books.RUF_TO_OSIS`` (e.g. ``"1Sam"``). TAHOT
+    codes are not always identical to OSIS ids (``"1Sa"``/``"2Sa"`` vs
+    ``"1Sam"``/``"2Sam"``, ``"Exo"`` vs ``"Exod"``), so this indirection
+    through the RUF code both modules already share is required rather
+    than assuming identity.
+    """
+    book = _BOOK_BY_TAHOT_CODE.get(tahot_code or "")
+    return book.ruf_code if book else None
+
+
 def tahot_book_code_from_alias(alias: str) -> str | None:
     book = _BOOK_BY_ALIAS.get(_fold_book_alias(alias))
     return book.tahot_code if book else None
@@ -150,3 +164,4 @@ def _build_book_aliases() -> dict[str, HebrewBook]:
 
 _BOOK_BY_ALIAS = _build_book_aliases()
 _RUF_TO_TAHOT = {book.ruf_code: book.tahot_code for book in OT_BOOKS}
+_BOOK_BY_TAHOT_CODE = {book.tahot_code: book for book in OT_BOOKS}

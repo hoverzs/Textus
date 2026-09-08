@@ -714,7 +714,10 @@ def render_hebrew_original_language_panel(
     morphology = token_repository.morphology(selected_token, expansions)
     lookup = lexicon.lookup_token(selected_token)
     hu_lookup = (
-        hungarian_lexicon.lookup(selected_token.core_component.strong_id)
+        hungarian_lexicon.lookup(
+            selected_token.core_component.strong_id,
+            expected_lemma=selected_token.lemma,
+        )
         if selected_token.core_component
         else None
     )

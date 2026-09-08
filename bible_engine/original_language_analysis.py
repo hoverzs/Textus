@@ -30,6 +30,7 @@ from bible_engine.greek_analysis_ui import (
 )
 from bible_engine.greek_token_repository import load_greek_passage_tokens
 from bible_engine.hebrew_books import HebrewReferenceError, parse_hebrew_reference
+from bible_engine.hebrew_morphology_hu import format_hebrew_morphology_rows_hu
 from bible_engine.hebrew_token_repository import HebrewTokenRepository
 from bible_engine.morphology_hu import parse_morphology_hu
 
@@ -258,12 +259,46 @@ def _format_greek_token_line(token: Any) -> str:
 
 
 def _format_hebrew_token_line(token: Any, repository: HebrewTokenRepository) -> str:
-    pos = repository.morphology(token).part_of_speech or "?"
+    """One deterministic token line for the AI prompt.
+
+    Phase 2A — this used to forward only the raw TEHMC code plus an ENGLISH
+    part-of-speech string, discarding the stem, conjugation, person, gender,
+    number and state that ``decode_hebrew_morphology`` had just computed. That
+    forced the model to re-parse Hebrew grammar Textus already knew, which is
+    exactly the deterministic/AI boundary violation Hebrew Analysis v2 is meant
+    to remove. The decoded fields are now supplied in Hungarian, and the raw
+    code is kept only as a traceability reference.
+    """
+    morphology = repository.morphology(token)
     strong = "+".join(token.strong_ids) if token.strong_ids else "nincs"
-    return (
-        f"[{token.word_index}] {token.surface} | lemma: {token.lemma} | "
-        f"morf: {token.morphology_code or '?'} ({pos}) | Strong: {strong}"
-    )
+    fields: list[str] = [f"[{token.word_index}] {token.surface}"]
+    if token.lemma:
+        fields.append(f"lemma: {token.lemma}")
+
+    rows = dict(format_hebrew_morphology_rows_hu(morphology))
+    # Order matters: igetörzs (binyan) and igealak (conjugation) are separate
+    # grammatical dimensions and must never be merged into one label.
+    for label in (
+        "Szófaj",
+        "Igetörzs",
+        "Igealak",
+        "Személy",
+        "Nem",
+        "Szám",
+        "Állapot",
+        "Suffixum",
+    ):
+        value = rows.get(label)
+        if value:
+            fields.append(f"{label.lower()}: {value}")
+
+    if token.ketiv and token.qere and token.ketiv != token.qere:
+        fields.append(f"ketív/qeré: {token.ketiv} / {token.qere}")
+    fields.append(f"Strong: {strong}")
+    fields.append(f"morf-kód: {token.morphology_code or '?'}")
+    if not morphology.fully_decoded:
+        fields.append(f"megbízhatóság: {rows.get('Státusz') or 'nem feloldott morfológia'}")
+    return " | ".join(fields)
 
 
 def inspect_original_language_tokens(

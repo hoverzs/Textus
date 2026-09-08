@@ -187,7 +187,10 @@ def test_demo_view_model_receives_full_decoded_morphology(tmp_path: Path) -> Non
     assert components[0]["role_label"] == "prefixum"
     assert components[0]["analysis_summary"] == "kötőszó"
     assert components[1]["role"] == "core"
-    assert components[1]["role_label"] == "lexikai mag"
+    # Phase 2A: the core component is the lexeme-bearing part of the word, not
+    # the triliteral root, so it is no longer labelled "lexikai mag" (and must
+    # NOT be labelled "gyök" either) — see COMPONENT_ROLE_HU.
+    assert components[1]["role_label"] == "alapszó"
     assert components[1]["analysis_summary"] == "ige, qal törzs, wayyiqtol, harmadik személy, hímnem, egyes szám"
 
 

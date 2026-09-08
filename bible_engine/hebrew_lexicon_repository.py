@@ -53,6 +53,23 @@ class HebrewLexiconRepository:
         normalized = normalize_hebrew_strong_id(strong_id)
         direct = self._entry(normalized)
         if direct:
+            # Phase 2A — a row may be present under this key while actually
+            # being a CROSS-REFERENCE record ("in Aramaic of", "a Name of",
+            # "combination of", ...) that only points at this lexeme. Databases
+            # built before the two-pass importer fix contain 1056 such keys.
+            # Returning it as "direct" is what made אֲשֶׁר (H0834A) display
+            # כַּאֲשֶׁר's gloss, so label it instead of silently trusting it.
+            if not direct.claims_strong_id(normalized):
+                return _lookup(
+                    status="cross_reference",
+                    entry=direct,
+                    matched_strong_id=normalized,
+                    source_strong_id=normalized,
+                    requested_strong_id=normalized,
+                    resolved_strong_id=normalized,
+                    resolution_type="cross_reference",
+                    source_component=source_component,
+                )
             return _lookup(
                 status="direct",
                 entry=direct,

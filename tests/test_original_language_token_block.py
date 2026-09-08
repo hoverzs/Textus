@@ -111,9 +111,20 @@ def test_hebrew_passage_returns_real_tokens_not_free_generation() -> None:
     first = lines[0]
     assert first.startswith("[1] ")
     assert "lemma:" in first
-    assert "morf:" in first
     assert "Strong:" in first
     assert "H7225" in block  # רֵאשִׁית -> Strong H7225, must appear verbatim from DB
+
+    # Phase 2A: the Hebrew line no longer forwards a bare "morf: <TEHMC code>"
+    # and an English part of speech. The morphology Textus has already decoded
+    # is supplied explicitly so the AI never has to re-parse Hebrew grammar,
+    # with the raw code retained only for traceability.
+    assert "morf-kód: HR/Ncfsa" in first
+    assert "szófaj: elöljárószó + főnév" in first
+    verb = lines[1]  # בָּרָא — Qal perfect 3ms
+    assert "igetörzs: qal" in verb
+    assert "igealak: perfectum" in verb
+    assert "személy: harmadik személy" in verb
+    assert "morf-kód: HVqp3ms" in verb
 
 
 def test_cross_chapter_reference_yields_explicit_no_data_message_not_generated_content() -> None:

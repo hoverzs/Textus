@@ -5,6 +5,8 @@ import sqlite3
 from collections import Counter
 from pathlib import Path
 
+import pytest
+
 from bible_engine.hebrew_lexicon_translation_workflow import (
     _appears_to_be_english_sentence,
     audit_tbesh_database,
@@ -20,6 +22,41 @@ from bible_engine.hebrew_sqlite import import_hebrew_fixture_database
 FIXTURES = Path(__file__).parent / "fixtures"
 TAHOT = FIXTURES / "tahot_ruth_psa_sample.tsv"
 TBESH = FIXTURES / "tbesh_ruth_psa_sample.tsv"
+
+BATCH_DIR = Path("data/hebrew_translation_batches")
+
+# Phase 2B — the tests below read process journals from the one-time
+# historical campaign (batches 0001-0005) that built the 6,493-entry
+# production lexicon: `export_hebrew_lexicon_batch()` snapshots of what still
+# needed translation AT THAT POINT IN THE SEQUENCE. They were never
+# committed to git (not gitignored — simply never staged), so a clean
+# checkout has always lacked them; confirmed pre-existing by running the
+# identical tests against a clean `git worktree` at the pre-Phase-2A commit,
+# where they fail identically.
+#
+# They cannot be meaningfully regenerated: production is now essentially
+# complete (6,493 entries, close to TBESH's full ~12,500-entry corpus), so
+# re-running the exporter today no longer reproduces the "batch N excludes
+# batch N-1, batch sizes 100/500/500/...” narrative these process artifacts
+# recorded — it would just re-export whatever the (now much smaller) residual
+# untranslated set happens to be. Regenerating fake batches to force a green
+# run would fabricate history rather than testing anything real.
+#
+# The properties that ARE still meaningful and are actually about current
+# production correctness — e.g. that specific records resolve directly, that
+# Hungarian notes pass the English-sentence detector — are covered directly
+# against the committed `hebrew_lexicon_hu.json` in
+# test_hebrew_lexicon_hu.py and by the rewritten
+# test_english_sentence_detector_accepts_current_pilot_hungarian_notes below.
+requires_historical_batch_artifacts = pytest.mark.skipif(
+    not BATCH_DIR.exists(),
+    reason=(
+        "data/hebrew_translation_batches/ holds one-time historical process "
+        "journals from the lexicon translation campaign, never committed to "
+        "git; not reproducible from current state (production is now "
+        "essentially complete). See docs/hebrew_analysis_v2_phase2b.md."
+    ),
+)
 
 
 def test_tbesh_audit_reports_counts_and_language_split(tmp_path: Path) -> None:
@@ -54,7 +91,13 @@ def test_priority_flags_proper_name_hebrew_and_aramaic(tmp_path: Path) -> None:
 
     assert any(item["proper_name_flag"] for item in records)
     assert any(item["language"] == "hebrew" for item in records)
-    assert any(item["language"] == "aramaic" for item in records)
+    # Phase 2A: this used to assert that some record is Aramaic. The fixture
+    # corpus is Ruth + Psalms — 178 tokens, all Hebrew, zero Aramaic — so that
+    # could only ever be satisfied because Aramaic TBESH rows ("in Aramaic of
+    # H....") were indexed under the HEBREW lexeme's Strong id and hijacked it.
+    # With the two-pass importer that no longer happens, and an all-Hebrew
+    # passage must classify as Hebrew throughout.
+    assert not any(item["language"] == "aramaic" for item in records)
 
 
 def test_language_normalization_preserves_explicit_language(tmp_path: Path) -> None:
@@ -107,6 +150,7 @@ def test_batch_export_contains_import_schema_and_frequency_order(tmp_path: Path)
     assert {"strong_id", "base_meaning_hu", "possible_meanings_hu", "source_note_en"} <= set(data["records"][0])
 
 
+@requires_historical_batch_artifacts
 def test_pilot_batch_composition_limits_are_enforced() -> None:
     data = json.loads(Path("data/hebrew_translation_batches/hebrew_lexicon_batch_0001.json").read_text(encoding="utf-8"))
     records = data["records"]
@@ -123,6 +167,7 @@ def test_pilot_batch_composition_limits_are_enforced() -> None:
     assert all(record["token_frequency"] > 0 for record in records)
 
 
+@requires_historical_batch_artifacts
 def test_pilot_priority_result_is_deterministic() -> None:
     first = json.loads(Path("data/hebrew_translation_batches/hebrew_lexicon_batch_0001.json").read_text(encoding="utf-8"))["records"]
     second = json.loads(Path("data/hebrew_translation_batches/hebrew_lexicon_batch_0001.json").read_text(encoding="utf-8"))["records"]
@@ -130,6 +175,7 @@ def test_pilot_priority_result_is_deterministic() -> None:
     assert [record["strong_id"] for record in first] == [record["strong_id"] for record in second]
 
 
+@requires_historical_batch_artifacts
 def test_second_batch_excludes_first_batch_and_matches_import_state() -> None:
     first = json.loads(Path("data/hebrew_translation_batches/hebrew_lexicon_batch_0001.json").read_text(encoding="utf-8"))["records"]
     second = json.loads(Path("data/hebrew_translation_batches/hebrew_lexicon_batch_0002.json").read_text(encoding="utf-8"))["records"]
@@ -144,6 +190,7 @@ def test_second_batch_excludes_first_batch_and_matches_import_state() -> None:
         assert second_ids <= set(production)
 
 
+@requires_historical_batch_artifacts
 def test_second_batch_composition_and_source_quality() -> None:
     second = json.loads(Path("data/hebrew_translation_batches/hebrew_lexicon_batch_0002.json").read_text(encoding="utf-8"))["records"]
     language_counts = Counter(record.get("language") or "unspecified" for record in second)
@@ -175,6 +222,7 @@ def test_second_batch_order_is_deterministic_and_frequency_driven(tmp_path: Path
     assert frequencies == sorted(frequencies, reverse=True)
 
 
+@requires_historical_batch_artifacts
 def test_third_batch_excludes_previous_batches_and_matches_import_state() -> None:
     first = json.loads(Path("data/hebrew_translation_batches/hebrew_lexicon_batch_0001.json").read_text(encoding="utf-8"))["records"]
     second = json.loads(Path("data/hebrew_translation_batches/hebrew_lexicon_batch_0002.json").read_text(encoding="utf-8"))["records"]
@@ -191,6 +239,7 @@ def test_third_batch_excludes_previous_batches_and_matches_import_state() -> Non
         assert third_ids <= set(production)
 
 
+@requires_historical_batch_artifacts
 def test_third_batch_composition_and_source_quality() -> None:
     third = json.loads(Path("data/hebrew_translation_batches/hebrew_lexicon_batch_0003.json").read_text(encoding="utf-8"))["records"]
     language_counts = Counter(record.get("language") or "unspecified" for record in third)
@@ -222,6 +271,7 @@ def test_third_batch_order_is_deterministic_and_frequency_driven(tmp_path: Path)
     assert frequencies == sorted(frequencies, reverse=True)
 
 
+@requires_historical_batch_artifacts
 def test_fourth_batch_excludes_previous_batches_and_production_lexicon() -> None:
     previous_records = []
     for number in ("0001", "0002", "0003"):
@@ -239,6 +289,7 @@ def test_fourth_batch_excludes_previous_batches_and_production_lexicon() -> None
         assert fourth_ids <= set(production)
 
 
+@requires_historical_batch_artifacts
 def test_fourth_batch_composition_source_quality_and_preaudit_classes() -> None:
     fourth = json.loads(Path("data/hebrew_translation_batches/hebrew_lexicon_batch_0004.json").read_text(encoding="utf-8"))["records"]
     language_counts = Counter(record.get("language") or "unspecified" for record in fourth)
@@ -259,6 +310,7 @@ def test_fourth_batch_composition_source_quality_and_preaudit_classes() -> None:
     assert set(class_counts) <= {"straightforward", "contextual", "proper_name", "ambiguous"}
 
 
+@requires_historical_batch_artifacts
 def test_fourth_review_candidates_match_review_required_records() -> None:
     fourth = json.loads(Path("data/hebrew_translation_batches/hebrew_lexicon_batch_0004.json").read_text(encoding="utf-8"))["records"]
     review = json.loads(Path("data/hebrew_translation_batches/hebrew_lexicon_batch_0004_review_candidates.json").read_text(encoding="utf-8"))["records"]
@@ -284,6 +336,7 @@ def test_fourth_batch_order_is_deterministic_and_frequency_driven(tmp_path: Path
     assert frequencies == sorted(frequencies, reverse=True)
 
 
+@requires_historical_batch_artifacts
 def test_fifth_batch_excludes_previous_batches_and_production_lexicon(tmp_path: Path) -> None:
     previous_records = []
     for number in ("0001", "0002", "0003", "0004"):
@@ -302,6 +355,7 @@ def test_fifth_batch_excludes_previous_batches_and_production_lexicon(tmp_path: 
     assert not (fifth_ids & next_ids)
 
 
+@requires_historical_batch_artifacts
 def test_fifth_batch_composition_source_quality_and_preaudit_classes() -> None:
     fifth = json.loads(Path("data/hebrew_translation_batches/hebrew_lexicon_batch_0005.json").read_text(encoding="utf-8"))["records"]
     language_counts = Counter(record.get("language") or "unspecified" for record in fifth)
@@ -322,6 +376,7 @@ def test_fifth_batch_composition_source_quality_and_preaudit_classes() -> None:
     assert set(class_counts) <= {"straightforward", "contextual", "proper_name", "ambiguous"}
 
 
+@requires_historical_batch_artifacts
 def test_fifth_review_candidates_match_review_required_records() -> None:
     fifth = json.loads(Path("data/hebrew_translation_batches/hebrew_lexicon_batch_0005.json").read_text(encoding="utf-8"))["records"]
     review = json.loads(Path("data/hebrew_translation_batches/hebrew_lexicon_batch_0005_review_candidates.json").read_text(encoding="utf-8"))["records"]
@@ -406,7 +461,12 @@ def test_import_rejects_empty_required_lexical_note(tmp_path: Path) -> None:
 
 
 def test_english_sentence_detector_accepts_current_pilot_hungarian_notes() -> None:
-    data = json.loads(Path("data/hebrew_translation_batches/hebrew_lexicon_batch_0001_hu.json").read_text(encoding="utf-8"))
+    # Phase 2B: rewritten against the committed production lexicon — the
+    # original read the (never-committed) historical batch export
+    # `hebrew_lexicon_batch_0001_hu.json`; every Strong id it referenced is
+    # present in the shipped `hebrew_lexicon_hu.json` with the same field
+    # shape, so the same regression check holds against the real artifact.
+    production_lexicon = load_hebrew_hungarian_lexicon()
     previously_flagged = {
         "H1121G",
         "H6440G",
@@ -433,9 +493,9 @@ def test_english_sentence_detector_accepts_current_pilot_hungarian_notes() -> No
     }
 
     notes = {
-        record["strong_id"]: record["lexical_note_hu"]
-        for record in data["records"]
-        if record["strong_id"] in previously_flagged
+        strong_id: entry.lexical_note_hu
+        for strong_id, entry in production_lexicon.items()
+        if strong_id in previously_flagged
     }
 
     assert set(notes) == previously_flagged

@@ -81,6 +81,7 @@ st_*.log
 !data/generated/tahot_ot_runtime.sqlite3
 !data/generated/tbesh_lexicon_runtime.sqlite3
 !data/generated/acai_entities.sqlite3
+!data/generated/hebrew_component_fidelity.sqlite3
 # Dev-only grounded A/B compare artifacts (may contain model outputs).
 data/generated/kb_grounded_compare/
 data/generated/kb_grounded_compare.sqlite3

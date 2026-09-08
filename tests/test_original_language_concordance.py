@@ -3,6 +3,19 @@ from __future__ import annotations
 import pytest
 
 import original_language_concordance as olc
+from ruf_bible_local_db import DEFAULT_DATABASE_PATH as RUF_DATABASE_PATH
+
+# Phase 2B — this is a genuinely optional external artifact, not a test
+# infrastructure gap: the RÚF 2014 Hungarian Bible text is under a
+# contractual licence with the Hungarian Bible Society that explicitly
+# forbids committing it to version control (see .gitignore's dedicated
+# warning next to `data/generated/ruf_bible.sqlite3`). A clean checkout
+# correctly does not have it; only a local production/dev environment with
+# its own licensed copy does.
+requires_ruf_database = pytest.mark.skipif(
+    not RUF_DATABASE_PATH.exists(),
+    reason="RÚF 2014 Hungarian Bible text is licensed and intentionally not committed to git",
+)
 
 
 def test_detect_query_kind_hebrew_strong() -> None:
@@ -80,6 +93,7 @@ def test_search_original_greek_strong_returns_hits() -> None:
     assert all(h.strong_id == "G2316" for h in hits)
 
 
+@requires_ruf_database
 def test_search_original_attaches_hungarian_context_by_default() -> None:
     hits = olc.search_original("G2316")
 

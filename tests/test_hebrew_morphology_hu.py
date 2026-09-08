@@ -70,8 +70,13 @@ def test_formats_common_verbal_stems_and_forms() -> None:
     expectations = {
         "HVqp3ms": "qal törzs, perfectum",
         "HVqi3ms": "qal törzs, imperfectum",
-        "HVqv3ms": "qal törzs, weqatal",
-        "HVqm2ms": "qal törzs, imperativus",
+        # Phase 2A: "HVqv3ms" -> "weqatal" and "HVqm2ms" -> "imperativus" used
+        # to be asserted here. Neither code can occur: "v" is the imperative and
+        # is ALWAYS second person (4305/4305 tokens), while "m" appears zero
+        # times in the corpus. The codes below are real TAHOT codes.
+        "HVqq3ms": "qal törzs, weqatal",
+        "HVqv2ms": "qal törzs, imperativus",
+        "HVqc1cs": "qal törzs, cohortativus",
         "HVqcc": "qal törzs, infinitivus constructus, constructus",
         "HVqaa": "qal törzs, infinitivus absolutus, absolutus",
         "HVNp3ms": "nifal törzs, perfectum",
@@ -171,6 +176,10 @@ def test_common_former_partial_patterns_are_fully_hungarian() -> None:
         "HVci2ms",
     ]
 
+    # Phase 2B: the authoritative STEPBible TEHMC source is now vendored and
+    # resolves every stem code Phase 2A left unnamed (D/u/M/Q included — see
+    # STEMS_BY_LANGUAGE in bible_engine/hebrew_morphology.py). All codes below
+    # must therefore now be fully_decoded, with leak-free Hungarian rendering.
     for code in codes:
         decoded = decode_hebrew_morphology(code)
         text = format_hebrew_morphology_hu(decoded, include_language=True)

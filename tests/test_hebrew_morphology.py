@@ -26,9 +26,19 @@ def test_decodes_common_stems_and_nonverbs() -> None:
     assert decode_hebrew_morphology("HVHp3ms").verb_stem == "Hophal"
     assert decode_hebrew_morphology("HVtp3ms").verb_stem == "Hithpael"
     assert decode_hebrew_morphology("HVcp1cs").verb_stem == "Tiphil"
+    # Phase 2B: the authoritative STEPBible TEHMC source is now vendored
+    # (data/stepbible_sources/TEHMC.txt) and resolves every stem code Phase 2A
+    # left unnamed. Stem letters are LANGUAGE-DEPENDENT — TEHMC assigns a
+    # different binyan name to the same letter in Hebrew vs. Aramaic (e.g.
+    # Hebrew "u" = Hothpaal, Aramaic "u" = Hitpael) — so "HVDq3cp" (Hebrew "D")
+    # and "AVMi3fs" (Aramaic "M") resolve to different-language stem tables.
+    # See STEMS_BY_LANGUAGE and docs/hebrew_analysis_v2_phase2b.md.
     assert decode_hebrew_morphology("HVDq3cp").verb_stem == "Nithpael"
-    assert decode_hebrew_morphology("AVui2mp").verb_stem == "Hitpael"
     assert decode_hebrew_morphology("AVMi3fs").verb_stem == "Hitpaal"
+    aramaic_u = decode_hebrew_morphology("AVui2mp")
+    assert aramaic_u.verb_stem == "Hitpael"
+    hebrew_u = decode_hebrew_morphology("HVucc")
+    assert hebrew_u.verb_stem == "Hothpaal"
     noun = decode_hebrew_morphology("HNcmsc")
     assert noun.part_of_speech == "Noun"
     assert noun.noun_type == "Common"
@@ -49,7 +59,9 @@ def test_decodes_suffix_and_aramaic_without_inventing_unknowns() -> None:
     assert suffix.suffix_gender == "Masculine"
     assert suffix.suffix_number == "Singular"
     assert directional.suffix_type == "Directional"
-    assert emphatic.suffix_type == "Emphatic"
+    # Phase 2B: TEHMC (Sn) names this "Paragogic Nun", a specific energic
+    # suffix — not a generic "Emphatic" marker as Phase 1/2A guessed.
+    assert emphatic.suffix_type == "Paragogic Nun"
     assert pronoun.pronoun_type == "Personal"
     assert pronoun.person == "First"
     assert pronoun.gender == "Either gender"
@@ -136,7 +148,11 @@ def test_decodes_aramaic_slash_components() -> None:
 
     assert decoded.language == "Aramaic"
     assert decoded.part_of_speech == "Conjunction + Verb"
-    assert decoded.verb_stem == "Qal"
+    # Phase 2B: Aramaic "q" is Peal, not Qal — TEHMC-confirmed. The Phase 2A
+    # decoder wrongly applied the Hebrew stem name to Aramaic tokens (a
+    # language-independent STEMS dict); this was a real defect affecting 939
+    # Aramaic tokens across six stem letters (see STEMS_BY_LANGUAGE).
+    assert decoded.verb_stem == "Peal"
     assert decoded.person == "Third"
     assert decoded.gender == "Masculine"
     assert decoded.number == "Singular"
