@@ -47,6 +47,13 @@ class CachedHebrewAnalysisService:
         self._max_entries = max_entries
         self._cache: OrderedDict[tuple[str, str], HebrewAnalysisBundle] = OrderedDict()
 
+    def dataset_version_signature(self) -> str:
+        """Passthrough — lets a caller that only holds this cache (e.g. the
+        Phase 2E UI, which keys ITS OWN separate AI-result cache on the
+        same signature) avoid constructing a second, possibly differently
+        configured ``HebrewAnalysisService``."""
+        return self._service.dataset_version_signature()
+
     def get_hebrew_analysis(self, reference: str) -> HebrewAnalysisBundle:
         signature = self._service.dataset_version_signature()
         if not signature:

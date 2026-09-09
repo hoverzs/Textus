@@ -154,6 +154,9 @@ def render_greek_analysis_block(
     tbesg_lexicon_loader: Callable[[str], SQLiteGreekLexiconEntry | None]
     | None = None,
     display_mode: AnalysisDisplayMode | str = "full",
+    hebrew_contextual_analysis_generate_fn: Callable[..., str] | None = None,
+    hebrew_contextual_analysis_model_id: str = "gemini-2.5-flash",
+    hebrew_contextual_analysis_generate_kwargs: dict[str, object] | None = None,
 ) -> None:
     status = greek_reference_status(reference)
     mode = _normalize_display_mode(display_mode)
@@ -177,6 +180,12 @@ def render_greek_analysis_block(
                 reference,
                 key_prefix=key_prefix,
                 display_mode=mode,
+                # Phase 2E — Hebrew-only grounded contextual-grammar layer;
+                # the Greek path above/below is intentionally untouched
+                # (do not start Greek Analysis v2, per that phase's brief).
+                generate_text_fn=hebrew_contextual_analysis_generate_fn,
+                contextual_analysis_model_id=hebrew_contextual_analysis_model_id,
+                contextual_analysis_generate_kwargs=hebrew_contextual_analysis_generate_kwargs,
             )
         except HebrewReferenceError as exc:
             st.warning(str(exc))

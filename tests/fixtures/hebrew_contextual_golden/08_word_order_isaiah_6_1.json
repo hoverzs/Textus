@@ -1,0 +1,27 @@
+{
+  "fixture_version": "1.0.0",
+  "reference": "Isa.6.1-3",
+  "reference_hu": "Ézs 6,1-3",
+  "category": "word_order_observation",
+  "rationale": "Lexical repetition (holy x3) plus participle-led clauses -- tests that any word-order note stays conditional/cautious ('kiemelt helyzetben allhat'), never a categorical emphasis claim, matching the brief's word-order rule and the fact that ClauseAnalysis.word_order is currently always empty in this dataset.",
+  "covers": [
+    "word_order_observation",
+    "lexical_repetition"
+  ],
+  "fixture_backed": false,
+  "fixture_path": null,
+  "status": "unreviewed_developer_candidate",
+  "reviewed_by": null,
+  "reviewed_at": null,
+  "review_notes_hu": "",
+  "expected_word_notes": [],
+  "expected_construction_notes": [],
+  "ai_constraints": {
+    "must_not_claim": [
+      "textual variant beyond supplied Ketiv/Qere",
+      "emphasis from word order alone",
+      "a universal stem-meaning formula"
+    ],
+    "must_distinguish_lexical_and_contextual": true
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "fixture_version": "1.0.0",
+  "reference": "Gen.2.16-17",
+  "reference_hu": "1Móz 2,16-17",
+  "category": "infinitive_absolute",
+  "rationale": "Infinitive absolute + finite verb of the same root ('mot tamut') -- the emphatic-construction case named directly in the Phase 2E brief's construction-level-observations section.",
+  "covers": [
+    "infinitive_absolute_plus_finite_verb"
+  ],
+  "fixture_backed": false,
+  "fixture_path": null,
+  "status": "unreviewed_developer_candidate",
+  "reviewed_by": null,
+  "reviewed_at": null,
+  "review_notes_hu": "",
+  "expected_word_notes": [],
+  "expected_construction_notes": [],
+  "ai_constraints": {
+    "must_not_claim": [
+      "textual variant beyond supplied Ketiv/Qere",
+      "emphasis from word order alone",
+      "a universal stem-meaning formula"
+    ],
+    "must_distinguish_lexical_and_contextual": true
+  }
+}

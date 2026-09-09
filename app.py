@@ -119,6 +119,9 @@ from biblical_place_enrichment import (
 from bible_engine.greek_analysis_ui import (
     render_greek_analysis_block,
 )
+from bible_engine.hebrew_contextual_analysis import (
+    HEBREW_CONTEXTUAL_ANALYSIS_RESPONSE_SCHEMA,
+)
 from bible_engine.original_language_analysis import (
     ORIGINAL_TEXT_BASE_PROMPT,
     STATUS_AI_FALLBACK,
@@ -7140,6 +7143,30 @@ def generate_text(
 
 
 # =========================================================
+# HÉBER KONTEXTUÁLIS NYELVTANI/MONDATTANI ELEMZÉS (Phase 2E)
+# =========================================================
+
+def generate_hebrew_contextual_analysis_text(prompt: str, **kwargs) -> str:
+    """The ``generate_fn`` binding ``hebrew_text_demo.render_hebrew_
+    contextual_analysis_panel`` calls into — routes through the same
+    ``generate_text()`` (same API key, cooldown, cache, debug log) every
+    other tab uses, with structured JSON output requested via
+    ``response_schema`` (Phase 2E's grounded contextual-analysis contract).
+    ``bible_engine`` modules never import ``generate_text`` directly (it is
+    Streamlit-coupled); this is the dependency-injection binding, same
+    convention as ``run_original_language_analysis``'s ``generate_text_fn``.
+    """
+    return generate_text(
+        prompt,
+        tab_label="Eredeti szöveg tanulmányozása",
+        response_mime_type="application/json",
+        response_schema=HEBREW_CONTEXTUAL_ANALYSIS_RESPONSE_SCHEMA,
+        include_brevity_directive=False,
+        **kwargs,
+    )
+
+
+# =========================================================
 # CHAT FINOMÍTÓ
 # =========================================================
 
@@ -7718,6 +7745,7 @@ def render_original_text_panel() -> None:
             render_greek_analysis_block(
                 reference=_igehely_orig,
                 key_prefix="textus_original_language",
+                hebrew_contextual_analysis_generate_fn=generate_hebrew_contextual_analysis_text,
             )
 
         _orig_running = bool(st.session_state.get("_original_running"))

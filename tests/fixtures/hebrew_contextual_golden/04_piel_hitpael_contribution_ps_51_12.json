@@ -1,0 +1,27 @@
+{
+  "fixture_version": "1.0.0",
+  "reference": "Ps.51.12-14",
+  "reference_hu": "Zsolt 51,12-14",
+  "category": "stem_semantic_contribution",
+  "rationale": "Piel/Hitpael forms alongside a cohortative -- tests the brief's verbal-stem-explanation rule that a stem's contribution is explained for THIS lexeme in THIS clause, never as a universal formula ('Piel = intenziv').",
+  "covers": [
+    "piel_hitpael_semantic_contribution",
+    "cohortative"
+  ],
+  "fixture_backed": false,
+  "fixture_path": null,
+  "status": "unreviewed_developer_candidate",
+  "reviewed_by": null,
+  "reviewed_at": null,
+  "review_notes_hu": "",
+  "expected_word_notes": [],
+  "expected_construction_notes": [],
+  "ai_constraints": {
+    "must_not_claim": [
+      "textual variant beyond supplied Ketiv/Qere",
+      "emphasis from word order alone",
+      "a universal stem-meaning formula"
+    ],
+    "must_distinguish_lexical_and_contextual": true
+  }
+}

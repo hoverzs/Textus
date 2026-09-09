@@ -1,0 +1,27 @@
+{
+  "fixture_version": "1.0.0",
+  "reference": "Gen.11.7",
+  "reference_hu": "1Móz 11,7",
+  "category": "cohortative",
+  "rationale": "Cohortative/volitional forms (TEHMC form code 'u', inventory §5.4 secondary suspect). Tests that a cohortative is explained as a 1st-person volitional form, not folded into a generic 'imperfectum' label.",
+  "covers": [
+    "cohortative",
+    "verb_form_correctness"
+  ],
+  "fixture_backed": false,
+  "fixture_path": null,
+  "status": "unreviewed_developer_candidate",
+  "reviewed_by": null,
+  "reviewed_at": null,
+  "review_notes_hu": "",
+  "expected_word_notes": [],
+  "expected_construction_notes": [],
+  "ai_constraints": {
+    "must_not_claim": [
+      "textual variant beyond supplied Ketiv/Qere",
+      "emphasis from word order alone",
+      "a universal stem-meaning formula"
+    ],
+    "must_distinguish_lexical_and_contextual": true
+  }
+}

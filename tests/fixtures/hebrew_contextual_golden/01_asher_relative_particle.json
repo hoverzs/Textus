@@ -1,0 +1,27 @@
+{
+  "fixture_version": "1.0.0",
+  "reference": "Ruth.1.16-17",
+  "reference_hu": "Ruth 1,16-17",
+  "category": "relative_particle_lexical_vs_contextual",
+  "rationale": "אֲשڶׁר a canonical lexical-vs-contextual regression case (Phase 2A/inventory §6.4): the base lexical function is the relative particle ('aki, amely, ami'), and a temporal/other contextual rendering must never be presented as the general meaning.",
+  "covers": [
+    "asher_relative_particle",
+    "lexical_vs_contextual_meaning"
+  ],
+  "fixture_backed": true,
+  "fixture_path": "tests/fixtures/macula_lowfat/ruth_1_excerpt-lowfat.xml",
+  "status": "unreviewed_developer_candidate",
+  "reviewed_by": null,
+  "reviewed_at": null,
+  "review_notes_hu": "",
+  "expected_word_notes": [],
+  "expected_construction_notes": [],
+  "ai_constraints": {
+    "must_not_claim": [
+      "textual variant beyond supplied Ketiv/Qere",
+      "emphasis from word order alone",
+      "a universal stem-meaning formula"
+    ],
+    "must_distinguish_lexical_and_contextual": true
+  }
+}

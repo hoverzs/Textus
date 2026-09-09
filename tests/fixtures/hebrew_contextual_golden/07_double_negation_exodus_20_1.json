@@ -1,0 +1,26 @@
+{
+  "fixture_version": "1.0.0",
+  "reference": "Ex.20.1-3",
+  "reference_hu": "2Móz 20,1-3",
+  "category": "double_negation",
+  "rationale": "Multiple negations across the Decalogue opening -- tests the double-negation construction note and the H3808/H0430G lexical-hijack caution named in the inventory §6.4.",
+  "covers": [
+    "double_negation"
+  ],
+  "fixture_backed": false,
+  "fixture_path": null,
+  "status": "unreviewed_developer_candidate",
+  "reviewed_by": null,
+  "reviewed_at": null,
+  "review_notes_hu": "",
+  "expected_word_notes": [],
+  "expected_construction_notes": [],
+  "ai_constraints": {
+    "must_not_claim": [
+      "textual variant beyond supplied Ketiv/Qere",
+      "emphasis from word order alone",
+      "a universal stem-meaning formula"
+    ],
+    "must_distinguish_lexical_and_contextual": true
+  }
+}

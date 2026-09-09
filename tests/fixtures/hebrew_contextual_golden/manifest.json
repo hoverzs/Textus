@@ -1,0 +1,38 @@
+{
+  "manifest_version": "1.0.0",
+  "purpose": "Phase 2E developer regression framework for the grounded Hungarian contextual-grammar AI layer. These are DEVELOPER regression candidates, drawn from verified real corpus passages (several already backed by committed MACULA fixtures) -- NOT professor-approved goldens. A named Hebrew expert's exact review verses were not available when this framework was built; every entry has reviewed_by=null until a real expert review happens. See docs/hebrew_analysis_v2_phase2e.md.",
+  "status": "unreviewed_developer_candidates",
+  "fixtures": [
+    "01_asher_relative_particle.json",
+    "02_imperative_genesis_1_22.json",
+    "03_cohortative_genesis_11_7.json",
+    "04_piel_hitpael_contribution_ps_51_12.json",
+    "05_construct_chain_genesis_1_1.json",
+    "06_infinitive_absolute_genesis_2_16.json",
+    "07_double_negation_exodus_20_1.json",
+    "08_word_order_isaiah_6_1.json",
+    "09_ketiv_qere_ruth_1_8.json",
+    "10_aramaic_ezra_4_8.json",
+    "11_multi_component_genesis_22_2.json",
+    "12_partial_syntax_grounding_genesis_36_5.json"
+  ],
+  "categories_covered": [
+    "aramaic",
+    "asher_relative_particle",
+    "cohortative",
+    "construct_chain",
+    "double_negation",
+    "imperative",
+    "infinitive_absolute_plus_finite_verb",
+    "ketiv_qere",
+    "lexical_repetition",
+    "lexical_vs_contextual_meaning",
+    "multi_component_structure",
+    "partial_syntax_grounding",
+    "piel_hitpael_semantic_contribution",
+    "pronominal_suffix",
+    "qatal_wayyiqtol_contrast",
+    "verb_form_correctness",
+    "word_order_observation"
+  ]
+}

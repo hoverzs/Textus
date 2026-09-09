@@ -227,3 +227,11 @@ def test_clear_empties_cache():
     assert cache.cache_size() == 0
     cache.get_hebrew_analysis("Gen.1.1")
     assert fake.build_calls == ["Gen.1.1", "Gen.1.1"]
+
+
+def test_dataset_version_signature_passthrough():
+    """Phase 2E: the UI's separate AI-result cache keys on this same
+    signature without needing its own HebrewAnalysisService instance."""
+    fake = _FakeService(signature="tahot:rev-z")
+    cache = CachedHebrewAnalysisService(fake)
+    assert cache.dataset_version_signature() == "tahot:rev-z"

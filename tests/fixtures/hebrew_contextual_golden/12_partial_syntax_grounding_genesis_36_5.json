@@ -1,0 +1,27 @@
+{
+  "fixture_version": "1.0.0",
+  "reference": "Gen.36.5",
+  "reference_hu": "1Móz 36,5",
+  "category": "partial_syntax_grounding",
+  "rationale": "The Phase 2D.1 anti-regression passage: 2 of its tokens are genuinely UNRESOLVED, so this verse is PARTIALLY_GROUNDED_SYNTAX by construction. Tests that syntax claims are restricted to the covered tokens and the uncovered tokens are named, not silently dropped or silently treated as fully grounded.",
+  "covers": [
+    "partial_syntax_grounding",
+    "ketiv_qere"
+  ],
+  "fixture_backed": true,
+  "fixture_path": "tests/fixtures/macula_lowfat/genesis_36_5_excerpt-lowfat.xml",
+  "status": "unreviewed_developer_candidate",
+  "reviewed_by": null,
+  "reviewed_at": null,
+  "review_notes_hu": "",
+  "expected_word_notes": [],
+  "expected_construction_notes": [],
+  "ai_constraints": {
+    "must_not_claim": [
+      "textual variant beyond supplied Ketiv/Qere",
+      "emphasis from word order alone",
+      "a universal stem-meaning formula"
+    ],
+    "must_distinguish_lexical_and_contextual": true
+  }
+}

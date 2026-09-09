@@ -1,0 +1,27 @@
+{
+  "fixture_version": "1.0.0",
+  "reference": "Gen.22.2",
+  "reference_hu": "1Móz 22,2",
+  "category": "multi_component_structure",
+  "rationale": "Object marker + maqaf + pronominal-suffix chain in one short verse (inventory §5.5 misalignment-proof passage) -- tests that prefix/core/suffix component decomposition reaches the AI intact and grounds any 'multi-component construction' note.",
+  "covers": [
+    "multi_component_structure",
+    "pronominal_suffix"
+  ],
+  "fixture_backed": false,
+  "fixture_path": null,
+  "status": "unreviewed_developer_candidate",
+  "reviewed_by": null,
+  "reviewed_at": null,
+  "review_notes_hu": "",
+  "expected_word_notes": [],
+  "expected_construction_notes": [],
+  "ai_constraints": {
+    "must_not_claim": [
+      "textual variant beyond supplied Ketiv/Qere",
+      "emphasis from word order alone",
+      "a universal stem-meaning formula"
+    ],
+    "must_distinguish_lexical_and_contextual": true
+  }
+}

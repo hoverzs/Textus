@@ -6,14 +6,26 @@ import re
 import unicodedata
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import streamlit as st
 
+from bible_engine.hebrew_analysis_bundle import HebrewAnalysisBundle, VerseAnalysis
+from bible_engine.hebrew_analysis_cache import CachedHebrewAnalysisService
+from bible_engine.hebrew_analysis_service import HebrewAnalysisService, HebrewAnalysisUnavailable
 from bible_engine.hebrew_books import (
     parse_hebrew_reference,
     tahot_book_code_from_ruf_code,
 )
+from bible_engine.hebrew_contextual_analysis import (
+    CONTEXTUAL_ANALYSIS_PROMPT_VERSION,
+    HebrewContextualAnalysis,
+)
+from bible_engine.hebrew_contextual_analysis_cache import (
+    HebrewContextualAnalysisCache,
+    get_or_request_hebrew_contextual_analysis,
+)
+from bible_engine.hebrew_contextual_analysis_service import STATUS_OK
 from bible_engine.hebrew_lexicon_repository import HebrewLexiconRepository
 from bible_engine.hebrew_lexicon_hu import HebrewHungarianLexiconRepository
 from bible_engine.hebrew_morphology import HebrewMorphology
@@ -471,6 +483,158 @@ def render_lexical_panel(
     st.warning("Nincs lexikai adat ehhez a Strong/STEP azonosítóhoz.")
 
 
+def _hebrew_analysis_bundle_cache(production_db_path: Path | None) -> CachedHebrewAnalysisService:
+    """One Phase 2D.2 dataset-version-keyed bundle cache per (Streamlit
+    session, production_db_path) — reused across every rerun/token-click,
+    exactly like the existing ``_call_cache`` session-state pattern for AI
+    text. Keyed by path so the dev demo harness's non-default database
+    path (``render_hebrew_demo``) never shares a cache with the real app's
+    default path."""
+    registry: dict[str, CachedHebrewAnalysisService] = st.session_state.setdefault(
+        "_hebrew_analysis_bundle_cache_registry", {}
+    )
+    key = str(production_db_path) if production_db_path is not None else "__default__"
+    if key not in registry:
+        service = HebrewAnalysisService(production_db_path=production_db_path)
+        registry[key] = CachedHebrewAnalysisService(service)
+    return registry[key]
+
+
+def _hebrew_contextual_analysis_cache() -> HebrewContextualAnalysisCache:
+    """The SEPARATE Phase 2E AI-result cache — deliberately not the same
+    object as the deterministic bundle cache above (different versioning
+    semantics; see bible_engine.hebrew_contextual_analysis_cache)."""
+    return st.session_state.setdefault("_hebrew_contextual_analysis_cache", HebrewContextualAnalysisCache())
+
+
+def render_hebrew_contextual_analysis_panel(
+    selected_token: HebrewToken,
+    reference: str,
+    *,
+    generate_text_fn: Callable[..., str] | None,
+    key_prefix: str = "hebrew_original",
+    production_db_path: Path | None = None,
+    model_id: str = "gemini-2.5-flash",
+    generate_kwargs: dict[str, object] | None = None,
+) -> None:
+    """Phase 2E — additive contextual-grammar/syntax interpretation for the
+    SAME token the deterministic card above already shows, grounded on the
+    ``HebrewAnalysisBundle`` (Phase 2C/2D/2D.1/2D.2), never on raw text.
+
+    Purely additive: when ``generate_text_fn`` is ``None`` (every existing
+    call site that does not pass it — demo harness, other embeddings),
+    this renders nothing and every other section of the panel is byte-
+    identical to before Phase 2E. On any failure (bundle unavailable, AI
+    call fails, malformed response) this degrades to a small notice — the
+    deterministic card above is never affected.
+    """
+    if generate_text_fn is None:
+        return
+
+    bundle_service = _hebrew_analysis_bundle_cache(production_db_path)
+    try:
+        bundle: HebrewAnalysisBundle = bundle_service.get_hebrew_analysis(reference)
+    except HebrewAnalysisUnavailable:
+        return
+
+    verse: VerseAnalysis | None = next(
+        (v for v in bundle.verses if v.chapter == selected_token.chapter and v.verse == selected_token.verse),
+        None,
+    )
+    if verse is None:
+        return
+
+    st.markdown("#### Nyelvtani és mondattani elemzés (AI)")
+
+    dataset_signature = bundle_service.dataset_version_signature()
+    contextual_cache = _hebrew_contextual_analysis_cache()
+    cached = contextual_cache.get(
+        verse_id=verse.verse_id,
+        dataset_version_signature=dataset_signature,
+        prompt_version=CONTEXTUAL_ANALYSIS_PROMPT_VERSION,
+        model_id=model_id,
+    )
+
+    button_key = f"{key_prefix}_contextual_analysis_run_{verse.verse_id}"
+    if cached is None:
+        st.caption(
+            "Ehhez a vershez még nincs legenerálva kontextuális nyelvtani/"
+            "mondattani elemzés."
+        )
+        if st.button("Kontextuális elemzés generálása", key=button_key):
+            with st.spinner("Kontextuális nyelvtani elemzés készül..."):
+                result = get_or_request_hebrew_contextual_analysis(
+                    verse,
+                    dataset_version_signature=dataset_signature,
+                    model_id=model_id,
+                    generate_fn=generate_text_fn,
+                    cache=contextual_cache,
+                    generate_kwargs=generate_kwargs,
+                )
+            if result.status != STATUS_OK:
+                st.info(
+                    "A kontextuális elemzés jelenleg nem érhető el. A "
+                    "determinisztikus szó- és mondattani adatok fent "
+                    "továbbra is elérhetők."
+                )
+                return
+            st.rerun()
+        return
+
+    analysis: HebrewContextualAnalysis = cached.analysis  # type: ignore[assignment]
+    token_analysis = next((t for t in verse.tokens if t.legacy_stable_key == selected_token.stable_key), None)
+    _render_hebrew_contextual_word_note(analysis, token_analysis.token_id if token_analysis else None)
+    _render_hebrew_contextual_verse_sections(analysis)
+
+
+def _render_hebrew_contextual_word_note(analysis: HebrewContextualAnalysis, token_id: str | None) -> None:
+    if token_id is None:
+        return
+    note = next((n for n in analysis.word_notes if n.token_id == token_id), None)
+    if note is None:
+        return
+    if note.lexical_basic_meaning_hu:
+        st.markdown(f"**Lexikai alapjelentés:** {note.lexical_basic_meaning_hu}")
+    if note.grammar_explanation_hu:
+        st.markdown(f"**Nyelvtani alak:** {note.grammar_explanation_hu}")
+    if note.contextual_meaning_hu:
+        st.markdown(f"**Jelentése ebben a mondatban:** {note.contextual_meaning_hu}")
+    if note.syntax_explanation_hu:
+        st.markdown(f"**Mondattani szerepe:** {note.syntax_explanation_hu}")
+    if note.translation_note_hu:
+        st.caption(f"Fordítási megjegyzés: {note.translation_note_hu}")
+
+
+def _render_hebrew_contextual_verse_sections(analysis: HebrewContextualAnalysis) -> None:
+    if analysis.construction_notes:
+        with st.expander("Nyelvtani és mondattani megfigyelések", expanded=False):
+            for construction in analysis.construction_notes:
+                st.markdown(f"**{construction.title_hu}**")
+                st.markdown(construction.explanation_hu)
+                if construction.translation_significance_hu:
+                    st.caption(construction.translation_significance_hu)
+
+    if analysis.syntax_summary.summary_hu:
+        with st.expander("Mondatelemzés", expanded=False):
+            st.markdown(analysis.syntax_summary.summary_hu)
+
+    if analysis.translation_notes:
+        with st.expander("Fordítási megfigyelések", expanded=False):
+            for note in analysis.translation_notes:
+                st.markdown(f"- {note}")
+
+    if analysis.exegetical_notes:
+        with st.expander("Exegetikai jelentőség", expanded=False):
+            for note in analysis.exegetical_notes:
+                st.markdown(f"- {note}")
+
+    if analysis.grounding_status == "PARTIALLY_GROUNDED_SYNTAX":
+        st.caption(
+            "A mondat szerkezetének egy része ezen a helyen nem kapcsolható "
+            "teljes biztonsággal a szöveg szavaihoz."
+        )
+
+
 def _render_morphology_groups(view_model: dict[str, object]) -> None:
     groups = view_model.get("morphology_groups") or {}
     if not isinstance(groups, dict):
@@ -614,6 +778,9 @@ def render_hebrew_original_language_panel(
     database_path: Path = DEFAULT_TAHOT_DATABASE_PATH,
     reference_label: str | None = None,
     display_mode: str = "full",
+    generate_text_fn: Callable[..., str] | None = None,
+    contextual_analysis_model_id: str = "gemini-2.5-flash",
+    contextual_analysis_generate_kwargs: dict[str, object] | None = None,
 ) -> None:
     _ensure_hebrew_analysis_styles()
 
@@ -732,6 +899,15 @@ def render_hebrew_original_language_panel(
     )
     if display_mode != "compact":
         st.caption("Forr\u00e1s \u00e9s licenc: STEP Bible / STEPBible-Data, CC BY 4.0, www.STEPBible.org.")
+        render_hebrew_contextual_analysis_panel(
+            selected_token,
+            _reference_label(book, chapter, verse_start, end),
+            generate_text_fn=generate_text_fn,
+            key_prefix=key_prefix,
+            production_db_path=database_path,
+            model_id=contextual_analysis_model_id,
+            generate_kwargs=contextual_analysis_generate_kwargs,
+        )
 
 
 def render_hebrew_original_language_reference(
@@ -740,6 +916,9 @@ def render_hebrew_original_language_reference(
     key_prefix: str = "hebrew_original",
     database_path: Path = DEFAULT_TAHOT_DATABASE_PATH,
     display_mode: str = "full",
+    generate_text_fn: Callable[..., str] | None = None,
+    contextual_analysis_model_id: str = "gemini-2.5-flash",
+    contextual_analysis_generate_kwargs: dict[str, object] | None = None,
 ) -> None:
     book, chapter, verse_start, verse_end = parse_hebrew_original_reference(reference)
     render_hebrew_original_language_panel(
@@ -751,6 +930,9 @@ def render_hebrew_original_language_reference(
         database_path=database_path,
         reference_label=reference,
         display_mode=display_mode,
+        generate_text_fn=generate_text_fn,
+        contextual_analysis_model_id=contextual_analysis_model_id,
+        contextual_analysis_generate_kwargs=contextual_analysis_generate_kwargs,
     )
 
 
