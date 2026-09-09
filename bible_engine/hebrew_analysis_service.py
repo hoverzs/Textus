@@ -32,8 +32,8 @@ from bible_engine.hebrew_analysis_bundle import (
 )
 from bible_engine.hebrew_analysis_repository import (
     HebrewAnalysisRepository,
-    LocalHebrewAnalysisRepository,
     VerseSyntaxData,
+    get_default_hebrew_analysis_repository,
 )
 from bible_engine.hebrew_books import HebrewReferenceError, parse_hebrew_reference
 from bible_engine.hebrew_component_repository import (
@@ -86,10 +86,22 @@ class HebrewAnalysisService:
         )
         # Phase 2D: syntax/phrase/clause/semantic-role/coreference data —
         # NEVER token/morphology/lexical data, which stays on the Phase 2C
-        # path above unchanged (see this module's docstring). Defaults to
-        # the local SQLite mirror; pass a SupabaseHebrewAnalysisRepository
-        # for the production-capable read path.
-        self._linguistic_repository: HebrewAnalysisRepository = linguistic_repository or LocalHebrewAnalysisRepository()
+        # path above unchanged (see this module's docstring). Phase 2D.2:
+        # the default backend (local SQLite vs. Supabase) is resolved by
+        # get_default_hebrew_analysis_repository() via the same
+        # env-var/secrets convention every other Textus Supabase-backed
+        # feature uses — this service never branches on the backend
+        # itself. An explicit linguistic_repository= always overrides it.
+        self._linguistic_repository: HebrewAnalysisRepository = linguistic_repository or get_default_hebrew_analysis_repository()
+
+    def dataset_version_signature(self) -> str:
+        """Delegates to the configured linguistic repository — see
+        ``HebrewAnalysisRepository.dataset_version_signature`` (Phase 2D.2).
+        The sole intended consumer is ``bible_engine.hebrew_analysis_cache``,
+        which uses this as (part of) its cache key so a dataset-version bump
+        naturally stops matching old cache entries, with no explicit
+        invalidation logic required."""
+        return self._linguistic_repository.dataset_version_signature()
 
     def get_hebrew_analysis(self, reference: str) -> HebrewAnalysisBundle:
         """``reference`` is a Hungarian-style Old Testament reference

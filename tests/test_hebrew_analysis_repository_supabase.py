@@ -148,6 +148,45 @@ def test_supabase_repository_partial_grounding_when_verse_has_an_unresolved_toke
     assert syntax.syntax_grounding == repository_module.SYNTAX_GROUNDING_PARTIAL
 
 
+def test_supabase_repository_uses_grounding_view_when_available(monkeypatch):
+    """Phase 2D.2: when the optional hebrew_verse_syntax_grounding view
+    (migration 20260908223000) is present, its single-query result is used
+    directly instead of the three-query fallback — verified here by
+    seeding ONLY the view's own row, with hebrew_verses/hebrew_tokens/
+    hebrew_token_alignments deliberately left empty so the fallback path
+    would return the wrong answer (NO_GROUNDED_SYNTAX) if it were used
+    instead of the view."""
+    data = _seed_ruth_1_1_data()
+    data["hebrew_verses"] = []
+    data["hebrew_tokens"] = []
+    data["hebrew_token_alignments"] = []
+    data["hebrew_verse_syntax_grounding"] = [
+        {"verse_ref": "Ruth.1.1", "grounding_status": "FULLY_GROUNDED_SYNTAX"},
+    ]
+    monkeypatch.setattr("supabase_client.get_supabase_client", lambda: _FakeClient(data))
+
+    repository = SupabaseHebrewAnalysisRepository()
+    syntax = repository.get_verse_syntax("Ruth.1.1")
+    assert syntax.syntax_grounding == repository_module.SYNTAX_GROUNDING_FULL
+
+
+def test_supabase_repository_falls_back_when_grounding_view_absent(monkeypatch):
+    """When the view is not present (e.g. only the base Phase 2D
+    migration has been applied), the repository must fall back to the
+    three-query path and still produce the correct answer — not fail
+    closed just because the optional optimization is unavailable."""
+    data = _seed_ruth_1_1_data()
+    # no "hebrew_verse_syntax_grounding" key at all -> _FakeClient.table()
+    # returns an empty table for it, exactly like querying a view that
+    # doesn't exist yet would (Postgrest returns no rows / an error the
+    # repository already treats the same way via its own try/except).
+    monkeypatch.setattr("supabase_client.get_supabase_client", lambda: _FakeClient(data))
+
+    repository = SupabaseHebrewAnalysisRepository()
+    syntax = repository.get_verse_syntax("Ruth.1.1")
+    assert syntax.syntax_grounding == repository_module.SYNTAX_GROUNDING_FULL
+
+
 def test_supabase_repository_fail_closed_on_missing_client(monkeypatch):
     def _raise():
         raise RuntimeError("no credentials configured")

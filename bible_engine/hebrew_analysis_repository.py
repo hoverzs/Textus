@@ -32,6 +32,7 @@ LLM.
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -96,10 +97,40 @@ class VerseSyntaxData:
 class HebrewAnalysisRepository(Protocol):
     def get_verse_syntax(self, verse_ref: str) -> VerseSyntaxData: ...
 
+    def dataset_version_signature(self) -> str:
+        """A short, stable string identifying exactly which dataset
+        revisions are currently active (e.g. ``"macula_hebrew_lowfat:26.04.13,tahot:phase2b"``,
+        sorted for determinism). Phase 2D.2's cache layer
+        (``bible_engine.hebrew_analysis_cache``) keys cached bundles on
+        ``(reference, this signature)`` — since the linguistic dataset is
+        immutable within one version, this is the natural, minimal cache
+        invalidation key (a version bump changes the signature, which
+        changes the cache key, which naturally "invalidates" every old
+        entry by simply never being looked up again — no explicit
+        invalidation logic needed). Returns ``""`` when unknown (e.g. no
+        store reachable) — callers must treat that as "do not cache,
+        recompute every time" rather than caching under a placeholder key.
+        """
+        ...
+
 
 class LocalHebrewAnalysisRepository:
     def __init__(self, database_path: str | Path | None = None) -> None:
         self.database_path = Path(database_path) if database_path is not None else DEFAULT_LOCAL_LINGUISTIC_STORE_PATH
+
+    def dataset_version_signature(self) -> str:
+        if not self.database_path.exists():
+            return ""
+        try:
+            connection = sqlite3.connect(f"file:{self.database_path.as_posix()}?mode=ro", uri=True)
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(
+                "SELECT dataset_id, revision FROM original_language_dataset_versions WHERE is_active = 1 ORDER BY dataset_id"
+            ).fetchall()
+            connection.close()
+        except sqlite3.Error:
+            return ""
+        return ",".join(f"{row['dataset_id']}:{row['revision']}" for row in rows)
 
     def get_verse_syntax(self, verse_ref: str) -> VerseSyntaxData:
         if not self.database_path.exists():
@@ -284,6 +315,23 @@ class SupabaseHebrewAnalysisRepository:
     coverage this class does have (same pattern as
     ``tests/test_textus_kb/test_commentary_translation_store_supabase.py``)."""
 
+    def dataset_version_signature(self) -> str:
+        try:
+            from supabase_client import get_supabase_client
+
+            client = get_supabase_client()
+            rows = (
+                client.table("original_language_dataset_versions")
+                .select("dataset_id, revision")
+                .eq("is_active", True)
+                .execute()
+                .data
+                or []
+            )
+        except Exception:  # noqa: BLE001 - fail-closed, see module docstring
+            return ""
+        return ",".join(f"{row['dataset_id']}:{row['revision']}" for row in sorted(rows, key=lambda r: r["dataset_id"]))
+
     def get_verse_syntax(self, verse_ref: str) -> VerseSyntaxData:
         try:
             from supabase_client import get_supabase_client
@@ -323,37 +371,63 @@ class SupabaseHebrewAnalysisRepository:
                 "id, referring_token_id, participant_id, relation_type"
             ).eq("verse_ref", verse_ref).execute().data or []
 
-            alignment_counts: dict[str, int] = {}
+            grounding = SYNTAX_GROUNDING_NONE
             has_syntax = bool(phrase_rows or clause_rows or edge_rows)
             if has_syntax:
-                verse_rows = client.table("hebrew_verses").select("id").eq("verse_ref", verse_ref).limit(1).execute().data or []
-                if verse_rows:
-                    token_rows = client.table("hebrew_tokens").select("token_id").eq(
-                        "verse_id", verse_rows[0]["id"]
-                    ).execute().data or []
-                    token_ids = [row["token_id"] for row in token_rows]
-                    if token_ids:
-                        alignment_rows = client.table("hebrew_token_alignments").select("token_id, alignment_type").in_(
-                            "token_id", token_ids
-                        ).execute().data or []
-                        seen: dict[str, str] = {}
-                        for row in alignment_rows:
-                            # multiple rows per COMPOSITE token (one per component) — any
-                            # non-UNRESOLVED row for a token_id means that token is confirmed.
-                            if row["token_id"] not in seen or row["alignment_type"] != "UNRESOLVED":
-                                seen[row["token_id"]] = row["alignment_type"]
-                        for alignment_type in seen.values():
-                            alignment_counts[alignment_type] = alignment_counts.get(alignment_type, 0) + 1
+                # Phase 2D.2: hebrew_verse_syntax_grounding (migration
+                # 20260908223000) computes this server-side in one query,
+                # replacing what previously took three round trips (verse
+                # id -> its tokens -> their alignment types). Falls back to
+                # the old three-query path if the view is not present
+                # (e.g. only the base Phase 2D migration has been applied
+                # so far) — never a hard dependency on the new migration.
+                try:
+                    grounding_rows = client.table("hebrew_verse_syntax_grounding").select(
+                        "grounding_status"
+                    ).eq("verse_ref", verse_ref).limit(1).execute().data or []
+                    if grounding_rows:
+                        grounding = grounding_rows[0]["grounding_status"]
+                    else:
+                        grounding = _fetch_grounding_via_fallback_queries(client, verse_ref)
+                except Exception:  # noqa: BLE001 - view may not exist yet on this project
+                    grounding = _fetch_grounding_via_fallback_queries(client, verse_ref)
         except Exception:  # noqa: BLE001 - fail-closed, see module docstring
             return VerseSyntaxData()
 
         return _assemble_from_rows(
-            phrase_rows, clause_rows, membership_rows, edge_rows, role_rows, participant_rows, coref_rows, alignment_counts
+            phrase_rows, clause_rows, membership_rows, edge_rows, role_rows, participant_rows, coref_rows, grounding
         )
 
 
+def _fetch_grounding_via_fallback_queries(client, verse_ref: str) -> str:
+    """Pre-Phase-2D.2 three-query path, kept as a fallback for a Supabase
+    project that only has the base Phase 2D migration applied (the
+    hebrew_verse_syntax_grounding view added in
+    20260908223000_hebrew_verse_syntax_grounding_view.sql is optional
+    infrastructure, not a hard requirement of the base schema)."""
+    verse_rows = client.table("hebrew_verses").select("id").eq("verse_ref", verse_ref).limit(1).execute().data or []
+    if not verse_rows:
+        return SYNTAX_GROUNDING_NONE
+    token_rows = client.table("hebrew_tokens").select("token_id").eq("verse_id", verse_rows[0]["id"]).execute().data or []
+    token_ids = [row["token_id"] for row in token_rows]
+    if not token_ids:
+        return SYNTAX_GROUNDING_NONE
+    alignment_rows = client.table("hebrew_token_alignments").select("token_id, alignment_type").in_(
+        "token_id", token_ids
+    ).execute().data or []
+    seen: dict[str, str] = {}
+    for row in alignment_rows:
+        if row["token_id"] not in seen or row["alignment_type"] != "UNRESOLVED":
+            seen[row["token_id"]] = row["alignment_type"]
+    alignment_counts: dict[str, int] = {}
+    for alignment_type in seen.values():
+        alignment_counts[alignment_type] = alignment_counts.get(alignment_type, 0) + 1
+    return _grounding_from_counts(alignment_counts)
+
+
 def _assemble_from_rows(
-    phrase_rows, clause_rows, membership_rows, edge_rows, role_rows, participant_rows, coref_rows, alignment_counts=None
+    phrase_rows, clause_rows, membership_rows, edge_rows, role_rows, participant_rows, coref_rows,
+    grounding: str = SYNTAX_GROUNDING_NONE,
 ) -> VerseSyntaxData:
     tokens_by_phrase: dict[int, list[str]] = {}
     tokens_by_clause: dict[int, list[str]] = {}
@@ -443,12 +517,56 @@ def _assemble_from_rows(
     return VerseSyntaxData(
         phrases=phrases, clauses=clauses, syntax_relations=syntax_relations,
         semantic_roles=semantic_roles, participants=participants, coreference=coreference,
-        syntax_grounding=_grounding_from_counts(alignment_counts or {}),
+        syntax_grounding=grounding,
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 2D.2 — backend selection (same env-var/secrets convention as
+# textus_kb.commentary_translation_store's TRANSLATION_BACKEND_ENV_VAR;
+# default stays "local" so existing callers, tests, and offline
+# development are completely unaffected unless this is explicitly
+# configured).
+# ---------------------------------------------------------------------------
+
+HEBREW_ANALYSIS_BACKEND_ENV_VAR = "TEXTUS_HEBREW_ANALYSIS_BACKEND"
+
+
+def _configured_hebrew_analysis_backend() -> str:
+    """Env-var only, deliberately — unlike
+    ``textus_kb.commentary_translation_store``'s dual env-var/Streamlit-
+    secrets lookup, this module has an established, tested invariant of
+    zero Streamlit dependency at any import depth (see the module
+    docstring and ``tests/test_hebrew_macula_alignment.py::
+    test_phase2d_modules_have_no_llm_or_direct_network_dependency``, which
+    walks the FULL AST including nested/lazy imports). A backend-selection
+    flag is a deployment-time setting (container/CI env var), not
+    something that needs interactive Streamlit-secrets configuration —
+    if that changes later, add it deliberately, with the test's
+    expectations updated in the same commit."""
+    return os.environ.get(HEBREW_ANALYSIS_BACKEND_ENV_VAR, "").strip().lower() or "local"
+
+
+def get_default_hebrew_analysis_repository(
+    *, local_store_path: str | Path | None = None
+) -> "HebrewAnalysisRepository":
+    """The single place backend selection happens — ``HebrewAnalysisService``
+    calls this for its default so no UI or service code ever branches on
+    the backend itself. Configured via the ``TEXTUS_HEBREW_ANALYSIS_BACKEND``
+    env var — default ``"local"`` (``LocalHebrewAnalysisRepository``),
+    matching the existing dev/test-safe default every current caller
+    already relies on. An explicit ``linguistic_repository=`` argument to
+    ``HebrewAnalysisService`` always overrides this, exactly like an
+    explicit ``database_path`` overrides backend selection in
+    ``textus_kb.commentary_translation_store``."""
+    if _configured_hebrew_analysis_backend() == "supabase":
+        return SupabaseHebrewAnalysisRepository()
+    return LocalHebrewAnalysisRepository(local_store_path)
 
 
 __all__ = [
     "DEFAULT_LOCAL_LINGUISTIC_STORE_PATH",
+    "HEBREW_ANALYSIS_BACKEND_ENV_VAR",
     "HebrewAnalysisRepository",
     "LocalHebrewAnalysisRepository",
     "MACULA_DATASET_ID",
@@ -457,4 +575,5 @@ __all__ = [
     "SYNTAX_GROUNDING_PARTIAL",
     "SupabaseHebrewAnalysisRepository",
     "VerseSyntaxData",
+    "get_default_hebrew_analysis_repository",
 ]
