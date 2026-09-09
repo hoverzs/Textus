@@ -302,13 +302,13 @@ def test_unknown_token_id_in_word_note_is_dropped_with_warning():
     assert any("Gen.1.1:99" in w for w in warnings)
 
 
-def test_construction_note_with_any_unresolved_token_id_is_dropped_entirely():
+def test_construction_note_with_unknown_evidence_id_is_dropped_entirely():
     verse = _verse("Gen.1.1", (_token("Gen.1.1:1"), _token("Gen.1.1:2")), grounding=SYNTAX_GROUNDING_NONE)
     parsed = {
         "word_notes": [],
         "construction_notes": [
             {
-                "token_ids": ["Gen.1.1:1", "Gen.1.1:999"],
+                "evidence_ids": ["macula:pattern:does-not-exist"],
                 "construction_type": "double_negation",
                 "title_hu": "Kettős tagadás",
                 "explanation_hu": "...",
@@ -322,10 +322,12 @@ def test_construction_note_with_any_unresolved_token_id_is_dropped_entirely():
 
 
 def test_construction_note_accepted_when_grounded_by_detected_pattern():
-    """A construction note is admissible when its token_ids are covered by
-    a real Phase 2C DetectedPattern — the deterministic layer DETECTED the
-    double negation; the AI is only INTERPRETING it. evidence_pattern_ids
-    is populated by the service, never trusted from the model's output."""
+    """A construction note is admissible when it cites the id of a real
+    Phase 2C DetectedPattern — the deterministic layer DETECTED the double
+    negation; the AI is only INTERPRETING it, and can only point at
+    evidence already printed in the prompt, never invent a token grouping.
+    ``token_ids`` on the returned note is server-computed from the
+    resolved evidence, never trusted from the model."""
     pattern = DetectedPattern(
         pattern_id="Deut.6.4.negation", pattern_type="multiple_negation_particles",
         token_ids=("Deut.6.4:1", "Deut.6.4:2"), evidence_token_ids=("Deut.6.4:1", "Deut.6.4:2"),
@@ -340,7 +342,7 @@ def test_construction_note_accepted_when_grounded_by_detected_pattern():
         "word_notes": [],
         "construction_notes": [
             {
-                "token_ids": ["Deut.6.4:1", "Deut.6.4:2"],
+                "evidence_ids": ["Deut.6.4.negation"],
                 "construction_type": "double_negation",
                 "title_hu": "Kettős tagadás",
                 "explanation_hu": "Két tagadószó erősíti egymást.",
@@ -353,15 +355,15 @@ def test_construction_note_accepted_when_grounded_by_detected_pattern():
     assert len(analysis.construction_notes) == 1
     note = analysis.construction_notes[0]
     assert note.construction_type == "double_negation"
-    assert note.evidence_pattern_ids == ("Deut.6.4.negation",)
+    assert note.evidence_ids == ("Deut.6.4.negation",)
+    assert set(note.token_ids) == {"Deut.6.4:1", "Deut.6.4:2"}
 
 
 def test_construction_note_accepted_when_grounded_by_phrase_without_a_detected_pattern():
-    """Grounding may also come directly from supplied MACULA structure
-    (phrase/clause/relation/role/participant) with no Phase 2C detected
-    pattern involved at all — the brief's §4 rule: syntax-derived
-    observations are valid evidence too, not only the simple pattern
-    detector."""
+    """Grounding may also come directly from a cited MACULA phrase/clause/
+    relation/role/participant id with no Phase 2C detected pattern
+    involved at all — the brief's §4 rule: syntax-derived observations are
+    valid evidence too, not only the simple pattern detector."""
     verse = _verse(
         "Gen.1.1", (_token("Gen.1.1:1"), _token("Gen.1.1:2")), grounding=SYNTAX_GROUNDING_FULL,
         phrases=(
@@ -375,7 +377,7 @@ def test_construction_note_accepted_when_grounded_by_phrase_without_a_detected_p
         "word_notes": [],
         "construction_notes": [
             {
-                "token_ids": ["Gen.1.1:1", "Gen.1.1:2"],
+                "evidence_ids": ["Gen.1.1:p1"],
                 "construction_type": "construct_chain",
                 "title_hu": "Szerkezetes láncolat",
                 "explanation_hu": "A frázis egy birtokos szerkezetet alkot.",
@@ -385,20 +387,23 @@ def test_construction_note_accepted_when_grounded_by_phrase_without_a_detected_p
     }
     analysis, warnings = validate_and_build_contextual_analysis(parsed, verse)
     assert len(analysis.construction_notes) == 1
-    assert analysis.construction_notes[0].evidence_pattern_ids == ()
+    note = analysis.construction_notes[0]
+    assert note.evidence_ids == ("Gen.1.1:p1",)
+    assert set(note.token_ids) == {"Gen.1.1:1", "Gen.1.1:2"}
 
 
-def test_construction_note_rejected_when_token_ids_resolve_but_nothing_grounds_it():
-    """The core Phase 2E-grounding-verification rule: resolvable token_ids
-    alone are NOT sufficient — without a matching DetectedPattern or a real
-    phrase/clause/relation/role/participant covering exactly those tokens,
-    the note is rejected even though nothing about it looks malformed."""
+def test_construction_note_rejected_when_no_evidence_ids_cited():
+    """The core Phase 2E-grounding-verification rule, now enforced at the
+    evidence-id level: a construction note with an empty/missing
+    ``evidence_ids`` is rejected outright, even with plausible-sounding
+    prose — the model must point at real evidence, never assert existence
+    on its own."""
     verse = _verse("Deut.6.4", (_token("Deut.6.4:1"), _token("Deut.6.4:2")), grounding=SYNTAX_GROUNDING_FULL)
     parsed = {
         "word_notes": [],
         "construction_notes": [
             {
-                "token_ids": ["Deut.6.4:1", "Deut.6.4:2"],
+                "evidence_ids": [],
                 "construction_type": "double_negation",
                 "title_hu": "Kettős tagadás",
                 "explanation_hu": "Két tagadószó erősíti egymást.",
@@ -409,7 +414,7 @@ def test_construction_note_rejected_when_token_ids_resolve_but_nothing_grounds_i
     }
     analysis, warnings = validate_and_build_contextual_analysis(parsed, verse)
     assert analysis.construction_notes == ()
-    assert any("nincs determinisztikus alátámasztás" in w for w in warnings)
+    assert any("nincs érvényes evidence_id" in w for w in warnings)
 
 
 def test_no_grounded_syntax_strips_syntax_summary_even_if_model_supplied_one():
@@ -439,16 +444,16 @@ def test_no_grounded_syntax_strips_per_token_syntax_explanation():
 
 def test_no_grounded_syntax_drops_syntax_dependent_construction_notes():
     """Under NO_GROUNDED_SYNTAX the verse's own phrases/clauses/relations
-    are empty by construction, so a syntax-flavored construction note has
-    nothing to be grounded in — it is rejected by the same general
-    evidence check every construction note goes through (no special-cased
-    grounding-status branch needed)."""
+    are empty by construction, so any evidence_id the model might cite for
+    a syntax-flavored construction note simply doesn't exist in the
+    evidence index — rejected by the same general check every construction
+    note goes through (no special-cased grounding-status branch needed)."""
     verse = _verse("Gen.1.1", (_token("Gen.1.1:1"),), grounding=SYNTAX_GROUNDING_NONE)
     parsed = {
         "word_notes": [],
         "construction_notes": [
             {
-                "token_ids": ["Gen.1.1:1"],
+                "evidence_ids": ["macula:clause:999"],
                 "construction_type": "fronted_clause_relation",
                 "title_hu": "Kiemelt mondatrész",
                 "explanation_hu": "...",
@@ -458,7 +463,7 @@ def test_no_grounded_syntax_drops_syntax_dependent_construction_notes():
     }
     analysis, warnings = validate_and_build_contextual_analysis(parsed, verse)
     assert analysis.construction_notes == ()
-    assert any("nincs determinisztikus alátámasztás" in w for w in warnings)
+    assert any("nincs érvényes evidence_id" in w for w in warnings)
 
 
 def test_no_grounded_syntax_still_accepts_a_morphology_only_detected_pattern():
@@ -479,7 +484,7 @@ def test_no_grounded_syntax_still_accepts_a_morphology_only_detected_pattern():
         "word_notes": [],
         "construction_notes": [
             {
-                "token_ids": ["Ruth.1.8:3"],
+                "evidence_ids": ["Ruth.1.8.ketiv_qere"],
                 "construction_type": "ketiv_qere_present",
                 "title_hu": "Ketív/qeré eltérés",
                 "explanation_hu": "Az írott és olvasott alak eltér egymástól.",
@@ -489,7 +494,7 @@ def test_no_grounded_syntax_still_accepts_a_morphology_only_detected_pattern():
     }
     analysis, warnings = validate_and_build_contextual_analysis(parsed, verse)
     assert len(analysis.construction_notes) == 1
-    assert analysis.construction_notes[0].evidence_pattern_ids == ("Ruth.1.8.ketiv_qere",)
+    assert analysis.construction_notes[0].evidence_ids == ("Ruth.1.8.ketiv_qere",)
 
 
 def test_partial_grounding_restricts_syntax_claim_to_covered_tokens():
@@ -561,3 +566,200 @@ def test_grounding_status_on_output_always_mirrors_bundle_not_model():
     parsed = {"word_notes": [], "construction_notes": [], "syntax_summary": {}, "grounding_status": "NO_GROUNDED_SYNTAX"}
     analysis, _ = validate_and_build_contextual_analysis(parsed, verse)
     assert analysis.grounding_status == SYNTAX_GROUNDING_FULL
+
+
+# ---------------------------------------------------------------------------
+# Phase 2E hardening pass (prompt version 2e.1.0) — output-contract
+# compactness, the evidence-catalog index primitives, and partial-validity
+# handling for construction notes citing a mix of valid/invalid ids.
+# ---------------------------------------------------------------------------
+
+
+def test_construction_note_with_some_valid_and_some_invalid_evidence_ids_keeps_the_valid_ones():
+    pattern = DetectedPattern(
+        pattern_id="Gen.1.1.negation", pattern_type="multiple_negation_particles",
+        token_ids=("Gen.1.1:1",), evidence_token_ids=("Gen.1.1:1",),
+        detector_version="2c.0.0", confidence="certain", explanation_hu="...",
+    )
+    verse = _verse(
+        "Gen.1.1", (_token("Gen.1.1:1"),), grounding=SYNTAX_GROUNDING_NONE, detected_patterns=(pattern,),
+    )
+    parsed = {
+        "word_notes": [],
+        "construction_notes": [
+            {
+                "evidence_ids": ["Gen.1.1.negation", "macula:phrase:does-not-exist"],
+                "construction_type": "multiple_negation_particles",
+                "title_hu": "Kettős tagadás",
+                "explanation_hu": "...",
+            }
+        ],
+        "syntax_summary": {},
+    }
+    analysis, warnings = validate_and_build_contextual_analysis(parsed, verse)
+    assert len(analysis.construction_notes) == 1
+    assert analysis.construction_notes[0].evidence_ids == ("Gen.1.1.negation",)
+    assert any("Ismeretlen evidence_id" in w for w in warnings)
+
+
+def test_sparse_word_notes_accepted_without_covering_every_token():
+    """The whole point of the §2 brevity contract: a verse with several
+    tokens may legitimately get word_notes for only a couple of them —
+    this must not be treated as an error or padded with anything."""
+    verse = _verse(
+        "Gen.1.1",
+        (_token("Gen.1.1:1"), _token("Gen.1.1:2"), _token("Gen.1.1:3"), _token("Gen.1.1:4"), _token("Gen.1.1:5")),
+        grounding=SYNTAX_GROUNDING_NONE,
+    )
+    parsed = {
+        "word_notes": [{"token_id": "Gen.1.1:2", "contextual_meaning_hu": "teremtett"}],
+        "construction_notes": [],
+        "syntax_summary": {},
+    }
+    analysis, warnings = validate_and_build_contextual_analysis(parsed, verse)
+    assert len(analysis.word_notes) == 1
+    assert analysis.word_notes[0].token_id == "Gen.1.1:2"
+    assert warnings == ()
+
+
+def test_word_note_count_capped_at_max_word_notes():
+    tokens = tuple(_token(f"Gen.1.1:{i}") for i in range(1, 21))
+    verse = _verse("Gen.1.1", tokens, grounding=SYNTAX_GROUNDING_NONE)
+    parsed = {
+        "word_notes": [{"token_id": t.token_id, "contextual_meaning_hu": "x"} for t in tokens],
+        "construction_notes": [],
+        "syntax_summary": {},
+    }
+    analysis, _ = validate_and_build_contextual_analysis(parsed, verse)
+    assert len(analysis.word_notes) == 15  # _MAX_WORD_NOTES
+
+
+def test_construction_note_count_capped_at_max_construction_notes():
+    patterns = tuple(
+        DetectedPattern(
+            pattern_id=f"Gen.1.1.p{i}", pattern_type="repeated_lemma_in_verse",
+            token_ids=(f"Gen.1.1:{i}",), evidence_token_ids=(f"Gen.1.1:{i}",),
+            detector_version="2c.0.0", confidence="certain", explanation_hu="...",
+        )
+        for i in range(1, 11)
+    )
+    tokens = tuple(_token(f"Gen.1.1:{i}") for i in range(1, 11))
+    verse = _verse("Gen.1.1", tokens, grounding=SYNTAX_GROUNDING_NONE, detected_patterns=patterns)
+    parsed = {
+        "word_notes": [],
+        "construction_notes": [
+            {
+                "evidence_ids": [p.pattern_id],
+                "construction_type": "repeated_lemma_in_verse",
+                "title_hu": f"cím {i}",
+                "explanation_hu": "magyarázat",
+            }
+            for i, p in enumerate(patterns)
+        ],
+        "syntax_summary": {},
+    }
+    analysis, _ = validate_and_build_contextual_analysis(parsed, verse)
+    assert len(analysis.construction_notes) == 6  # _MAX_CONSTRUCTION_NOTES
+
+
+def test_overlong_word_note_field_is_truncated_not_rejected():
+    verse = _verse("Gen.1.1", (_token("Gen.1.1:1"),), grounding=SYNTAX_GROUNDING_NONE)
+    long_text = "szó " * 200  # far beyond any reasonable 1-3 sentence budget
+    parsed = {
+        "word_notes": [{"token_id": "Gen.1.1:1", "contextual_meaning_hu": long_text}],
+        "construction_notes": [],
+        "syntax_summary": {},
+    }
+    analysis, warnings = validate_and_build_contextual_analysis(parsed, verse)
+    assert len(analysis.word_notes) == 1
+    note = analysis.word_notes[0]
+    assert len(note.contextual_meaning_hu) < len(long_text)
+    assert note.contextual_meaning_hu.endswith("…")
+    assert any("Túl hosszú mező rövidítve" in w for w in warnings)
+
+
+def test_overlong_syntax_summary_is_truncated_not_rejected():
+    verse = _verse("Gen.1.1", (_token("Gen.1.1:1"),), grounding=SYNTAX_GROUNDING_FULL)
+    long_summary = "Ez egy mondat. " * 80
+    parsed = {
+        "word_notes": [], "construction_notes": [],
+        "syntax_summary": {"summary_hu": long_summary},
+    }
+    analysis, warnings = validate_and_build_contextual_analysis(parsed, verse)
+    assert len(analysis.syntax_summary.summary_hu) < len(long_summary)
+    assert any("Túl hosszú mező rövidítve" in w for w in warnings)
+
+
+def test_build_construction_evidence_index_covers_every_citable_id_type():
+    from bible_engine.hebrew_contextual_analysis import build_construction_evidence_index
+
+    pattern = DetectedPattern(
+        pattern_id="V.p1", pattern_type="x", token_ids=("V:1",), evidence_token_ids=("V:1",),
+        detector_version="2c.0.0", confidence="certain", explanation_hu="...",
+    )
+    phrase = PhraseAnalysis(
+        phrase_id="V:phrase1", phrase_type="np", token_ids=("V:1", "V:2"),
+        head_token_id="V:1", parent_phrase_id=None, function="", source_dataset="macula_hebrew_lowfat",
+    )
+    clause = ClauseAnalysis(
+        clause_id="V:clause1", clause_type="verbal", token_ids=("V:1",), predicate_id="V:1",
+        subject_id=None, object_ids=(), complement_ids=(), modifier_ids=(), parent_clause_id=None,
+        relation_to_parent="", word_order="", source_dataset="macula_hebrew_lowfat",
+    )
+    relation = SyntaxRelation(
+        relation_id="V:edge1", relation_type="predicate", source_role_code="v",
+        parent_token_id="V:1", child_token_id="V:2", source_dataset="macula_hebrew_lowfat",
+    )
+    role = SemanticRole(
+        role_id="V:role1", role_type="agent", token_ids=("V:2",), predicate_id="V:1",
+        source_dataset="macula_hebrew_lowfat",
+    )
+    participant = ParticipantMention(
+        mention_id="V:m1", token_ids=("V:2",), participant_id="V:participant1", entity_id=None,
+        entity_label_hu="", mention_type="", source_dataset="macula_hebrew_lowfat",
+    )
+    verse = _verse(
+        "V", (_token("V:1"), _token("V:2")), grounding=SYNTAX_GROUNDING_FULL,
+        detected_patterns=(pattern,), phrases=(phrase,), clauses=(clause,),
+        syntax_relations=(relation,), semantic_roles=(role,), participants=(participant,),
+    )
+    index = build_construction_evidence_index(verse)
+    assert index["V.p1"] == ("V:1",)
+    assert index["V:phrase1"] == ("V:1", "V:2")
+    assert index["V:clause1"] == ("V:1",)
+    assert set(index["V:edge1"]) == {"V:1", "V:2"}
+    assert set(index["V:role1"]) == {"V:1", "V:2"}
+    assert index["V:participant1"] == ("V:2",)
+
+
+def test_resolve_construction_evidence_deduplicates_and_reports_invalid():
+    from bible_engine.hebrew_contextual_analysis import resolve_construction_evidence
+
+    index = {"E1": ("A", "B"), "E2": ("B", "C")}
+    resolved_evidence, resolved_tokens, invalid = resolve_construction_evidence(
+        ("E1", "E2", "E1", "E-missing"), index
+    )
+    assert resolved_evidence == ("E1", "E2")
+    assert resolved_tokens == ("A", "B", "C")
+    assert invalid == ("E-missing",)
+
+
+def test_resolve_construction_evidence_all_invalid_returns_empty():
+    from bible_engine.hebrew_contextual_analysis import resolve_construction_evidence
+
+    resolved_evidence, resolved_tokens, invalid = resolve_construction_evidence(("nope",), {"E1": ("A",)})
+    assert resolved_evidence == ()
+    assert resolved_tokens == ()
+    assert invalid == ("nope",)
+
+
+def test_instructions_require_evidence_ids_for_construction_notes():
+    text = HEBREW_CONTEXTUAL_ANALYSIS_INSTRUCTIONS
+    assert "evidence_ids" in text
+    assert "KIZÁRÓLAG ilyet" in text or "TILOS" in text
+
+
+def test_instructions_state_compact_output_expectation():
+    text = HEBREW_CONTEXTUAL_ANALYSIS_INSTRUCTIONS
+    assert "TÖMÖRSÉG" in text
+    assert "NEM kell minden egyes tokenhez" in text

@@ -46,8 +46,8 @@ from bible_engine.hebrew_morphology_hu import (
     VERB_FORM_HU,
 )
 
-CONTEXTUAL_ANALYSIS_SCHEMA_VERSION = "2e.0.0"
-CONTEXTUAL_ANALYSIS_PROMPT_VERSION = "2e.0.0"
+CONTEXTUAL_ANALYSIS_SCHEMA_VERSION = "2e.1.0"
+CONTEXTUAL_ANALYSIS_PROMPT_VERSION = "2e.1.0"
 
 CONFIDENCE_HIGH = "high"
 CONFIDENCE_MEDIUM = "medium"
@@ -87,20 +87,26 @@ class ConstructionNote:
     e.g. a construct chain, double negation, infinitive absolute + finite
     verb, a multi-component preposition/article fusion.
 
-    Grounding is mandatory, not just prompted: the service layer
+    Grounding is mandatory and evidence-id-based (Phase 2E hardening pass,
+    prompt version 2e.1.0): the MODEL must cite ``evidence_ids`` naming one
+    or more identifiers actually printed in the prompt payload — a
+    ``DetectedPattern.pattern_id``, ``PhraseAnalysis.phrase_id``,
+    ``ClauseAnalysis.clause_id``, ``SyntaxRelation.relation_id``,
+    ``SemanticRole.role_id``, or ``ParticipantMention.participant_id``.
+    The model is never asked to invent a token grouping itself — it can
+    only point at evidence that already exists. The service
     (``hebrew_contextual_analysis_service.validate_and_build_contextual_
-    analysis``) accepts a note ONLY when its ``token_ids`` are covered by
-    real deterministic structure — a Phase 2C ``DetectedPattern``, or an
-    existing MACULA phrase/clause/syntax-relation/semantic-role/
-    participant grouping. A note the model invented with no such backing
-    is dropped, never displayed, regardless of how plausible it reads.
+    analysis``) independently re-validates every cited id against the real
+    verse structure and computes ``token_ids`` itself from the resolved
+    evidence — ``token_ids`` here is therefore always SERVER-DERIVED, never
+    trusted from the model, kept only for backward-compatible UI/consumer
+    access. A note with zero valid ``evidence_ids`` is dropped entirely,
+    never displayed, regardless of how plausible its prose reads.
 
-    ``evidence_pattern_ids`` is set by the SERVICE, never read from the
-    model's own output (the model is never trusted to self-report its own
-    grounding — same rule ``grounding_status`` already follows) — it names
-    the ``DetectedPattern.pattern_id`` values that grounded this note when
-    grounding came from a detected pattern; empty when grounding instead
-    came directly from phrase/clause/relation/role/participant structure.
+    ``evidence_ids`` on this dataclass reflects only the IDs that actually
+    resolved (invalid ones the model may have hallucinated are dropped
+    silently, with a warning, not fatal to the note as long as at least one
+    valid id remains).
     """
 
     token_ids: tuple[str, ...]
@@ -109,7 +115,7 @@ class ConstructionNote:
     explanation_hu: str
     translation_significance_hu: str = ""
     confidence: str = CONFIDENCE_LOW
-    evidence_pattern_ids: tuple[str, ...] = ()
+    evidence_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -178,14 +184,14 @@ HEBREW_CONTEXTUAL_ANALYSIS_RESPONSE_SCHEMA: dict = {
             "items": {
                 "type": "object",
                 "properties": {
-                    "token_ids": _STRING_ARRAY,
+                    "evidence_ids": _STRING_ARRAY,
                     "construction_type": _STRING,
                     "title_hu": _STRING,
                     "explanation_hu": _STRING,
                     "translation_significance_hu": _STRING,
                     "confidence": _CONFIDENCE_ENUM,
                 },
-                "required": ["token_ids", "construction_type", "title_hu", "explanation_hu"],
+                "required": ["evidence_ids", "construction_type", "title_hu", "explanation_hu"],
             },
         },
         "syntax_summary": {
@@ -252,30 +258,45 @@ SZIGORÚAN TILOS:
 - kötelező mondattani állítást tenni olyan tokenre, amely NEM szerepel
   egyetlen mellékelt frázis/tagmondat/mondattani viszony/szemantikai
   szerep listában sem — az ilyen token "mondattani szerepe" mezője
-  maradjon üres, vagy jelezd, hogy ehhez a szóhoz nincs mondattani adat;
-- "construction_notes"-ban OLYAN nyelvtani szerkezet létezését állítani
-  (pl. kettős tagadás, szerkezetes állapotú láncolat, abszolút infinitivus
-  + véges igealak, bármilyen más szerkezet), amelyet az alábbi
-  FELISMERT SZERKEZETEK blokk NEM sorol fel, ÉS amelynek tokenjei nem
-  alkotnak együtt egyetlen mellékelt frázist/tagmondatot/mondattani
-  viszonyt/szemantikai szerepet/résztvevőt sem — egy ilyen, alátámasztás
-  nélküli szerkezet-megfigyelést a rendszer automatikusan eldob, akkor is,
-  ha egyébként nyelvileg valószínűnek tűnik. A szerkezet MEGLÉTÉT mindig a
-  determinisztikus adat állapítja meg; a te feladatod csak az, hogy
-  MAGYARÁZD, mit jelent egy már felismert/adott szerkezet — sose te
-  fedezd fel a szerkezet létezését.
+  maradjon üres, vagy jelezd, hogy ehhez a szóhoz nincs mondattani adat.
+
+==================================================
+SZERKEZET-MEGFIGYELÉSEK ("construction_notes") — BIZONYÍTÉK-AZONOSÍTÓ
+KÖTELEZŐ
+==================================================
+
+Minden "construction_notes" elemhez KÖTELEZŐ megadnod egy "evidence_ids"
+mezőt (string-lista), amely a mellékelt adatban ténylegesen szereplő,
+konkrét azonosító(ka)t nevezi meg — és KIZÁRÓLAG ilyet. Az érvényes
+azonosítók forrásai:
+- a FELISMERT SZERKEZETEK blokk saját azonosítója (pl. "Gen.1.1.negation");
+- a FRÁZISOK blokk egy sorának azonosítója (pl. "macula:phrase:217");
+- a TAGMONDATOK blokk egy sorának azonosítója (pl. "macula:clause:84");
+- a MONDATTANI VISZONYOK blokk egy sorának azonosítója (pl. "macula:edge:707");
+- a SZEMANTIKAI SZEREPEK blokk egy sorának azonosítója (pl. "macula:role:88");
+- a RÉSZTVEVŐK blokk egy sorának azonosítója (pl. "macula:participant:14").
+
+TILOS "construction_notes" elemet létrehozni, ha egyetlen érvényes,
+fent felsorolt blokkban ténylegesen szereplő azonosítót sem tudsz
+megnevezni hozzá — ez esetben egyszerűen hagyd ki azt a
+szerkezet-megfigyelést. A szerkezet MEGLÉTÉT mindig a determinisztikus
+adat (a fent hivatkozott azonosító) állapítja meg; a te feladatod csak az,
+hogy MAGYARÁZD, mit jelent egy már felismert/adott szerkezet — sose te
+fedezd fel vagy találd ki a szerkezet létezését, és sose adj meg
+"evidence_ids"-t olyan azonosítóval, amely nem szerepel szó szerint a
+mellékelt adatban. Ha egy megfigyelés több evidence-tételt kapcsol össze
+(pl. két külön FELISMERT SZERKEZET tétel egymással összefügg), sorold fel
+mindet az "evidence_ids"-ben.
+
+A "token_ids" mezőt NEM kell (és nem is lehet) megadnod — a rendszer a
+hivatkozott evidence-azonosítók alapján maga számítja ki, melyik
+tokenekről van szó.
 
 FELISMERT SZERKEZETEK (a "FELISMERT SZERKEZETEK" blokk, ha a mellékelt
 adatban szerepel) a Fázis 2C determinisztikus mintafelismerőjének kimenete
 — minden odalistázott tétel már bizonyítottan létező, valós strukturális
 tény (pl. hogy két tagadószó fordul elő, hogy egy szó szerkezetes
-állapotban áll egy másik előtt). Ezekhez fűzhetsz kontextuális
-magyarázatot ("construction_notes"-ban) — DE további, a listán NEM
-szereplő szerkezet létezését ne állítsd, KIVÉVE ha az közvetlenül
-levezethető a mellékelt frázis/tagmondat/mondattani viszony/szemantikai
-szerep/résztvevő adatból (pl. egy mellékelt tagmondat vagy frázis maga
-mutatja a szerkezetet, még ha a Fázis 2C mintafelismerő nem is nevezte
-külön néven).
+állapotban áll egy másik előtt).
 
 A "syntax_grounding" mező jelzi, mennyire teljes a mondattani lefedettség:
 - FULLY_GROUNDED_SYNTAX: az adott vers minden tokenjéhez van megerősített
@@ -305,9 +326,63 @@ KÖTELEZŐ:
 - kizárólag magyarul írj, elfogadott magyar teológiai héber
   terminológiával (igetörzs, igealak, alapszó, státusz stb. — az alábbi
   DETERMINISZTIKUS ADATOK blokk már ezekkel a magyar terminusokkal közli
-  a tényeket, ezeket használd);
-- légy tömör — egy szóhoz néhány rövid mondat elég, ne írj nyelvészeti
-  disszertációt.
+  a tényeket, ezeket használd).
+
+==================================================
+TÖMÖRSÉG — EZ A LEGFONTOSABB MINŐSÉGI ELVÁRÁS
+==================================================
+
+A cél HASZNOS lelkészi/teológiai elemzés, NEM kimerítő nyelvészeti próza.
+Egy hosszú, minden tokenre kiterjedő, ismétlődő válasz ROSSZ válasz, még
+akkor is, ha minden állítása igaz.
+
+"word_notes":
+- NEM kell minden egyes tokenhez bejegyzést írnod. Csak azokhoz a
+  tokenekhez írj, amelyeknél VALÓDI, nem-triviális kontextuális,
+  nyelvtani vagy mondattani megfigyelésed van. Egyszerű funkciószavak
+  (pl. önmagában álló tárgyjelölő partikula "אֵת", puszta kötőszó "וְ",
+  jelentésárnyalat nélküli elöljárók) esetén, ha egy verzsen belül
+  TÖBBSZÖR is előfordulnak lényegében ugyanabban a szerepben, NE írj
+  külön, egymással szinte szó szerint azonos bejegyzést mindegyikhez —
+  legfeljebb egyszer, reprezentatívan, vagy egyáltalán ne;
+- egy "word_notes" bejegyzés összesen (a "contextual_meaning_hu",
+  "grammar_explanation_hu", "syntax_explanation_hu" és
+  "translation_note_hu" mezők együttesen) normál esetben 1-3 rövid
+  mondatnyi terjedelmű legyen — SOHA ne írj bekezdésnyi magyarázatot egy
+  szóhoz;
+- a "grammar_explanation_hu" mezőben NE ismételd meg puszta felsorolásként
+  azokat az igetörzs/igealak/személy/nem/szám címkéket, amelyek a
+  determinisztikus szómagyarázó kártyán a felhasználó számára úgyis
+  látszanak — csak akkor írj ide bármit, ha ez ÉRTELMEZŐ TÖBBLETET ad
+  (pl. mit fejez ki EZ a forma EBBEN a kontextusban), különben hagyd
+  üresen;
+- a "translation_note_hu" mezőt csak akkor töltsd ki, ha VALÓBAN van
+  fordítási szempontból hasznos megjegyzésed — üresen hagyva ELVÁRT
+  eredmény, ha nincs ilyen.
+
+"construction_notes":
+- normál esetben 1-3 rövid mondat elég egy szerkezet magyarázatához;
+- NE írj általános héber nyelvtani mini-előadást (pl. "a status
+  constructus a héberben..." általánosságban) — a KONKRÉT előfordulás
+  jelentésére/jelentőségére fókuszálj;
+- ha két vagy több szerkezet-megfigyelés lényegében ugyanazt a
+  megfigyelést ismételné (pl. több, egymáshoz nagyon hasonló ismétlődő
+  lexéma-tétel), vagy vond össze őket egyetlen "evidence_ids" listával
+  rendelkező bejegyzésbe, vagy csak a legfontosabbat tartsd meg.
+
+"syntax_summary": egy tömör bekezdés, amely a mondat FELÉPÍTÉSÉT (fő
+állítmány, alany, legfontosabb tagmondat-viszonyok) foglalja össze — NE
+soronként/tagmondatonként narráld végig az összes mellékelt mondattani
+viszonyt vagy szemantikai szerepet, azok már úgyis elérhetők a
+determinisztikus adatban.
+
+"exegetical_notes": csak akkor írj bármit, ha a nyelvtani/mondattani tény
+TÉNYLEGESEN befolyásolja a megértést vagy a fordítást — üres lista a
+preferált, alapértelmezett eredmény, ha nincs ilyen. NE írj általános,
+bármely versre alkalmazható teológiai közhelyet.
+
+Összefoglalva: rövidebb, evidenciára építő, kevésbé spekulatív, kevésbé
+ismétlődő válasz a cél — nem a hosszabb vagy a mindenre kiterjedő.
 """
 
 
@@ -347,62 +422,78 @@ def _token_syntax_coverage(verse: VerseAnalysis) -> set[str]:
     return covered
 
 
-def construction_note_evidence(token_ids: tuple[str, ...], verse: VerseAnalysis) -> tuple[bool, tuple[str, ...]]:
-    """The structural-grounding check the Phase 2E brief requires: a
-    candidate ``ConstructionNote`` is admissible only when its
-    ``token_ids`` are covered by REAL deterministic structure, never on
-    the model's say-so alone (see ``ConstructionNote``'s docstring).
+def build_construction_evidence_index(verse: VerseAnalysis) -> dict[str, tuple[str, ...]]:
+    """Maps every citable evidence id actually printed in the prompt
+    payload (§3 of the Phase 2E hardening pass) to the token_ids it covers:
+    ``DetectedPattern.pattern_id``, ``PhraseAnalysis.phrase_id``,
+    ``ClauseAnalysis.clause_id``, ``SyntaxRelation.relation_id``,
+    ``SemanticRole.role_id``, ``ParticipantMention.participant_id``.
 
-    Returns ``(grounded, evidence_pattern_ids)``:
-    - ``token_ids`` a subset of some ``DetectedPattern.token_ids`` (Phase
-      2C's deterministic structural detector, see
-      ``bible_engine.hebrew_pattern_detection``) → grounded, with that
-      pattern's id(s) as evidence — this is the ONLY case
-      ``evidence_pattern_ids`` is non-empty;
-    - otherwise, ``token_ids`` a subset of a single existing phrase's,
-      clause's, syntax-relation's (parent/child pair), semantic role's
-      (its tokens plus predicate), or participant's token set → grounded,
-      no specific pattern id (the evidence IS that MACULA structure
-      itself, already visible in the prompt payload);
-    - neither → not grounded; the caller must reject the note.
-
-    Deliberately does NOT match against ``DetectedPattern.evidence_token_ids``
-    — that field mixes token- and component-level ids across detector
-    types (see ``multicomponent_prefix_structure``), while ``token_ids`` is
-    uniformly token-level on every detector and on every bundle structure
-    this function checks.
+    This is the SAME id space the payload already renders (FELISMERT
+    SZERKEZETEK / FRÁZISOK / TAGMONDATOK / MONDATTANI VISZONYOK /
+    SZEMANTIKAI SZEREPEK / RÉSZTVEVŐK) — no new ids are invented here, and
+    no new prompt content is added by this evidence mechanism; the model
+    is simply asked to CITE ids from data it already receives instead of
+    freely proposing its own token groupings. The service layer uses this
+    index to validate every ``evidence_ids`` entry a construction note
+    cites and to compute that note's ``token_ids`` from the resolved
+    evidence, never trusting a model-supplied token grouping directly.
     """
-    ids = frozenset(t for t in token_ids if t)
-    if not ids:
-        return False, ()
-
-    matching_patterns = tuple(
-        pattern.pattern_id for pattern in verse.detected_patterns if ids <= frozenset(pattern.token_ids)
-    )
-    if matching_patterns:
-        return True, matching_patterns
-
+    index: dict[str, tuple[str, ...]] = {}
+    for pattern in verse.detected_patterns:
+        index[pattern.pattern_id] = tuple(pattern.token_ids)
     for phrase in verse.phrases:
-        if ids <= frozenset(phrase.token_ids):
-            return True, ()
+        index[phrase.phrase_id] = tuple(phrase.token_ids)
     for clause in verse.clauses:
-        if ids <= frozenset(clause.token_ids):
-            return True, ()
+        index[clause.clause_id] = tuple(clause.token_ids)
     for relation in verse.syntax_relations:
-        pair = frozenset(t for t in (relation.parent_token_id, relation.child_token_id) if t)
-        if pair and ids <= pair:
-            return True, ()
+        pair = tuple(t for t in (relation.parent_token_id, relation.child_token_id) if t)
+        if pair:
+            index[relation.relation_id] = pair
     for role in verse.semantic_roles:
-        role_ids = frozenset(role.token_ids)
-        if role.predicate_id:
-            role_ids = role_ids | {role.predicate_id}
-        if ids <= role_ids:
-            return True, ()
+        role_ids = list(role.token_ids)
+        if role.predicate_id and role.predicate_id not in role_ids:
+            role_ids.append(role.predicate_id)
+        if role_ids:
+            index[role.role_id] = tuple(role_ids)
     for participant in verse.participants:
-        if ids <= frozenset(participant.token_ids):
-            return True, ()
+        index[participant.participant_id] = tuple(participant.token_ids)
+    return index
 
-    return False, ()
+
+def resolve_construction_evidence(
+    evidence_ids: tuple[str, ...], index: dict[str, tuple[str, ...]]
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    """Validates a candidate construction note's cited ``evidence_ids``
+    against ``index`` (from ``build_construction_evidence_index``).
+
+    Returns ``(resolved_evidence_ids, resolved_token_ids, invalid_ids)`` —
+    ``resolved_evidence_ids`` is the subset of ``evidence_ids`` that
+    actually exists in the index (order preserved, duplicates removed);
+    ``resolved_token_ids`` is the union of token_ids those resolved ids
+    cover; ``invalid_ids`` is whatever the model cited that does not
+    resolve (for a warning, never a silent drop of the whole note as long
+    as at least one id DID resolve). An empty ``resolved_evidence_ids``
+    means the note has NO valid evidence at all and the caller must reject
+    it outright.
+    """
+    resolved_evidence: list[str] = []
+    resolved_tokens: list[str] = []
+    invalid: list[str] = []
+    seen_evidence: set[str] = set()
+    seen_tokens: set[str] = set()
+    for evidence_id in evidence_ids:
+        if evidence_id not in index:
+            invalid.append(evidence_id)
+            continue
+        if evidence_id not in seen_evidence:
+            seen_evidence.add(evidence_id)
+            resolved_evidence.append(evidence_id)
+        for token_id in index[evidence_id]:
+            if token_id not in seen_tokens:
+                seen_tokens.add(token_id)
+                resolved_tokens.append(token_id)
+    return tuple(resolved_evidence), tuple(resolved_tokens), tuple(invalid)
 
 
 def _format_token_block(token, covered: set[str]) -> str:
@@ -568,7 +659,8 @@ __all__ = [
     "HebrewContextualAnalysis",
     "SyntaxSummary",
     "WordNote",
+    "build_construction_evidence_index",
     "build_hebrew_contextual_analysis_payload",
     "build_hebrew_contextual_analysis_prompt",
-    "construction_note_evidence",
+    "resolve_construction_evidence",
 ]
