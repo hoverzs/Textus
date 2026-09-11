@@ -156,6 +156,52 @@ def test_john_3_16_tagnt_strong_ids_match_sample_lexicon_entries() -> None:
     assert {"G0025", "G2889", "G3779"} <= token_strong_ids & lexicon_strong_ids
 
 
+# ---------------------------------------------------------------------------
+# Phase 2A — canonical identity vs. eStrong collision. TBESG's eStrong (the
+# raw first column) is shared by every disambiguated sense of a base number
+# (e.g. G0001 = both "Alpha" and the interjection "ah!"); the disambiguated
+# identity that TAGNT tokens and lexicon_hu.json actually key on lives in the
+# dStrong field. Regression for the fix that keys lexicon rows by
+# canonical_strong_id instead of bare eStrong.
+# ---------------------------------------------------------------------------
+
+
+def test_canonical_strong_id_prefers_disambiguated_dstrong_sense() -> None:
+    alpha = parse_tbesg_line("G0001\tG0001G =\tG0001G\tα, Ἀλφα\tAlpha\tG:N-LI\tAlpha\tmeaning")
+    ah = parse_tbesg_line("G0001\tG0001H =\tG0001H\tἆ\ta\tG:INJ\tah!\tmeaning")
+
+    assert alpha.strong_id == "G0001"
+    assert ah.strong_id == "G0001"
+    assert alpha.canonical_strong_id == "G0001G"
+    assert ah.canonical_strong_id == "G0001H"
+    assert alpha.canonical_strong_id != ah.canonical_strong_id
+
+
+def test_canonical_strong_id_falls_back_to_estrong_when_no_suffix() -> None:
+    entry = parse_tbesg_line("G0025\tG0025 =\tG0025\tἀγαπάω\tagapaō\tG:V\tto love\tmeaning")
+
+    assert entry.canonical_strong_id == "G0025"
+
+
+def test_claims_strong_id_recognizes_own_identity_not_cross_reference() -> None:
+    # uStrong pointing at a Hebrew Strong id (the "the Greek of" cross-
+    # language transliteration case) must never be claimed as this row's
+    # own Greek identity, and must not be reported as a Greek reference_
+    # strong_id either (out of namespace — it is not a Greek Strong id).
+    abia_g = parse_tbesg_line("G0007\tG0007G = the Greek of\tH0029I\tἈβιά\tAbia\tN:N-M-P\tAbijah\tmeaning")
+
+    assert abia_g.claims_strong_id("G0007")
+    assert abia_g.claims_strong_id("G0007G")
+    assert not abia_g.claims_strong_id("H0029I")
+    assert abia_g.reference_strong_ids == ()
+
+
+def test_reference_strong_ids_captures_greek_cross_reference() -> None:
+    entry = parse_tbesg_line("G0009\tG0009 =\tG2264G\tἈβιληνή\tAbilēnē\tN:N-F-L\tAbilene\tmeaning")
+
+    assert entry.reference_strong_ids == ("G2264G",)
+
+
 def _fixture_records() -> list[str]:
     return TBESG_FIXTURE.read_text(encoding="utf-8").splitlines()[1:]
 

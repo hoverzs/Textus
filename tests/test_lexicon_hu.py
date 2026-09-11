@@ -10,6 +10,7 @@ from bible_engine.lexicon_hu import (
     HungarianLexiconEntry,
     SAMPLE_HUNGARIAN_LEXICON_PATH,
     StrongAlias,
+    VALID_TRANSLATION_METHODS,
     get_hungarian_lexicon_entry,
     load_default_hungarian_lexicon,
     load_hungarian_lexicon,
@@ -52,6 +53,33 @@ def test_full_hungarian_lexicon_loads_imported_records_when_available() -> None:
     assert get_hungarian_lexicon_entry(entries, "G2316").primary_gloss == "Isten"
     assert get_hungarian_lexicon_entry(entries, "G1063").primary_gloss == "mert"
     assert get_hungarian_lexicon_entry(entries, "G3779").primary_gloss == "így"
+
+
+def test_full_hungarian_lexicon_exposes_provenance_fields_on_every_entry() -> None:
+    """Phase 2A: translation_method/source_name/source_version were already
+    present on 5,956 of 5,959 production records in the JSON file, but the
+    dataclass/loader silently dropped them — no runtime code could see them.
+    This proves the loader now exposes them, and that no production record
+    is missing translation_method (every entry has a determinable
+    provenance, even the 3 handful backfilled by
+    scripts/backfill_greek_lexicon_provenance.py)."""
+    if not FULL_LEXICON.exists():
+        pytest.skip("The full Hungarian lexicon has not been imported locally.")
+
+    entries = load_default_hungarian_lexicon(FULL_LEXICON)
+    assert entries is not None
+    assert len(entries) > 5000
+
+    missing_translation_method = [
+        entry for entry in entries.values() if not entry.translation_method
+    ]
+    assert missing_translation_method == []
+    assert all(entry.translation_method in VALID_TRANSLATION_METHODS for entry in entries.values())
+    # As of Phase 2A, every production record is machine-translated draft —
+    # no record claims human review. If this ever changes, this assertion
+    # (not the code) should be updated to reflect the new true count.
+    human_reviewed = [e for e in entries.values() if e.translation_method == "human"]
+    assert human_reviewed == []
 
 
 def test_get_g0025_entry_by_normalized_and_short_strong_id() -> None:

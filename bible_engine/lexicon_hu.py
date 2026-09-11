@@ -9,6 +9,7 @@ from bible_engine.tbesg_parser import normalize_greek_strong_id
 
 
 VALID_REVIEW_STATUSES = frozenset({"draft", "reviewed"})
+VALID_TRANSLATION_METHODS = frozenset({"ai_assisted", "human"})
 DATA_DIR = Path(__file__).parent / "data"
 DEFAULT_HUNGARIAN_LEXICON_PATH = DATA_DIR / "lexicon_hu.json"
 SAMPLE_HUNGARIAN_LEXICON_PATH = DATA_DIR / "lexicon_hu_sample.json"
@@ -24,6 +25,14 @@ class HungarianLexiconEntry:
     note: str | None
     source: str
     review_status: str
+    # Phase 2A — provenance fields. Optional/defaulted so the minimal
+    # illustrative sample lexicon (``lexicon_hu_sample.json``) need not
+    # carry them; the production lexicon (``lexicon_hu.json``) has them on
+    # every record after the Phase 2A backfill migration
+    # (``scripts/backfill_greek_lexicon_provenance.py``).
+    translation_method: str = "ai_assisted"
+    source_name: str = ""
+    source_version: str = ""
 
 
 @dataclass(frozen=True)
@@ -69,6 +78,10 @@ def validate_hungarian_lexicon_entry(entry: HungarianLexiconEntry) -> None:
         )
     if not entry.source.strip():
         raise ValueError("Hungarian lexicon entry source must not be empty.")
+    if entry.translation_method not in VALID_TRANSLATION_METHODS:
+        raise ValueError(
+            "Hungarian lexicon entry translation_method must be 'ai_assisted' or 'human'."
+        )
 
 
 def load_hungarian_lexicon(path: str | Path) -> dict[str, HungarianLexiconEntry]:
@@ -181,6 +194,9 @@ def _entry_from_json(raw_entry: Any, index: int) -> HungarianLexiconEntry:
             note=str(note).strip() if note is not None and str(note).strip() else None,
             source=str(raw_entry["source"]).strip(),
             review_status=str(raw_entry["review_status"]).strip(),
+            translation_method=str(raw_entry.get("translation_method") or "ai_assisted").strip(),
+            source_name=str(raw_entry.get("source_name") or "").strip(),
+            source_version=str(raw_entry.get("source_version") or "").strip(),
         )
     except KeyError as exc:
         raise ValueError(

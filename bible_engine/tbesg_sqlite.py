@@ -165,10 +165,22 @@ def import_tbesg_lexicon(
                         unicodedata.normalize("NFC", meaning.plain_text)
                     )
 
+                    # Phase 2A — key by the DISAMBIGUATED identity
+                    # (``canonical_strong_id``), never the bare eStrong
+                    # (``entry.strong_id``). Multiple senses of one base
+                    # number (e.g. G0001 = both "Alpha" and the interjection
+                    # "ah!") share the same eStrong but have distinct
+                    # dStrong-embedded ids; keying by eStrong let
+                    # ``UNIQUE(strong_id)`` + INSERT OR IGNORE silently drop
+                    # every sense but the first, and made every real,
+                    # suffixed lookup (the only kind TAGNT tokens and
+                    # lexicon_hu.json ever perform) miss. See
+                    # ``GreekLexiconEntry.canonical_strong_id`` for the
+                    # corpus-verified derivation.
                     cursor = _insert_entry(
                         connection,
                         entry=SQLiteGreekLexiconEntry(
-                            strong_id=entry.strong_id,
+                            strong_id=entry.canonical_strong_id,
                             dstrong_id=entry.dstrong_id,
                             ustrong_id=entry.ustrong_id,
                             lemma=entry.greek,

@@ -353,7 +353,10 @@
     ],
     "note": "A pontos magyar jelentés a tárgytól és a szövegkörnyezettől függ.",
     "source": "STEPBible TBESG alapján készített magyar munkaváltozat",
-    "review_status": "draft"
+    "review_status": "draft",
+    "translation_method": "ai_assisted",
+    "source_name": "STEPBible TBESG",
+    "source_version": "STEPBible GitHub raw"
   },
   {
     "strong_id": "G0026",
@@ -48554,7 +48557,10 @@
     ],
     "note": "A szó jelentése a kontextustól függően a teremtett világra, az emberiségre, a rendezett rendre vagy díszre is utalhat.",
     "source": "STEPBible TBESG alapján készített magyar munkaváltozat",
-    "review_status": "draft"
+    "review_status": "draft",
+    "translation_method": "ai_assisted",
+    "source_name": "STEPBible TBESG",
+    "source_version": "STEPBible GitHub raw"
   },
   {
     "strong_id": "G2890",
@@ -59554,7 +59560,10 @@
     ],
     "note": "Határozószó; jelentése módot vagy esetenként mértéket fejezhet ki.",
     "source": "STEPBible TBESG alapján készített magyar munkaváltozat",
-    "review_status": "draft"
+    "review_status": "draft",
+    "translation_method": "ai_assisted",
+    "source_name": "STEPBible TBESG",
+    "source_version": "STEPBible GitHub raw"
   },
   {
     "strong_id": "G3780",

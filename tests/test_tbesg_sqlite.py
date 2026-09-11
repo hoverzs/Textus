@@ -180,6 +180,40 @@ def test_fixture_header_matches_documented_tbesg_header() -> None:
     assert header == EXPECTED_HEADER
 
 
+# ---------------------------------------------------------------------------
+# Phase 2A regression: two disambiguated senses sharing one bare eStrong
+# (G0001 = "Alpha" and the interjection "ah!") must both survive as distinct,
+# independently-lookupable rows — the pre-fix importer keyed by bare eStrong,
+# so the second row silently overwrote/collided with the first via
+# UNIQUE(strong_id) + INSERT OR IGNORE, and neither disambiguated (dStrong-
+# suffixed) id — the ONLY form real callers (TAGNT tokens, lexicon_hu.json)
+# ever look up — could be found at all.
+# ---------------------------------------------------------------------------
+
+
+def test_disambiguated_senses_sharing_one_estrong_both_survive(tmp_path: Path) -> None:
+    source = tmp_path / "ambiguous.tsv"
+    header = "eStrong\tdStrong\tuStrong\tGreek\tTransliteration\tMorph\tGloss\tAbbott-Smith lexicon (AS), with gaps occationally filled from edited versions of  Middle LSJ "
+    alpha = "G0001\tG0001G =\tG0001G\tα, Ἀλφα\tAlpha\tG:N-LI\tAlpha\tmeaning-alpha"
+    ah = "G0001\tG0001H =\tG0001H\tἆ\ta\tG:INJ\tah!\tmeaning-ah"
+    source.write_text("\n".join([header, alpha, ah]) + "\n", encoding="utf-8")
+
+    database = tmp_path / "lexicon.sqlite3"
+    report = import_tbesg_lexicon(source, database)
+
+    assert report.rows_read == 2
+    assert report.rows_imported == 2
+    assert report.duplicate_rows == 0
+
+    alpha_entry = get_sqlite_lexicon_entry(database, "G0001G")
+    ah_entry = get_sqlite_lexicon_entry(database, "G0001H")
+    assert alpha_entry is not None and alpha_entry.gloss == "Alpha"
+    assert ah_entry is not None and ah_entry.gloss == "ah!"
+    # Bare, undisambiguated eStrong is not a real lookup a caller performs —
+    # neither disambiguated row claims it, by design.
+    assert get_sqlite_lexicon_entry(database, "G0001") is None
+
+
 def _import_fixture(tmp_path: Path) -> Path:
     database = tmp_path / "lexicon.sqlite3"
     report = import_tbesg_lexicon(TBESG_FIXTURE, database, source_version="test-version")
