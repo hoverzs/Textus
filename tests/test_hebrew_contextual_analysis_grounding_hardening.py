@@ -424,3 +424,58 @@ def test_h_categorical_construct_claim_for_ordinary_non_anomalous_token_remains_
     note = next(n for n in analysis.word_notes if n.token_id == "Gen.2.17:1")
     assert "biztosan szerkezetes állapotban áll" in note.grammar_explanation_hu
     assert not any("eldobva" in w for w in warnings)
+
+
+# ---------------------------------------------------------------------------
+# Narrow polish-pass (prompt wording only): items 1 and 3 are free-text
+# generation guidance for the model, not runtime-validatable claims (the
+# same reason relation-type wording in issue 2 above is prompt-hardened
+# rather than keyword-validated — see the module docstring). These tests
+# assert the instruction text itself carries the required, GENERAL (not
+# Gen-2:17-hardcoded) guidance rather than exercising the validator.
+# ---------------------------------------------------------------------------
+
+
+def test_prompt_gives_conservative_evidence_sensitive_prepositional_phrase_wording():
+    """Item 1: for multicomponent_prefix_structure / prepositional-phrase
+    tokens, the prompt must steer toward conservative, function-describing
+    wording ("elöljárószós bővítmény") and explicitly forbid asserting a
+    specific unsupported relation label unless the syntax data actually
+    names it — general guidance, not a Gen 2:17 special case."""
+    from bible_engine.hebrew_contextual_analysis import HEBREW_CONTEXTUAL_ANALYSIS_INSTRUCTIONS
+
+    text = " ".join(HEBREW_CONTEXTUAL_ANALYSIS_INSTRUCTIONS.split())
+    assert "multicomponent_prefix_structure" in text
+    assert "elöljárószós bővítmény" in text
+    assert "összetett körülményhatározói kifejezés" in text
+    assert "TILOS konkrét mondattani szerepet nevesíteni" in text
+    assert "1Móz 2,17" not in text and "וּמֵעֵץ" not in text
+
+
+def test_prompt_separates_infinitive_absolute_grammatical_fact_from_interpretation():
+    """Item 3: for infinitive_absolute_with_finite_verb, the prompt must
+    prescribe a fact-level phrase ("az állítást nyomatékosító szerkezet"),
+    require any stronger reading (e.g. "elkerülhetetlenség") to be marked
+    as interpretation rather than grammatical fact, and steer away from
+    unjustified generic textbook wording."""
+    from bible_engine.hebrew_contextual_analysis import HEBREW_CONTEXTUAL_ANALYSIS_INSTRUCTIONS
+
+    text = " ".join(HEBREW_CONTEXTUAL_ANALYSIS_INSTRUCTIONS.split())
+    assert "infinitive_absolute_with_finite_verb" in text
+    assert "az állítást nyomatékosító szerkezet" in text
+    assert "elkerülhetetlenség" in text
+    assert "SOSE grammatikai tényként" in text or "sosem mondattani/grammatikai tényt" in text
+
+
+def test_prompt_anomaly_safeguard_wording_is_preserved():
+    """Item 4: the earlier construct+article anomaly safeguard (source-
+    aware wording: primary source marks it construct; article+construct is
+    unusual; analysis may be source-dependent) must not be weakened or
+    removed by the item-1/item-3 additions inserted right after it."""
+    from bible_engine.hebrew_contextual_analysis import HEBREW_CONTEXTUAL_ANALYSIS_INSTRUCTIONS
+
+    text = " ".join(HEBREW_CONTEXTUAL_ANALYSIS_INSTRUCTIONS.split())
+    assert "construct_state_with_article_anomaly" in text
+    assert "Az elsődleges morfológiai adatforrás constructusnak jelöli." in text
+    assert "forrásfüggő lehet" in text
+    assert "KIZÁRÓLAG az így megjelölt, kivételes esetekre vonatkozik" in text

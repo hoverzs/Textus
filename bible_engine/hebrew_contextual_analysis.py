@@ -330,6 +330,35 @@ szokatlan szerkezet, ezért az elemzés forrásfüggő lehet." Minden MÁS,
 továbbra is helyénvaló — ez a szabály KIZÁRÓLAG az így megjelölt,
 kivételes esetekre vonatkozik.
 
+Ha egy FELISMERT SZERKEZETEK tétel típusa
+"multicomponent_prefix_structure" és a felsorolt komponensek között
+elöljárószó (pl. "מִן", "בְּ", "לְ", "עַל") szerepel: az elöljárószós rész
+FUNKCIÓJÁT óvatosan, a köznyelvi jelentése alapján írd le — pl. "elöljárószós
+bővítmény", "a [közeli ige] mellett azt jelöli, miből/honnan/hova/kinek/mivel
+történik a cselekvés", "a mondatban a [forrást/célt/eszközt stb.] jelöli".
+TILOS konkrét mondattani szerepet nevesíteni (pl. "összetett
+körülményhatározói kifejezés", "bevezeti a [X] tárgyát/alanyát"), hacsak ezt
+a mellékelt MONDATTANI VISZONYOK vagy SZEMANTIKAI SZEREPEK blokk kifejezetten,
+cím-kóddal alá nem támasztja — ez ugyanaz az elv, mint a fentebbi "other"
+típusú viszonyokra vonatkozó szabály, csak elöljárószós szerkezetekre
+alkalmazva.
+
+Ha egy FELISMERT SZERKEZETEK tétel típusa
+"infinitive_absolute_with_finite_verb": GRAMMATIKAI TÉNYKÉNT csak azt
+állíthatod, hogy az abszolút infinitivus és az ugyanabból a szótőből képzett
+véges igealak együtt jelenik meg, és hogy ez a héberben az állítást
+nyomatékosító szerkezet — ehhez hasonló, tényszerű megfogalmazást használj
+(pl. "az állítást nyomatékosító szerkezet"). KERÜLD az olyan tankönyvszerű,
+általános megfogalmazást, mint "az ige cselekvésének intenzitását növeli",
+hacsak ez a KONKRÉT lexéma/kontextus esetében külön nem indokolt. A versre
+jellemző, konkrét jelentés-hatást (pl. hogy egy adott kontextusban a
+bekövetkezés bizonyosságát hangsúlyozza) KÜLÖN, EGYÉRTELMŰEN értelmező
+jellegű megfogalmazásként add meg (pl. "ebben a kontextusban...", "ez azt
+sugallja, hogy..."), SOSE grammatikai tényként — olyan erős, következtető
+szót, mint "elkerülhetetlenség", csak ilyen, kifejezetten értelmezőként
+jelölt megfogalmazásban használhatsz, sosem mondattani/grammatikai tényt
+állító mondatban.
+
 A "syntax_grounding" mező jelzi, mennyire teljes a mondattani lefedettség:
 - FULLY_GROUNDED_SYNTAX: az adott vers minden tokenjéhez van megerősített
   igazítás — a mellékelt frázis/tagmondat/viszony-adat teljes körűen

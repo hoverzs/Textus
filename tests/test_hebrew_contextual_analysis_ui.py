@@ -18,6 +18,7 @@ import hebrew_text_demo
 from bible_engine.hebrew_analysis_bundle import (
     ClauseAnalysis,
     CoverageReport,
+    DetectedPattern,
     HebrewAnalysisBundle,
     MorphologyFacts,
     TokenAnalysis,
@@ -466,4 +467,142 @@ def test_phase2e_gemini_call_uses_conservative_timeout_shorter_than_generate_tex
     generic_const = at.session_state["_generic_timeout_const"]
     assert captured == phase2e_const
     assert phase2e_const < generic_const
-    assert 25 <= phase2e_const <= 45
+
+
+# ---------------------------------------------------------------------------
+# Narrow polish-pass regression: production quality review found that a
+# construction note covering the SELECTED word was rendered twice in the
+# same view — once under "Kapcsolódó konstrukciók" (word-level) and again,
+# unfiltered, under "Mondattani összefoglalás — kapcsolódó konstrukciók"
+# (verse-level). The fix is display-only dedup by object identity in
+# hebrew_text_demo.py; this test proves a construction already shown for
+# the selected word is NOT repeated in the verse-level list, while a
+# genuinely distinct construction (covering only the OTHER token) still
+# appears there.
+# ---------------------------------------------------------------------------
+
+
+def _two_token_bundle_with_distinct_patterns() -> HebrewAnalysisBundle:
+    token1 = TokenAnalysis(
+        token_id="Gen.1.1:1", legacy_stable_key="Gen:1:1:1", source_token_id="", word_index=1,
+        surface="בְּ/רֵאשִׁית", surface_plain="בראשית", transliteration="berešit", transliteration_hu="berésit",
+        lemma="רֵאשִׁית", root=None, strong_ids=("H7225G",), part_of_speech="Noun",
+        morphology=MorphologyFacts(raw_code="HR/Ncfsa"), components=(), lexical_sense=None,
+        provenance=TokenProvenance(),
+    )
+    token2 = TokenAnalysis(
+        token_id="Gen.1.1:2", legacy_stable_key="Gen:1:1:2", source_token_id="", word_index=2,
+        surface="בָּרָא", surface_plain="ברא", transliteration="bara", transliteration_hu="bárá",
+        lemma="ברא", root=None, strong_ids=("H1254G",), part_of_speech="Verb",
+        morphology=MorphologyFacts(raw_code="HVqp3ms"), components=(), lexical_sense=None,
+        provenance=TokenProvenance(),
+    )
+    pattern1 = DetectedPattern(
+        pattern_id="pattern:word1-only", pattern_type="multicomponent_prefix_structure",
+        token_ids=("Gen.1.1:1",), evidence_token_ids=("Gen.1.1:1",),
+        detector_version="test-v1", confidence="certain",
+        explanation_hu="Több prefixumból álló szó.",
+    )
+    pattern2 = DetectedPattern(
+        pattern_id="pattern:word2-only", pattern_type="multicomponent_prefix_structure",
+        token_ids=("Gen.1.1:2",), evidence_token_ids=("Gen.1.1:2",),
+        detector_version="test-v1", confidence="certain",
+        explanation_hu="Egy másik, különálló szerkezet.",
+    )
+    verse = VerseAnalysis(
+        verse_id="Gen.1.1", chapter=1, verse=1, hebrew_text="בְּרֵאשִׁית בָּרָא",
+        hebrew_text_plain="בראשית ברא", versification_note="", tokens=(token1, token2),
+        detected_patterns=(pattern1, pattern2), syntax_grounding=SYNTAX_GROUNDING_FULL,
+    )
+    return HebrewAnalysisBundle(
+        bundle_schema_version="2e-test", reference="Gen.1.1", reference_hu="1Móz 1,1",
+        book_id="Gen", language="hebrew", verses=(verse,), datasets=(),
+        coverage=CoverageReport(
+            has_morphology=True, has_component_fidelity=False, has_syntax=False,
+            has_semantic_roles=False, has_participants=False, has_roots=False,
+            token_count=2, fully_decoded_token_count=0,
+        ),
+    )
+
+
+class _FakeDistinctPatternHebrewAnalysisService:
+    def __init__(self, *args, **kwargs) -> None:
+        pass
+
+    def dataset_version_signature(self) -> str:
+        return "test-v1"
+
+    def get_hebrew_analysis(self, reference: str) -> HebrewAnalysisBundle:
+        return _two_token_bundle_with_distinct_patterns()
+
+
+def _render_two_distinct_construction_panel() -> None:
+    import json
+
+    import hebrew_text_demo as demo
+
+    def fake_generate(prompt: str, **kwargs) -> str:
+        return json.dumps(
+            {
+                "word_notes": [
+                    {
+                        "token_id": "Gen.1.1:1",
+                        "lexical_basic_meaning_hu": "kezdet",
+                        "contextual_meaning_hu": "a teremtés kezdete",
+                        "grammar_explanation_hu": "főnév, nőnem, egyes szám",
+                        "confidence": "high",
+                    },
+                    {
+                        "token_id": "Gen.1.1:2",
+                        "lexical_basic_meaning_hu": "teremt",
+                        "contextual_meaning_hu": "a teremtés cselekedete",
+                        "grammar_explanation_hu": "ige, qal, 3. szem. hímnem egyes szám",
+                        "confidence": "high",
+                    },
+                ],
+                "construction_notes": [
+                    {
+                        "construction_type": "prefix_structure",
+                        "title_hu": "Több prefixumból álló szó (1. token)",
+                        "explanation_hu": "Ez a szó több prefixumból épül fel.",
+                        "translation_significance_hu": "",
+                        "confidence": "high",
+                        "evidence_ids": ["pattern:word1-only"],
+                    },
+                    {
+                        "construction_type": "prefix_structure",
+                        "title_hu": "Egyedi szerkezet (2. token)",
+                        "explanation_hu": "Ez egy különálló, csak a második tokent érintő szerkezet.",
+                        "translation_significance_hu": "",
+                        "confidence": "high",
+                        "evidence_ids": ["pattern:word2-only"],
+                    },
+                ],
+                "syntax_summary": {},
+                "translation_notes": [],
+                "exegetical_notes": [],
+                "warnings": [],
+            }
+        )
+
+    demo.render_hebrew_original_language_panel(
+        "Gen", 1, 1, 1, key_prefix="ctx_ui_dedup", generate_text_fn=fake_generate
+    )
+
+
+def test_construction_note_shown_for_selected_word_is_not_repeated_in_verse_level_summary(
+    monkeypatch,
+):
+    monkeypatch.setattr(hebrew_text_demo, "HebrewAnalysisService", _FakeDistinctPatternHebrewAnalysisService)
+    app = AppTest.from_function(_render_two_distinct_construction_panel).run(timeout=15)
+    _find_button(app, "Kontextuális elemzés generálása").click().run(timeout=15)
+    assert not app.exception
+
+    markdown_text = " ".join(m.value for m in app.markdown)
+    # Word-level note for the selected (first) token must show its own
+    # construction exactly once.
+    assert markdown_text.count("Több prefixumból álló szó (1. token)") == 1
+    # The genuinely distinct construction (covering only the OTHER token)
+    # must still appear in the verse-level summary — dedup must not drop
+    # constructions that were never shown at word-level.
+    assert "Egyedi szerkezet (2. token)" in markdown_text

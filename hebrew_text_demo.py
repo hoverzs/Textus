@@ -587,18 +587,27 @@ def render_hebrew_contextual_analysis_panel(
 
     analysis: HebrewContextualAnalysis = cached.analysis  # type: ignore[assignment]
     token_analysis = next((t for t in verse.tokens if t.legacy_stable_key == selected_token.stable_key), None)
-    _render_hebrew_contextual_word_note(analysis, token_analysis.token_id if token_analysis else None)
-    _render_hebrew_contextual_verse_sections(analysis)
+    shown_construction_ids = _render_hebrew_contextual_word_note(
+        analysis, token_analysis.token_id if token_analysis else None
+    )
+    _render_hebrew_contextual_verse_sections(analysis, already_shown_construction_ids=shown_construction_ids)
 
 
-def _render_hebrew_contextual_word_note(analysis: HebrewContextualAnalysis, token_id: str | None) -> None:
+def _render_hebrew_contextual_word_note(analysis: HebrewContextualAnalysis, token_id: str | None) -> frozenset[int]:
     """Word-level Phase 2E fields — kept compact (a handful of short markdown
-    lines, never the full JSON/all word_notes), one selected token at a time."""
+    lines, never the full JSON/all word_notes), one selected token at a time.
+
+    Returns the ``id()``s of any ``ConstructionNote`` objects rendered here
+    (under "Kapcsolódó konstrukciók") so the verse-level section below can
+    skip repeating the SAME construction immediately after — a UI display
+    dedup only (production quality-review finding: "Több prefixumból álló
+    szó" appeared twice in the same view). The underlying
+    ``analysis.construction_notes`` data is never touched or dropped."""
     if token_id is None:
-        return
+        return frozenset()
     note = next((n for n in analysis.word_notes if n.token_id == token_id), None)
     if note is None:
-        return
+        return frozenset()
     if note.lexical_basic_meaning_hu:
         st.markdown(f"**Lexikai alapjelentés:** {note.lexical_basic_meaning_hu}")
     if note.contextual_meaning_hu:
@@ -615,14 +624,27 @@ def _render_hebrew_contextual_word_note(analysis: HebrewContextualAnalysis, toke
         st.markdown("**Kapcsolódó konstrukciók:**")
         for construction in related_constructions:
             st.markdown(f"- **{construction.title_hu}** — {construction.explanation_hu}")
+    return frozenset(id(c) for c in related_constructions)
 
 
-def _render_hebrew_contextual_verse_sections(analysis: HebrewContextualAnalysis) -> None:
+def _render_hebrew_contextual_verse_sections(
+    analysis: HebrewContextualAnalysis, *, already_shown_construction_ids: frozenset[int] = frozenset()
+) -> None:
     """Verse-level Phase 2E fields — compact expandable sections below the
-    word-level note, shared by every word click within the same verse."""
-    if analysis.construction_notes:
+    word-level note, shared by every word click within the same verse.
+
+    ``already_shown_construction_ids`` (from ``_render_hebrew_contextual_
+    word_note``) skips constructions already rendered for the selected
+    word above — display-only dedup, never mutates ``analysis`` and never
+    drops a genuinely distinct construction (a construction not covering
+    the selected token, or the selected token's construction when a
+    DIFFERENT word is selected, still appears here as before)."""
+    remaining_constructions = [
+        c for c in analysis.construction_notes if id(c) not in already_shown_construction_ids
+    ]
+    if remaining_constructions:
         with st.expander("Mondattani összefoglalás — kapcsolódó konstrukciók", expanded=False):
-            for construction in analysis.construction_notes:
+            for construction in remaining_constructions:
                 st.markdown(f"**{construction.title_hu}**")
                 st.markdown(construction.explanation_hu)
                 if construction.translation_significance_hu:
