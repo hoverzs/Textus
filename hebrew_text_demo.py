@@ -572,10 +572,14 @@ def render_hebrew_contextual_analysis_panel(
                     generate_kwargs=generate_kwargs,
                 )
             if result.status != STATUS_OK:
-                st.info(
-                    "A kontextuális elemzés jelenleg nem érhető el. A "
-                    "determinisztikus szó- és mondattani adatok fent "
-                    "továbbra is elérhetők."
+                # Compact, non-blocking notice — never raises, the
+                # deterministic morphology/lexicon card above (rendered
+                # unconditionally, independent data path) stays usable
+                # regardless of Gemini timeout/error/malformed-response.
+                st.warning(
+                    "A kontextuális elemzés jelenleg nem érhető el (időtúllépés "
+                    "vagy hiba történt). A determinisztikus szó- és mondattani "
+                    "adatok fent továbbra is elérhetők."
                 )
                 return
             st.rerun()

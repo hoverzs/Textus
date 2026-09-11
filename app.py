@@ -6705,6 +6705,7 @@ def generate_text(
     response_mime_type: str | None = None,
     response_schema: dict | None = None,
     temperature: float | None = None,
+    timeout_s: float | None = None,
 ):
     """EGYETLEN logikai Gemini-hívás — gomb-szintű egyediség garantált.
 
@@ -6731,6 +6732,11 @@ def generate_text(
     `max_output_tokens`: opcionális; None esetén a fül szerinti alapplafon.
     `temperature`: opcionális; ha meg van adva, felülírja a session értéket
     (pl. vázlatdiagnosztika `DEFAULT_TEMPERATURE` hívása).
+    `timeout_s`: opcionális; None esetén `GEMINI_TIMEOUT_S` (a HTTP kérés
+    `requests.post(..., timeout=...)` paramétere) — egyes hívók (pl. Phase
+    2E kontextuális elemzés) ennél rövidebb, konzervatívabb értéket adnak
+    át, hogy egy lassú/elakadt Gemini-válasz ne tartsa szinkron blokkolva
+    a Streamlit munkamenetet a teljes 120 másodpercig.
     """
     api_key = _resolve_api_key().strip()
     if not api_key:
@@ -6847,7 +6853,7 @@ def generate_text(
         try:
             response = requests.post(
                 url, headers=headers, json=data,
-                timeout=GEMINI_TIMEOUT_S, stream=False,
+                timeout=timeout_s if timeout_s is not None else GEMINI_TIMEOUT_S, stream=False,
             )
         except requests.exceptions.Timeout:
             latency_ms = int((_time.time() - start_ts) * 1000)
@@ -7146,6 +7152,16 @@ def generate_text(
 # HÉBER KONTEXTUÁLIS NYELVTANI/MONDATTANI ELEMZÉS (Phase 2E)
 # =========================================================
 
+# Production hotfix (bb6400d follow-up): a Phase 2E gomb az "Igehely" fülön
+# csak ettől a javítástól kezdve érhető el egyáltalán, így ez a hívási út
+# korábban SOHA nem futott le élesben — egy elakadt/lassú Gemini-válasz a
+# teljes GEMINI_TIMEOUT_S (120s) alatt szinkron blokkolja a Streamlit
+# munkamenetet. Konzervatívabb, kifejezetten erre az útvonalra vonatkozó
+# timeout — a többi fület (generate_text() alapértelmezett GEMINI_TIMEOUT_S
+# értékét) nem érinti.
+PHASE2E_GEMINI_TIMEOUT_S = 40
+
+
 def generate_hebrew_contextual_analysis_text(prompt: str, **kwargs) -> str:
     """The ``generate_fn`` binding ``hebrew_text_demo.render_hebrew_
     contextual_analysis_panel`` calls into — routes through the same
@@ -7155,7 +7171,12 @@ def generate_hebrew_contextual_analysis_text(prompt: str, **kwargs) -> str:
     ``bible_engine`` modules never import ``generate_text`` directly (it is
     Streamlit-coupled); this is the dependency-injection binding, same
     convention as ``run_original_language_analysis``'s ``generate_text_fn``.
+
+    ``timeout_s`` defaults to ``PHASE2E_GEMINI_TIMEOUT_S`` (shorter than
+    ``generate_text``'s own ``GEMINI_TIMEOUT_S`` default) unless the caller
+    already supplied one — see that constant's own comment.
     """
+    kwargs.setdefault("timeout_s", PHASE2E_GEMINI_TIMEOUT_S)
     return generate_text(
         prompt,
         tab_label="Eredeti szöveg tanulmányozása",
