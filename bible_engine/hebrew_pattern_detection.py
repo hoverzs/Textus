@@ -43,12 +43,95 @@ def detect_patterns(verse: VerseAnalysis) -> tuple[DetectedPattern, ...]:
     patterns: list[DetectedPattern] = []
     patterns.extend(_detect_multiple_negation(verse))
     patterns.extend(_detect_construct_chains(verse))
-    patterns.extend(_detect_infinitive_absolute_with_finite_verb(verse))
+    patterns.extend(_detect_construct_with_article_anomaly(verse))
+    more_specific_patterns = _detect_infinitive_absolute_with_finite_verb(verse)
+    patterns.extend(more_specific_patterns)
     patterns.extend(_detect_independent_pronoun_verb_agreement(verse))
-    patterns.extend(_detect_repeated_lemma(verse))
+    patterns.extend(
+        _suppress_redundant_repeated_lemma(_detect_repeated_lemma(verse), more_specific_patterns)
+    )
     patterns.extend(_detect_ketiv_qere_presence(verse))
     patterns.extend(_detect_multicomponent_prefix_structures(verse))
     return tuple(patterns)
+
+
+def _detect_construct_with_article_anomaly(verse: VerseAnalysis) -> list[DetectedPattern]:
+    """Flags — but never corrects — an exceptional/ambiguous morphology
+    combination: a nominal token our PRIMARY (STEPBible/Westminster-
+    derived TEHMC) morphology marks ``state='Construct'`` while it also
+    carries an explicit definite-article component.
+
+    This is deliberately NOT a claim that the primary source is wrong. It
+    IS a real, known point of disagreement in Hebrew morphological
+    tagging: a construct-state noun does not normally take the article
+    directly (definiteness of a construct chain is usually marked on its
+    LAST/absolute member instead), so other established morphology
+    datasets can and do parse this exact combination as absolute instead.
+    Surfacing it lets the AI-facing layer steer the model toward "our
+    primary source marks this construct" phrasing instead of unqualified
+    certainty for these specific tokens — see
+    ``hebrew_contextual_analysis.py``'s prompt instructions and
+    ``hebrew_contextual_analysis_service.py``'s categorical-certainty
+    check, neither of which overrides ``state`` itself.
+
+    Ordinary construct nouns with no article component (e.g. Gen 2:17's
+    עֵץ) are completely unaffected — this detector only ever ADDS an
+    anomaly pattern; it never changes what ``_detect_construct_chains``
+    or anything else reports."""
+    patterns: list[DetectedPattern] = []
+    for token in sorted(verse.tokens, key=lambda t: t.word_index):
+        if token.morphology.state != "Construct":
+            continue
+        core = next((c for c in token.components if c.role == "core"), None)
+        if core is None or core.morphology.part_of_speech not in {"Noun", "Adjective"}:
+            continue
+        has_article = any(
+            c.role == "prefix"
+            and (c.morphology.particle_type == "Article" or c.morphology.part_of_speech == "Article")
+            for c in token.components
+        )
+        if not has_article:
+            continue
+        patterns.append(
+            DetectedPattern(
+                pattern_id=f"{verse.verse_id}.construct_article_anomaly.{token.token_id}",
+                pattern_type="construct_state_with_article_anomaly",
+                token_ids=(token.token_id,),
+                evidence_token_ids=(token.token_id,),
+                detector_version=DETECTOR_VERSION,
+                confidence="certain",
+                explanation_hu=(
+                    f"'{token.surface_plain or token.surface}' az elsődleges morfológiai adatforrás szerint "
+                    "szerkezetes (constructus) állapotban áll, ugyanakkor határozott névelőt is visel — ez "
+                    "szokatlan alaktani kombináció a bibliai héberben (a szerkezetes állapotú főnév "
+                    "jellemzően nem viseli közvetlenül a névelőt), amelyet nem minden morfológiai forrás "
+                    "egyformán elemez."
+                ),
+            )
+        )
+    return patterns
+
+
+def _suppress_redundant_repeated_lemma(
+    repeated_lemma_patterns: list[DetectedPattern],
+    more_specific_patterns: list[DetectedPattern],
+) -> list[DetectedPattern]:
+    """A generic "this lemma repeats" observation is redundant once a more
+    specific deterministic pattern (currently: infinitive absolute + finite
+    verb of the same root) already covers the EXACT SAME token set — the
+    repetition is inherent to that construction, not a separate fact (an
+    infinitive-absolute-with-finite-verb pair always shares a lemma by
+    definition). Confirmed live on Gen 2:17 (מוּת/תמות): both
+    ``infinitive_absolute_with_finite_verb`` and ``repeated_lemma_in_verse``
+    fired for the identical (Gen.2.17:12, Gen.2.17:13) pair, producing two
+    AI construction_notes about the same phenomenon.
+
+    Only suppresses on an EXACT token-id-set match — a lemma repeated a
+    third time elsewhere in the verse, or any other partial overlap, is
+    NOT suppressed (still a genuinely separate observation). Purely
+    morphological/general; no verse- or lemma-specific hardcoding."""
+    specific_token_sets = {frozenset(p.token_ids) for p in more_specific_patterns}
+    return [p for p in repeated_lemma_patterns if frozenset(p.token_ids) not in specific_token_sets]
 
 
 def _detect_multiple_negation(verse: VerseAnalysis) -> list[DetectedPattern]:

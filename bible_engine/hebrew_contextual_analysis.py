@@ -258,7 +258,21 @@ SZIGORÚAN TILOS:
 - kötelező mondattani állítást tenni olyan tokenre, amely NEM szerepel
   egyetlen mellékelt frázis/tagmondat/mondattani viszony/szemantikai
   szerep listában sem — az ilyen token "mondattani szerepe" mezője
-  maradjon üres, vagy jelezd, hogy ehhez a szóhoz nincs mondattani adat.
+  maradjon üres, vagy jelezd, hogy ehhez a szóhoz nincs mondattani adat;
+- egy MONDATTANI VISZONYOK-beli "other" (ismeretlen) típusú vagy
+  szerepkód nélküli élből, VAGY pusztán abból, hogy két token egymásba
+  ágyazott FRÁZIS-okban jelenik meg, KONKRÉT grammatikai relációt
+  (pl. "jelzője", "birtokosa", "kiegészítője", "módosítja X-et",
+  "szerkezetes láncot alkot Y-nal") állítani — ha a mellékelt adatban a
+  viszony típusa nem specifikus (üres vagy "other") vagy csak
+  frázis-tagsági egymásba ágyazottság látszik, KIZÁRÓLAG óvatos,
+  bizonytalan megfogalmazást használhatsz (pl. "egy szerkezetben áll",
+  "szorosan kapcsolódik hozzá", "az adott kifejezés része"), SOHA nevesített
+  mondattani funkciót; specifikus relációt (jelző, birtokos, alany, tárgy,
+  szerkezetes lánc stb.) KIZÁRÓLAG akkor állíthatsz, ha a mellékelt
+  MONDATTANI VISZONYOK blokk maga adja meg ezt a típust (pl. "predicate",
+  "subject", "modifier") vagy a FELISMERT SZERKEZETEK blokk kifejezetten
+  ezt a szerkezetet nevezi meg (pl. "construct_state_chain").
 
 ==================================================
 SZERKEZET-MEGFIGYELÉSEK ("construction_notes") — BIZONYÍTÉK-AZONOSÍTÓ
@@ -298,6 +312,24 @@ adatban szerepel) a Fázis 2C determinisztikus mintafelismerőjének kimenete
 tény (pl. hogy két tagadószó fordul elő, hogy egy szó szerkezetes
 állapotban áll egy másik előtt).
 
+Ha egy FELISMERT SZERKEZETEK tétel típusa
+"construct_state_with_article_anomaly": ez azt jelzi, hogy az ELSŐDLEGES
+morfológiai adatforrásunk szerkezetes (constructus) állapotúnak jelöli az
+adott szót, DE a szó egyúttal határozott névelőt is visel — ez a bibliai
+héberben szokatlan, vitatható alaktani kombináció (más elismert héber
+morfológiai adatkészletek ugyanezt a szót abszolút állapotúnak elemezhetik).
+Az adatforrás besorolását NEM bírálhatod felül és NEM állíthatod, hogy téves
+— de az érintett tokenre vonatkozó megjegyzésedben SOSE fogalmazz
+kategorikusan vagy vitathatatlan tényként (TILOS pl.: "biztosan constructus",
+"egyértelműen szerkezetes állapotban áll", "kétségtelenül..."). Ehelyett
+használj ilyen megfogalmazást: "Az elsődleges morfológiai adatforrás
+constructusnak jelöli." — szükség esetén kiegészítve: "A névelő miatt ez
+szokatlan szerkezet, ezért az elemzés forrásfüggő lehet." Minden MÁS,
+"construct_state_with_article_anomaly"-vel NEM jelzett szerkezetes
+(constructus) állapotú szónál a megszokott, magabiztos megfogalmazás
+továbbra is helyénvaló — ez a szabály KIZÁRÓLAG az így megjelölt,
+kivételes esetekre vonatkozik.
+
 A "syntax_grounding" mező jelzi, mennyire teljes a mondattani lefedettség:
 - FULLY_GROUNDED_SYNTAX: az adott vers minden tokenjéhez van megerősített
   igazítás — a mellékelt frázis/tagmondat/viszony-adat teljes körűen
@@ -317,6 +349,17 @@ KÖTELEZŐ:
   külön mezőben add meg, sose keverd össze — a kontextuális jelentés
   csak akkor térhet el az alapjelentéstől, ha ezt a mellékelt szerkezet/
   kontextus ténylegesen alátámasztja;
+- ha egy "construction_notes" ("title_hu"/"explanation_hu"/
+  "translation_significance_hu") vagy "syntax_summary" szövegében
+  megemlíted egy mellékelt token JELENTÉSÉT, az a jelentés PONTOSAN a
+  DETERMINISZTIKUS ADATOK blokkban közölt "lexikai alapjelentés"/
+  "lehetséges jelentések" mezővel egyezzen meg — SOSEM adhatsz meg más,
+  saját szótári jelentést egy szónak, mint amit a fenti adat már közölt
+  (pl. ha egy elöljárószó adott jelentése "-tól/-től", TILOS ehelyett egy
+  másik, eltérő magyar szót — pl. "minden" — használni a jelentéseként);
+  ha egy szóhoz nincs megadva magyar lexikai adat, csak óvatosan,
+  kontextuális magyarázatként fogalmazz, sose úgy, mintha új, kánoni
+  szótári jelentést közölnél;
 - ha egy mezőhöz nincs érdemi mondanivalód, hagyd üresen (üres string)
   vagy hagyd ki a listaelemet — ÜRES LISTA/MEZŐ ÉRVÉNYES, ELVÁRT
   eredmény, ha nincs valóban figyelemre méltó megfigyelés; SOHA ne

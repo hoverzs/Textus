@@ -350,6 +350,68 @@ def test_detected_feature_pronoun_verb_agreement_ruth_1_3():
     assert agreement_patterns
 
 
+def test_redundant_repeated_lemma_suppressed_when_infinitive_absolute_covers_same_tokens_gen_2_17():
+    """Production quality-review finding on Gen 2:17: both
+    infinitive_absolute_with_finite_verb and repeated_lemma_in_verse fired
+    for the identical (Gen.2.17:12 מוֹת, Gen.2.17:13 תָּמוּת) pair — an
+    infinitive-absolute-with-finite-verb construction always shares a
+    lemma by definition, so the generic repetition note added nothing and
+    produced two AI construction_notes about the same phenomenon. Other,
+    genuinely distinct repeated lemmas in the SAME verse (אָכַל, מִן־) must
+    NOT be suppressed — general token-set-equality dedup, not a Gen-2:17-
+    specific carve-out."""
+    bundle = get_hebrew_analysis("1Móz 2,17")
+    verse = bundle.verses[0]
+
+    infabs = [p for p in verse.detected_patterns if p.pattern_type == "infinitive_absolute_with_finite_verb"]
+    assert infabs and set(infabs[0].token_ids) == {"Gen.2.17:12", "Gen.2.17:13"}
+
+    repeated = {p.token_ids: p for p in verse.detected_patterns if p.pattern_type == "repeated_lemma_in_verse"}
+    assert ("Gen.2.17:12", "Gen.2.17:13") not in repeated, (
+        "repeated_lemma_in_verse for מוּת must be suppressed — infinitive_absolute_with_finite_verb "
+        "already covers the exact same token pair"
+    )
+    # Genuinely distinct repeated lemmas elsewhere in the verse are unaffected.
+    assert any(set(ids) == {"Gen.2.17:6", "Gen.2.17:10"} for ids in repeated), "אָכַל repetition must survive"
+    assert any(set(ids) == {"Gen.2.17:7", "Gen.2.17:11"} for ids in repeated), "מִן־ repetition must survive"
+
+
+def test_construct_state_with_article_anomaly_flagged_only_for_the_article_bearing_token_gen_2_17():
+    """Correction following user review of the Gen 2:17 quality pass: our
+    PRIMARY (STEPBible/Westminster-derived TEHMC) morphology marking a
+    token construct is a fact about OUR dataset, not a settled linguistic
+    question — a construct-state noun carrying the definite article
+    directly is grammatically exceptional in Biblical Hebrew, and other
+    established morphology datasets can and do parse this exact
+    combination as absolute instead. This detector NEVER overrides
+    ``state`` (still 'Construct' either way) and NEVER claims our primary
+    source is wrong — it only flags the anomaly for cautious downstream
+    phrasing.
+
+    עֵץ (Gen.2.17:1) is construct with NO article — an entirely ordinary,
+    unambiguous construct form, completely unaffected (item 5: "keep
+    ordinary, unambiguous construct forms unchanged").
+    הַדַּעַת (Gen.2.17:2) is construct WITH an article component — flagged
+    as the anomaly (item 6 regression: "retains the primary-source
+    construct tag ... but is surfaced as an anomaly")."""
+    bundle = get_hebrew_analysis("1Móz 2,17")
+    verse = bundle.verses[0]
+
+    token1 = next(t for t in verse.tokens if t.token_id == "Gen.2.17:1")
+    token2 = next(t for t in verse.tokens if t.token_id == "Gen.2.17:2")
+    assert token1.morphology.state == "Construct"
+    assert token2.morphology.state == "Construct"  # primary-source tag retained, unchanged
+
+    anomalies = {
+        tid
+        for p in verse.detected_patterns
+        if p.pattern_type == "construct_state_with_article_anomaly"
+        for tid in p.token_ids
+    }
+    assert "Gen.2.17:1" not in anomalies, "עֵץ has no article — must NOT be flagged as anomalous"
+    assert "Gen.2.17:2" in anomalies, "הַדַּעַת has an article component — must be flagged as anomalous"
+
+
 def test_no_fabricated_feature_interpretations():
     """CRITICAL per the Phase 2C spec: detectors must report structural
     facts, never an interpretation of what those facts mean (no 'emphasis',
