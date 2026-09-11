@@ -3365,6 +3365,50 @@ div[data-testid="stForm"] {{
     }}
 }}
 
+/* --------------------------------------------------------------
+   Expander header visibility (centralized — applies to every
+   st.expander in the app: "Mondattani összefoglalás", "Bibliai
+   szöveg kézi beillesztése", etc.). Headers only; expand/collapse
+   behavior and expanded-content styling are untouched.
+   -------------------------------------------------------------- */
+[data-testid="stExpander"],
+.streamlit-expander {{
+    border-radius: var(--ws-radius);
+    overflow: hidden;
+}}
+
+[data-testid="stExpander"] summary,
+.streamlit-expanderHeader {{
+    background: linear-gradient(135deg, var(--ws-blue), var(--ws-blue-deep)) !important;
+    border: 1px solid var(--ws-blue-deep) !important;
+    border-radius: var(--ws-radius);
+    padding: 0.55rem 0.9rem !important;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+}}
+
+[data-testid="stExpander"] summary *,
+.streamlit-expanderHeader * {{
+    color: #ffffff !important;
+    fill: #ffffff !important;
+}}
+
+[data-testid="stExpander"] summary:hover,
+.streamlit-expanderHeader:hover {{
+    background: linear-gradient(135deg, #6a8ab8, var(--ws-blue)) !important;
+    box-shadow: 0 2px 10px rgba(31, 51, 77, 0.28);
+}}
+
+[data-testid="stExpander"] summary:focus-visible,
+.streamlit-expanderHeader:focus-visible {{
+    outline: 2px solid #ffffff !important;
+    outline-offset: 2px;
+}}
+
+[data-testid="stExpander"] details[open] summary {{
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}}
+
 </style>
 """, unsafe_allow_html=True)
 
