@@ -1,0 +1,132 @@
+{
+  "total_verses": 7958,
+  "grounding_counts": {
+    "FULLY_GROUNDED_SYNTAX": 5525,
+    "PARTIALLY_GROUNDED_SYNTAX": 2410,
+    "NO_GROUNDED_SYNTAX": 23
+  },
+  "grounding_percentages": {
+    "FULLY_GROUNDED_SYNTAX": 69.43,
+    "PARTIALLY_GROUNDED_SYNTAX": 30.28,
+    "NO_GROUNDED_SYNTAX": 0.29
+  },
+  "book_grounding": {
+    "1CO": {
+      "FULLY_GROUNDED_SYNTAX": 321,
+      "PARTIALLY_GROUNDED_SYNTAX": 116
+    },
+    "1JN": {
+      "FULLY_GROUNDED_SYNTAX": 81,
+      "PARTIALLY_GROUNDED_SYNTAX": 24
+    },
+    "1PE": {
+      "FULLY_GROUNDED_SYNTAX": 68,
+      "PARTIALLY_GROUNDED_SYNTAX": 37
+    },
+    "1TH": {
+      "PARTIALLY_GROUNDED_SYNTAX": 24,
+      "FULLY_GROUNDED_SYNTAX": 65
+    },
+    "1TI": {
+      "PARTIALLY_GROUNDED_SYNTAX": 33,
+      "FULLY_GROUNDED_SYNTAX": 80
+    },
+    "2CO": {
+      "FULLY_GROUNDED_SYNTAX": 194,
+      "PARTIALLY_GROUNDED_SYNTAX": 62
+    },
+    "2JN": {
+      "FULLY_GROUNDED_SYNTAX": 9,
+      "PARTIALLY_GROUNDED_SYNTAX": 4
+    },
+    "2PE": {
+      "FULLY_GROUNDED_SYNTAX": 51,
+      "PARTIALLY_GROUNDED_SYNTAX": 10
+    },
+    "2TH": {
+      "FULLY_GROUNDED_SYNTAX": 34,
+      "PARTIALLY_GROUNDED_SYNTAX": 13
+    },
+    "2TI": {
+      "FULLY_GROUNDED_SYNTAX": 67,
+      "PARTIALLY_GROUNDED_SYNTAX": 15,
+      "NO_GROUNDED_SYNTAX": 1
+    },
+    "3JN": {
+      "FULLY_GROUNDED_SYNTAX": 13,
+      "PARTIALLY_GROUNDED_SYNTAX": 2
+    },
+    "ACT": {
+      "FULLY_GROUNDED_SYNTAX": 686,
+      "PARTIALLY_GROUNDED_SYNTAX": 316,
+      "NO_GROUNDED_SYNTAX": 5
+    },
+    "COL": {
+      "FULLY_GROUNDED_SYNTAX": 65,
+      "PARTIALLY_GROUNDED_SYNTAX": 30
+    },
+    "EPH": {
+      "FULLY_GROUNDED_SYNTAX": 118,
+      "PARTIALLY_GROUNDED_SYNTAX": 37
+    },
+    "GAL": {
+      "FULLY_GROUNDED_SYNTAX": 117,
+      "PARTIALLY_GROUNDED_SYNTAX": 31,
+      "NO_GROUNDED_SYNTAX": 1
+    },
+    "HEB": {
+      "FULLY_GROUNDED_SYNTAX": 234,
+      "PARTIALLY_GROUNDED_SYNTAX": 69
+    },
+    "JAS": {
+      "FULLY_GROUNDED_SYNTAX": 78,
+      "PARTIALLY_GROUNDED_SYNTAX": 30
+    },
+    "JHN": {
+      "FULLY_GROUNDED_SYNTAX": 590,
+      "PARTIALLY_GROUNDED_SYNTAX": 288,
+      "NO_GROUNDED_SYNTAX": 1
+    },
+    "JUD": {
+      "FULLY_GROUNDED_SYNTAX": 17,
+      "PARTIALLY_GROUNDED_SYNTAX": 8
+    },
+    "LUK": {
+      "FULLY_GROUNDED_SYNTAX": 770,
+      "PARTIALLY_GROUNDED_SYNTAX": 379,
+      "NO_GROUNDED_SYNTAX": 2
+    },
+    "MAT": {
+      "FULLY_GROUNDED_SYNTAX": 772,
+      "PARTIALLY_GROUNDED_SYNTAX": 296,
+      "NO_GROUNDED_SYNTAX": 3
+    },
+    "MRK": {
+      "PARTIALLY_GROUNDED_SYNTAX": 280,
+      "FULLY_GROUNDED_SYNTAX": 393,
+      "NO_GROUNDED_SYNTAX": 5
+    },
+    "PHM": {
+      "FULLY_GROUNDED_SYNTAX": 20,
+      "PARTIALLY_GROUNDED_SYNTAX": 5
+    },
+    "PHP": {
+      "FULLY_GROUNDED_SYNTAX": 87,
+      "PARTIALLY_GROUNDED_SYNTAX": 17
+    },
+    "REV": {
+      "FULLY_GROUNDED_SYNTAX": 214,
+      "PARTIALLY_GROUNDED_SYNTAX": 191
+    },
+    "ROM": {
+      "FULLY_GROUNDED_SYNTAX": 344,
+      "PARTIALLY_GROUNDED_SYNTAX": 85,
+      "NO_GROUNDED_SYNTAX": 4
+    },
+    "TIT": {
+      "FULLY_GROUNDED_SYNTAX": 37,
+      "PARTIALLY_GROUNDED_SYNTAX": 8,
+      "NO_GROUNDED_SYNTAX": 1
+    }
+  }
+}

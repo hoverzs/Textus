@@ -53,13 +53,19 @@ from bible_engine.macula_greek_parser import (  # noqa: E402
 from bible_engine.tagnt_parser import GreekToken  # noqa: E402
 from bible_engine.tagnt_sqlite import _clean_greek_form  # noqa: E402
 
-# Books whose lowfat XML this phase downloaded — see phase doc §1 for the
+# All 27 NT books' lowfat XML — see phase doc (Phase 2B.1) §1 for the
 # exact files/URLs/commit. Book code -> expected filename (lowercase book
 # name, no accents, matching the source repo's own naming).
 LOWFAT_BOOK_FILES = {
     "MAT": "matthew.xml", "MRK": "mark.xml", "LUK": "luke.xml", "JHN": "john.xml",
-    "ROM": "romans.xml", "1CO": "1corinthians.xml", "PHP": "philippians.xml",
-    "1TI": "1timothy.xml", "2PE": "2peter.xml",
+    "ACT": "acts.xml", "ROM": "romans.xml", "1CO": "1corinthians.xml",
+    "2CO": "2corinthians.xml", "GAL": "galatians.xml", "EPH": "ephesians.xml",
+    "PHP": "philippians.xml", "COL": "colossians.xml", "1TH": "1thessalonians.xml",
+    "2TH": "2thessalonians.xml", "1TI": "1timothy.xml", "2TI": "2timothy.xml",
+    "TIT": "titus.xml", "PHM": "philemon.xml", "HEB": "hebrews.xml",
+    "JAS": "james.xml", "1PE": "1peter.xml", "2PE": "2peter.xml",
+    "1JN": "1john.xml", "2JN": "2john.xml", "3JN": "3john.xml", "JUD": "jude.xml",
+    "REV": "revelation.xml",
 }
 
 

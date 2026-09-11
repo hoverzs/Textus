@@ -1,0 +1,691 @@
+{
+  "total_unresolved": 4704,
+  "category_counts": {
+    "candidate_claimed_by_another_tagnt_token": 501,
+    "tokenization_segmentation_difference": 96,
+    "textual_variant_edition_difference": 3055,
+    "macula_missing_node": 128,
+    "morphology_incompatible_candidate": 481,
+    "genuinely_ambiguous_duplicate": 370,
+    "other_unexplained": 14,
+    "macula_missing_verse": 59
+  },
+  "category_percentages": {
+    "candidate_claimed_by_another_tagnt_token": 10.651,
+    "tokenization_segmentation_difference": 2.041,
+    "textual_variant_edition_difference": 64.945,
+    "macula_missing_node": 2.721,
+    "morphology_incompatible_candidate": 10.225,
+    "genuinely_ambiguous_duplicate": 7.866,
+    "other_unexplained": 0.298,
+    "macula_missing_verse": 1.254
+  },
+  "category_examples": {
+    "candidate_claimed_by_another_tagnt_token": [
+      {
+        "token_id": "1Co.1.2:31",
+        "surface": "καὶ",
+        "lemma": "καί",
+        "edition_flags": "NKO",
+        "detail": "1 morphology-compatible candidate(s) exist but were already consumed by another TAGNT token's alignment in this verse (a repeated common word — e.g. καί/δέ/the article — with more TAGNT occurrences than MACULA ones)"
+      },
+      {
+        "token_id": "1Co.1.14:4",
+        "surface": "ὅτι",
+        "lemma": "ὅτι",
+        "edition_flags": "NKO",
+        "detail": "1 morphology-compatible candidate(s) exist but were already consumed by another TAGNT token's alignment in this verse (a repeated common word — e.g. καί/δέ/the article — with more TAGNT occurrences than MACULA ones)"
+      },
+      {
+        "token_id": "1Co.3.2:5",
+        "surface": "οὐ",
+        "lemma": "οὐ",
+        "edition_flags": "NKO",
+        "detail": "1 morphology-compatible candidate(s) exist but were already consumed by another TAGNT token's alignment in this verse (a repeated common word — e.g. καί/δέ/the article — with more TAGNT occurrences than MACULA ones)"
+      },
+      {
+        "token_id": "1Co.3.3:18",
+        "surface": "κατὰ",
+        "lemma": "κατά",
+        "edition_flags": "NKO",
+        "detail": "1 morphology-compatible candidate(s) exist but were already consumed by another TAGNT token's alignment in this verse (a repeated common word — e.g. καί/δέ/the article — with more TAGNT occurrences than MACULA ones)"
+      },
+      {
+        "token_id": "1Co.4.9:13",
+        "surface": "ὅτι",
+        "lemma": "ὅτι",
+        "edition_flags": "NKO",
+        "detail": "1 morphology-compatible candidate(s) exist but were already consumed by another TAGNT token's alignment in this verse (a repeated common word — e.g. καί/δέ/the article — with more TAGNT occurrences than MACULA ones)"
+      },
+      {
+        "token_id": "1Co.5.1:15",
+        "surface": "ὥστε",
+        "lemma": "ὥστε",
+        "edition_flags": "NKO",
+        "detail": "1 morphology-compatible candidate(s) exist but were already consumed by another TAGNT token's alignment in this verse (a repeated common word — e.g. καί/δέ/the article — with more TAGNT occurrences than MACULA ones)"
+      },
+      {
+        "token_id": "1Co.5.3:14",
+        "surface": "ὡς",
+        "lemma": "ὡς",
+        "edition_flags": "NKO",
+        "detail": "1 morphology-compatible candidate(s) exist but were already consumed by another TAGNT token's alignment in this verse (a repeated common word — e.g. καί/δέ/the article — with more TAGNT occurrences than MACULA ones)"
+      },
+      {
+        "token_id": "1Co.5.10:12",
+        "surface": "καὶ",
+        "lemma": "καί",
+        "edition_flags": "N(k)O",
+        "detail": "1 morphology-compatible candidate(s) exist but were already consumed by another TAGNT token's alignment in this verse (a repeated common word — e.g. καί/δέ/the article — with more TAGNT occurrences than MACULA ones)"
+      }
+    ],
+    "tokenization_segmentation_difference": [
+      {
+        "token_id": "1Co.1.14:3",
+        "surface": "θεῷ",
+        "lemma": "θεός",
+        "edition_flags": "NKO",
+        "detail": "verse token counts differ: TAGNT=12 MACULA=10"
+      },
+      {
+        "token_id": "1Co.9.7:16",
+        "surface": "ἢ",
+        "lemma": "ἤ",
+        "edition_flags": "NKO",
+        "detail": "verse token counts differ: TAGNT=27 MACULA=25"
+      },
+      {
+        "token_id": "1Co.12.9:9",
+        "surface": "δὲ",
+        "lemma": "δέ",
+        "edition_flags": "NKO",
+        "detail": "verse token counts differ: TAGNT=15 MACULA=13"
+      },
+      {
+        "token_id": "1Co.12.10:2",
+        "surface": "δὲ",
+        "lemma": "δέ",
+        "edition_flags": "NKO",
+        "detail": "verse token counts differ: TAGNT=19 MACULA=14"
+      },
+      {
+        "token_id": "1Co.12.10:6",
+        "surface": "δὲ",
+        "lemma": "δέ",
+        "edition_flags": "NKO",
+        "detail": "verse token counts differ: TAGNT=19 MACULA=14"
+      },
+      {
+        "token_id": "1Co.12.10:9",
+        "surface": "δὲ",
+        "lemma": "δέ",
+        "edition_flags": "NKO",
+        "detail": "verse token counts differ: TAGNT=19 MACULA=14"
+      },
+      {
+        "token_id": "1Co.12.10:17",
+        "surface": "δὲ",
+        "lemma": "δέ",
+        "edition_flags": "NKO",
+        "detail": "verse token counts differ: TAGNT=19 MACULA=14"
+      },
+      {
+        "token_id": "1Co.14.25:11",
+        "surface": "οὕτως",
+        "lemma": "οὕτω, οὕτως",
+        "edition_flags": "NKO",
+        "detail": "verse token counts differ: TAGNT=25 MACULA=23"
+      }
+    ],
+    "textual_variant_edition_difference": [
+      {
+        "token_id": "1Co.1.20:18",
+        "surface": "τούτου;",
+        "lemma": "οὗτος",
+        "edition_flags": "k",
+        "detail": "edition_flags=k"
+      },
+      {
+        "token_id": "1Co.1.25:18",
+        "surface": "ἐστίν.",
+        "lemma": "εἰμί",
+        "edition_flags": "k",
+        "detail": "edition_flags=k"
+      },
+      {
+        "token_id": "1Co.1.28:12",
+        "surface": "καὶ",
+        "lemma": "καί",
+        "edition_flags": "ko",
+        "detail": "edition_flags=ko"
+      },
+      {
+        "token_id": "1Co.2.2:4",
+        "surface": "τοῦ",
+        "lemma": "ὁ",
+        "edition_flags": "k",
+        "detail": "edition_flags=k"
+      },
+      {
+        "token_id": "1Co.2.4:12",
+        "surface": "ἀνθρωπίνης",
+        "lemma": "ἀνθρώπινος",
+        "edition_flags": "K",
+        "detail": "edition_flags=K"
+      },
+      {
+        "token_id": "1Co.2.10:9",
+        "surface": "αὐτοῦ·",
+        "lemma": "αὐτός",
+        "edition_flags": "k",
+        "detail": "edition_flags=k"
+      },
+      {
+        "token_id": "1Co.2.13:14",
+        "surface": "ἁγίου,",
+        "lemma": "ἅγιος",
+        "edition_flags": "K",
+        "detail": "edition_flags=K"
+      },
+      {
+        "token_id": "1Co.3.5:9",
+        "surface": "ἀλλ᾽",
+        "lemma": "ἀλλά",
+        "edition_flags": "K",
+        "detail": "edition_flags=K"
+      }
+    ],
+    "macula_missing_node": [
+      {
+        "token_id": "1Co.2.1:16",
+        "surface": "μυστήριον",
+        "lemma": "μυστήριον",
+        "edition_flags": "N(k)O",
+        "detail": "no surface or lemma candidate anywhere in the verse's MACULA pool"
+      },
+      {
+        "token_id": "1Co.5.2:18",
+        "surface": "πράξας;",
+        "lemma": "πράσσω",
+        "edition_flags": "N(k)O",
+        "detail": "no surface or lemma candidate anywhere in the verse's MACULA pool"
+      },
+      {
+        "token_id": "1Co.6.3:7",
+        "surface": "γε",
+        "lemma": "γέ",
+        "edition_flags": "NKO",
+        "detail": "no surface or lemma candidate anywhere in the verse's MACULA pool"
+      },
+      {
+        "token_id": "1Co.7.15:21",
+        "surface": "ὑμᾶς",
+        "lemma": "σύ",
+        "edition_flags": "N(K)O",
+        "detail": "no surface or lemma candidate anywhere in the verse's MACULA pool"
+      },
+      {
+        "token_id": "1Co.13.3:14",
+        "surface": "καυχήσωμαι,",
+        "lemma": "καυχάομαι",
+        "edition_flags": "N(K)(o)",
+        "detail": "no surface or lemma candidate anywhere in the verse's MACULA pool"
+      },
+      {
+        "token_id": "1Co.14.16:4",
+        "surface": "ἐν",
+        "lemma": "ἐν",
+        "edition_flags": "N(k)O",
+        "detail": "no surface or lemma candidate anywhere in the verse's MACULA pool"
+      },
+      {
+        "token_id": "1Co.15.31:8",
+        "surface": "ἀδελφοί,",
+        "lemma": "ἀδελφός",
+        "edition_flags": "NO",
+        "detail": "no surface or lemma candidate anywhere in the verse's MACULA pool"
+      },
+      {
+        "token_id": "1Co.16.22:11",
+        "surface": "μαράνα θά.",
+        "lemma": "μαρὰνα θά",
+        "edition_flags": "N(k)O",
+        "detail": "no surface or lemma candidate anywhere in the verse's MACULA pool"
+      }
+    ],
+    "morphology_incompatible_candidate": [
+      {
+        "token_id": "1Co.2.4:11",
+        "surface": "πειθοῖς",
+        "lemma": "πειθός",
+        "edition_flags": "NKO",
+        "detail": "1 same-lemma MACULA candidate(s) found, all morphology-incompatible (TAGNT case/number vs MACULA)"
+      },
+      {
+        "token_id": "1Co.6.11:25",
+        "surface": "ἡμῶν.",
+        "lemma": "ἐγώ",
+        "edition_flags": "NKO",
+        "detail": "1 same-lemma MACULA candidate(s) found, all morphology-incompatible (TAGNT case/number vs MACULA)"
+      },
+      {
+        "token_id": "1Co.10.2:6",
+        "surface": "ἐβαπτίσθησαν",
+        "lemma": "βαπτίζω",
+        "edition_flags": "N(k)O",
+        "detail": "1 same-lemma MACULA candidate(s) found, all morphology-incompatible (TAGNT case/number vs MACULA)"
+      },
+      {
+        "token_id": "1Co.10.5:7",
+        "surface": "εὐδόκησεν",
+        "lemma": "εὐδοκέω",
+        "edition_flags": "NKO",
+        "detail": "1 same-lemma MACULA candidate(s) found, all morphology-incompatible (TAGNT case/number vs MACULA)"
+      },
+      {
+        "token_id": "1Co.11.14:3",
+        "surface": "ἡ",
+        "lemma": "ὁ",
+        "edition_flags": "NKO",
+        "detail": "1 same-lemma MACULA candidate(s) found, all morphology-incompatible (TAGNT case/number vs MACULA)"
+      },
+      {
+        "token_id": "1Co.11.15:14",
+        "surface": "αὐτῇ·",
+        "lemma": "αὐτός",
+        "edition_flags": "NKO",
+        "detail": "1 same-lemma MACULA candidate(s) found, all morphology-incompatible (TAGNT case/number vs MACULA)"
+      },
+      {
+        "token_id": "1Co.11.32:4",
+        "surface": "τοῦ",
+        "lemma": "ὁ",
+        "edition_flags": "no",
+        "detail": "1 same-lemma MACULA candidate(s) found, all morphology-incompatible (TAGNT case/number vs MACULA)"
+      },
+      {
+        "token_id": "1Co.12.24:15",
+        "surface": "ὑστερουμένῳ",
+        "lemma": "ὑστερέω",
+        "edition_flags": "N(k)O",
+        "detail": "1 same-lemma MACULA candidate(s) found, all morphology-incompatible (TAGNT case/number vs MACULA)"
+      }
+    ],
+    "genuinely_ambiguous_duplicate": [
+      {
+        "token_id": "1Co.2.4:16",
+        "surface": "ἐν",
+        "lemma": "ἐν",
+        "edition_flags": "NKO",
+        "detail": "2 identical-surface MACULA candidates in verse"
+      },
+      {
+        "token_id": "1Co.3.3:17",
+        "surface": "καὶ",
+        "lemma": "καί",
+        "edition_flags": "NKO",
+        "detail": "2 identical-surface MACULA candidates in verse"
+      },
+      {
+        "token_id": "1Co.4.6:22",
+        "surface": "μὴ",
+        "lemma": "μή",
+        "edition_flags": "NKO",
+        "detail": "2 identical-surface MACULA candidates in verse"
+      },
+      {
+        "token_id": "1Co.6.11:20",
+        "surface": "ἐν",
+        "lemma": "ἐν",
+        "edition_flags": "NKO",
+        "detail": "2 identical-surface MACULA candidates in verse"
+      },
+      {
+        "token_id": "1Co.11.27:24",
+        "surface": "τοῦ",
+        "lemma": "ὁ",
+        "edition_flags": "NKO",
+        "detail": "4 identical-surface MACULA candidates in verse"
+      },
+      {
+        "token_id": "1Co.11.27:25",
+        "surface": "κυρίου.",
+        "lemma": "κύριος",
+        "edition_flags": "NKO",
+        "detail": "2 identical-surface MACULA candidates in verse"
+      },
+      {
+        "token_id": "1Co.15.28:22",
+        "surface": "τὰ",
+        "lemma": "ὁ",
+        "edition_flags": "NKO",
+        "detail": "2 identical-surface MACULA candidates in verse"
+      },
+      {
+        "token_id": "1Co.15.39:18",
+        "surface": "σὰρξ",
+        "lemma": "σάρξ",
+        "edition_flags": "no",
+        "detail": "4 identical-surface MACULA candidates in verse"
+      }
+    ],
+    "other_unexplained": [
+      {
+        "token_id": "1Co.2.9:18",
+        "surface": "ἃ",
+        "lemma": "ὅς, ἥ",
+        "edition_flags": "NK(O)",
+        "detail": "no deterministic rule matched"
+      },
+      {
+        "token_id": "1Co.10.11:4",
+        "surface": "τυπικῶς",
+        "lemma": "τύπος",
+        "edition_flags": "N(k)O",
+        "detail": "no deterministic rule matched"
+      },
+      {
+        "token_id": "2Co.13.5:21",
+        "surface": "μήτι",
+        "lemma": "μή",
+        "edition_flags": "NKO",
+        "detail": "no deterministic rule matched"
+      },
+      {
+        "token_id": "Act.7.26:18",
+        "surface": "ἱνατί",
+        "lemma": "ἵνα",
+        "edition_flags": "NKO",
+        "detail": "no deterministic rule matched"
+      },
+      {
+        "token_id": "Act.17.33:2",
+        "surface": "οὕτως",
+        "lemma": "οὕτω, οὕτως",
+        "edition_flags": "NKO",
+        "detail": "no deterministic rule matched"
+      },
+      {
+        "token_id": "Jhn.20.16:12",
+        "surface": "ὃ",
+        "lemma": "ὅς, ἥ",
+        "edition_flags": "NKO",
+        "detail": "no deterministic rule matched"
+      },
+      {
+        "token_id": "Luk.14.18:18",
+        "surface": "ἰδεῖν",
+        "lemma": "εἴδω",
+        "edition_flags": "NKO",
+        "detail": "no deterministic rule matched"
+      },
+      {
+        "token_id": "Luk.15.19:2",
+        "surface": "οὐκέτι",
+        "lemma": "οὐ",
+        "edition_flags": "NKO",
+        "detail": "no deterministic rule matched"
+      }
+    ],
+    "macula_missing_verse": [
+      {
+        "token_id": "Act.19.41:1",
+        "surface": "καὶ",
+        "lemma": "καί",
+        "edition_flags": "NKO",
+        "detail": "verse has zero MACULA tokens"
+      },
+      {
+        "token_id": "Act.19.41:2",
+        "surface": "ταῦτα",
+        "lemma": "οὗτος",
+        "edition_flags": "NKO",
+        "detail": "verse has zero MACULA tokens"
+      },
+      {
+        "token_id": "Act.19.41:3",
+        "surface": "εἰπὼν",
+        "lemma": "ἔπω, ἐρῶ, εἶπον",
+        "edition_flags": "NKO",
+        "detail": "verse has zero MACULA tokens"
+      },
+      {
+        "token_id": "Act.19.41:4",
+        "surface": "ἀπέλυσεν",
+        "lemma": "ἀπολύω",
+        "edition_flags": "NKO",
+        "detail": "verse has zero MACULA tokens"
+      },
+      {
+        "token_id": "Act.19.41:5",
+        "surface": "τὴν",
+        "lemma": "ὁ",
+        "edition_flags": "NKO",
+        "detail": "verse has zero MACULA tokens"
+      },
+      {
+        "token_id": "Act.19.41:6",
+        "surface": "ἐκκλησίαν.",
+        "lemma": "ἐκκλησία",
+        "edition_flags": "NKO",
+        "detail": "verse has zero MACULA tokens"
+      },
+      {
+        "token_id": "Rom.16.25:1",
+        "surface": "Τῷ",
+        "lemma": "ὁ",
+        "edition_flags": "NKO",
+        "detail": "verse has zero MACULA tokens"
+      },
+      {
+        "token_id": "Rom.16.25:2",
+        "surface": "δὲ",
+        "lemma": "δέ",
+        "edition_flags": "NKO",
+        "detail": "verse has zero MACULA tokens"
+      }
+    ]
+  },
+  "book_category_counts": {
+    "1CO": {
+      "candidate_claimed_by_another_tagnt_token": 33,
+      "tokenization_segmentation_difference": 10,
+      "textual_variant_edition_difference": 116,
+      "macula_missing_node": 8,
+      "morphology_incompatible_candidate": 10,
+      "genuinely_ambiguous_duplicate": 8,
+      "other_unexplained": 2
+    },
+    "1JN": {
+      "textual_variant_edition_difference": 37,
+      "candidate_claimed_by_another_tagnt_token": 10,
+      "macula_missing_node": 2,
+      "genuinely_ambiguous_duplicate": 4,
+      "morphology_incompatible_candidate": 9,
+      "tokenization_segmentation_difference": 1
+    },
+    "1PE": {
+      "macula_missing_node": 5,
+      "textual_variant_edition_difference": 42,
+      "morphology_incompatible_candidate": 6,
+      "candidate_claimed_by_another_tagnt_token": 5,
+      "tokenization_segmentation_difference": 2
+    },
+    "1TH": {
+      "textual_variant_edition_difference": 26,
+      "morphology_incompatible_candidate": 4,
+      "genuinely_ambiguous_duplicate": 5,
+      "candidate_claimed_by_another_tagnt_token": 7,
+      "macula_missing_node": 1,
+      "tokenization_segmentation_difference": 1
+    },
+    "1TI": {
+      "textual_variant_edition_difference": 37,
+      "morphology_incompatible_candidate": 10,
+      "candidate_claimed_by_another_tagnt_token": 5,
+      "genuinely_ambiguous_duplicate": 4,
+      "macula_missing_node": 1
+    },
+    "2CO": {
+      "textual_variant_edition_difference": 52,
+      "genuinely_ambiguous_duplicate": 8,
+      "candidate_claimed_by_another_tagnt_token": 10,
+      "macula_missing_node": 5,
+      "morphology_incompatible_candidate": 8,
+      "other_unexplained": 1
+    },
+    "2JN": {
+      "textual_variant_edition_difference": 4,
+      "macula_missing_node": 1
+    },
+    "2PE": {
+      "macula_missing_node": 1,
+      "textual_variant_edition_difference": 8,
+      "candidate_claimed_by_another_tagnt_token": 2,
+      "tokenization_segmentation_difference": 3,
+      "morphology_incompatible_candidate": 1,
+      "genuinely_ambiguous_duplicate": 1
+    },
+    "2TH": {
+      "genuinely_ambiguous_duplicate": 3,
+      "morphology_incompatible_candidate": 4,
+      "macula_missing_node": 2,
+      "textual_variant_edition_difference": 13,
+      "candidate_claimed_by_another_tagnt_token": 3
+    },
+    "2TI": {
+      "textual_variant_edition_difference": 30,
+      "macula_missing_node": 2,
+      "genuinely_ambiguous_duplicate": 3,
+      "morphology_incompatible_candidate": 3,
+      "candidate_claimed_by_another_tagnt_token": 3
+    },
+    "3JN": {
+      "textual_variant_edition_difference": 2
+    },
+    "ACT": {
+      "macula_missing_node": 18,
+      "textual_variant_edition_difference": 412,
+      "genuinely_ambiguous_duplicate": 35,
+      "morphology_incompatible_candidate": 91,
+      "candidate_claimed_by_another_tagnt_token": 79,
+      "tokenization_segmentation_difference": 13,
+      "other_unexplained": 2,
+      "macula_missing_verse": 6
+    },
+    "COL": {
+      "textual_variant_edition_difference": 44,
+      "genuinely_ambiguous_duplicate": 5,
+      "macula_missing_node": 2,
+      "candidate_claimed_by_another_tagnt_token": 5,
+      "morphology_incompatible_candidate": 4
+    },
+    "EPH": {
+      "candidate_claimed_by_another_tagnt_token": 8,
+      "genuinely_ambiguous_duplicate": 3,
+      "textual_variant_edition_difference": 49,
+      "morphology_incompatible_candidate": 8,
+      "tokenization_segmentation_difference": 3
+    },
+    "GAL": {
+      "candidate_claimed_by_another_tagnt_token": 9,
+      "tokenization_segmentation_difference": 1,
+      "morphology_incompatible_candidate": 5,
+      "genuinely_ambiguous_duplicate": 3,
+      "textual_variant_edition_difference": 28,
+      "macula_missing_node": 1
+    },
+    "HEB": {
+      "textual_variant_edition_difference": 63,
+      "genuinely_ambiguous_duplicate": 8,
+      "morphology_incompatible_candidate": 27,
+      "macula_missing_node": 5,
+      "tokenization_segmentation_difference": 4,
+      "candidate_claimed_by_another_tagnt_token": 14
+    },
+    "JAS": {
+      "textual_variant_edition_difference": 26,
+      "morphology_incompatible_candidate": 3,
+      "candidate_claimed_by_another_tagnt_token": 8,
+      "genuinely_ambiguous_duplicate": 3,
+      "macula_missing_node": 2
+    },
+    "JHN": {
+      "morphology_incompatible_candidate": 60,
+      "tokenization_segmentation_difference": 10,
+      "textual_variant_edition_difference": 309,
+      "genuinely_ambiguous_duplicate": 39,
+      "macula_missing_node": 13,
+      "candidate_claimed_by_another_tagnt_token": 58,
+      "other_unexplained": 1
+    },
+    "JUD": {
+      "genuinely_ambiguous_duplicate": 2,
+      "morphology_incompatible_candidate": 4,
+      "macula_missing_node": 3,
+      "textual_variant_edition_difference": 3,
+      "candidate_claimed_by_another_tagnt_token": 1
+    },
+    "LUK": {
+      "morphology_incompatible_candidate": 62,
+      "textual_variant_edition_difference": 507,
+      "candidate_claimed_by_another_tagnt_token": 74,
+      "genuinely_ambiguous_duplicate": 45,
+      "tokenization_segmentation_difference": 17,
+      "macula_missing_node": 20,
+      "other_unexplained": 2
+    },
+    "MAT": {
+      "textual_variant_edition_difference": 422,
+      "morphology_incompatible_candidate": 52,
+      "genuinely_ambiguous_duplicate": 42,
+      "candidate_claimed_by_another_tagnt_token": 63,
+      "macula_missing_node": 13,
+      "tokenization_segmentation_difference": 5,
+      "other_unexplained": 3
+    },
+    "MRK": {
+      "tokenization_segmentation_difference": 14,
+      "textual_variant_edition_difference": 428,
+      "macula_missing_node": 9,
+      "candidate_claimed_by_another_tagnt_token": 57,
+      "morphology_incompatible_candidate": 37,
+      "genuinely_ambiguous_duplicate": 65,
+      "other_unexplained": 1
+    },
+    "PHM": {
+      "textual_variant_edition_difference": 14,
+      "candidate_claimed_by_another_tagnt_token": 1,
+      "morphology_incompatible_candidate": 1
+    },
+    "PHP": {
+      "textual_variant_edition_difference": 25,
+      "candidate_claimed_by_another_tagnt_token": 3,
+      "morphology_incompatible_candidate": 4,
+      "genuinely_ambiguous_duplicate": 1,
+      "tokenization_segmentation_difference": 1
+    },
+    "REV": {
+      "textual_variant_edition_difference": 230,
+      "candidate_claimed_by_another_tagnt_token": 27,
+      "morphology_incompatible_candidate": 41,
+      "genuinely_ambiguous_duplicate": 69,
+      "tokenization_segmentation_difference": 4,
+      "other_unexplained": 2,
+      "macula_missing_node": 5
+    },
+    "ROM": {
+      "textual_variant_edition_difference": 107,
+      "morphology_incompatible_candidate": 26,
+      "macula_missing_node": 9,
+      "candidate_claimed_by_another_tagnt_token": 16,
+      "tokenization_segmentation_difference": 7,
+      "genuinely_ambiguous_duplicate": 14,
+      "macula_missing_verse": 53
+    },
+    "TIT": {
+      "textual_variant_edition_difference": 21,
+      "morphology_incompatible_candidate": 1
+    }
+  }
+}
