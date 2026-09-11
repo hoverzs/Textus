@@ -7670,7 +7670,9 @@ def render_igehely_panel() -> None:
 
         render_concordance_expander()
 
-        render_bible_text_editor()
+        render_bible_text_editor(
+            hebrew_contextual_analysis_generate_fn=generate_hebrew_contextual_analysis_text,
+        )
 
     with work_surface("igehely_overview"):
         render_info_panel(

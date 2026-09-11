@@ -588,6 +588,8 @@ def render_hebrew_contextual_analysis_panel(
 
 
 def _render_hebrew_contextual_word_note(analysis: HebrewContextualAnalysis, token_id: str | None) -> None:
+    """Word-level Phase 2E fields — kept compact (a handful of short markdown
+    lines, never the full JSON/all word_notes), one selected token at a time."""
     if token_id is None:
         return
     note = next((n for n in analysis.word_notes if n.token_id == token_id), None)
@@ -595,19 +597,27 @@ def _render_hebrew_contextual_word_note(analysis: HebrewContextualAnalysis, toke
         return
     if note.lexical_basic_meaning_hu:
         st.markdown(f"**Lexikai alapjelentés:** {note.lexical_basic_meaning_hu}")
-    if note.grammar_explanation_hu:
-        st.markdown(f"**Nyelvtani alak:** {note.grammar_explanation_hu}")
     if note.contextual_meaning_hu:
-        st.markdown(f"**Jelentése ebben a mondatban:** {note.contextual_meaning_hu}")
+        st.markdown(f"**Kontextuális jelentés:** {note.contextual_meaning_hu}")
+    if note.grammar_explanation_hu:
+        st.markdown(f"**Nyelvtani magyarázat:** {note.grammar_explanation_hu}")
     if note.syntax_explanation_hu:
-        st.markdown(f"**Mondattani szerepe:** {note.syntax_explanation_hu}")
+        st.markdown(f"**Mondattani szerep:** {note.syntax_explanation_hu}")
     if note.translation_note_hu:
         st.caption(f"Fordítási megjegyzés: {note.translation_note_hu}")
 
+    related_constructions = [c for c in analysis.construction_notes if token_id in c.token_ids]
+    if related_constructions:
+        st.markdown("**Kapcsolódó konstrukciók:**")
+        for construction in related_constructions:
+            st.markdown(f"- **{construction.title_hu}** — {construction.explanation_hu}")
+
 
 def _render_hebrew_contextual_verse_sections(analysis: HebrewContextualAnalysis) -> None:
+    """Verse-level Phase 2E fields — compact expandable sections below the
+    word-level note, shared by every word click within the same verse."""
     if analysis.construction_notes:
-        with st.expander("Nyelvtani és mondattani megfigyelések", expanded=False):
+        with st.expander("Mondattani összefoglalás — kapcsolódó konstrukciók", expanded=False):
             for construction in analysis.construction_notes:
                 st.markdown(f"**{construction.title_hu}**")
                 st.markdown(construction.explanation_hu)
@@ -615,18 +625,23 @@ def _render_hebrew_contextual_verse_sections(analysis: HebrewContextualAnalysis)
                     st.caption(construction.translation_significance_hu)
 
     if analysis.syntax_summary.summary_hu:
-        with st.expander("Mondatelemzés", expanded=False):
+        with st.expander("Mondattani összefoglalás", expanded=False):
             st.markdown(analysis.syntax_summary.summary_hu)
 
     if analysis.translation_notes:
-        with st.expander("Fordítási megfigyelések", expanded=False):
+        with st.expander("Fordítási megjegyzések", expanded=False):
             for note in analysis.translation_notes:
                 st.markdown(f"- {note}")
 
     if analysis.exegetical_notes:
-        with st.expander("Exegetikai jelentőség", expanded=False):
+        with st.expander("Exegetikai megjegyzések", expanded=False):
             for note in analysis.exegetical_notes:
                 st.markdown(f"- {note}")
+
+    if analysis.warnings:
+        with st.expander("Figyelmeztetések", expanded=False):
+            for warning in analysis.warnings:
+                st.markdown(f"- {warning}")
 
     if analysis.grounding_status == "PARTIALLY_GROUNDED_SYNTAX":
         st.caption(

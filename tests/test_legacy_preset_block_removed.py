@@ -61,7 +61,7 @@ def test_direct_entry_search_and_concordance_still_present():
     assert 'key="igehely_input"' in APP_SRC
     assert "render_passage_search_expander(" in APP_SRC
     assert "render_concordance_expander()" in APP_SRC
-    assert "render_bible_text_editor()" in APP_SRC
+    assert "render_bible_text_editor(" in APP_SRC
 
 
 # ---------------------------------------------------------------------------

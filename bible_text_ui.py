@@ -18,7 +18,7 @@ from __future__ import annotations
 import html
 import re
 from datetime import datetime, timezone
-from typing import Any, MutableMapping
+from typing import Any, Callable, MutableMapping
 
 import streamlit as st
 
@@ -757,8 +757,24 @@ def _render_manual_paste_fallback() -> None:
             _render_editor_fields()
 
 
-def render_bible_text_editor() -> None:
-    """Szerkeszthető Bibliai szöveg blokk (Textusműhely / Igehely szakasz)."""
+def render_bible_text_editor(
+    *,
+    hebrew_contextual_analysis_generate_fn: Callable[..., str] | None = None,
+    hebrew_contextual_analysis_model_id: str = "gemini-2.5-flash",
+    hebrew_contextual_analysis_generate_kwargs: dict[str, object] | None = None,
+) -> None:
+    """Szerkeszthető Bibliai szöveg blokk (Textusműhely / Igehely szakasz).
+
+    ``hebrew_contextual_analysis_generate_fn`` — without it,
+    ``render_greek_analysis_block``'s Hebrew path renders no Phase 2E
+    section at all (``render_hebrew_contextual_analysis_panel`` returns
+    immediately when its ``generate_text_fn`` is ``None``, by design — see
+    that function's own docstring). This is the "Igehely" tab's own
+    Hebrew/Greek word preview, so the caller must forward the same
+    ``generate_hebrew_contextual_analysis_text`` binding
+    ``render_original_text_panel`` already passes, or the panel silently
+    disappears here even though the deterministic morphology/lexicon card
+    above it renders fine (they are independent data paths)."""
     _ensure_bible_text_styles()
     apply_bible_text_resync_if_needed(st.session_state)
 
@@ -785,6 +801,9 @@ def render_bible_text_editor() -> None:
         render_greek_analysis_block(
             reference=_current_reference(st.session_state),
             key_prefix="bible_text_ui",
+            hebrew_contextual_analysis_generate_fn=hebrew_contextual_analysis_generate_fn,
+            hebrew_contextual_analysis_model_id=hebrew_contextual_analysis_model_id,
+            hebrew_contextual_analysis_generate_kwargs=hebrew_contextual_analysis_generate_kwargs,
         )
         _render_manual_paste_fallback()
     else:
@@ -792,6 +811,9 @@ def render_bible_text_editor() -> None:
         render_greek_analysis_block(
             reference=_current_reference(st.session_state),
             key_prefix="bible_text_ui",
+            hebrew_contextual_analysis_generate_fn=hebrew_contextual_analysis_generate_fn,
+            hebrew_contextual_analysis_model_id=hebrew_contextual_analysis_model_id,
+            hebrew_contextual_analysis_generate_kwargs=hebrew_contextual_analysis_generate_kwargs,
         )
         _render_manual_paste_fallback()
 
@@ -821,6 +843,9 @@ def render_bible_text_reading_block(
     original_language_key_prefix: str,
     bible_view_key: str = BIBLE_TEXT_VIEW_KEY,
     display_mode: str = "full",
+    hebrew_contextual_analysis_generate_fn: Callable[..., str] | None = None,
+    hebrew_contextual_analysis_model_id: str = "gemini-2.5-flash",
+    hebrew_contextual_analysis_generate_kwargs: dict[str, object] | None = None,
 ) -> None:
     """Read-only RÚF + eredeti nyelvi token UI.
 
@@ -863,6 +888,9 @@ def render_bible_text_reading_block(
             reference=reference,
             key_prefix=original_language_key_prefix,
             display_mode=display_mode,
+            hebrew_contextual_analysis_generate_fn=hebrew_contextual_analysis_generate_fn,
+            hebrew_contextual_analysis_model_id=hebrew_contextual_analysis_model_id,
+            hebrew_contextual_analysis_generate_kwargs=hebrew_contextual_analysis_generate_kwargs,
         )
     except Exception as exc:
         _reraise_streamlit_runtime_error(exc)
