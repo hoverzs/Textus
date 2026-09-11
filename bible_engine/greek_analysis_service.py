@@ -7,6 +7,8 @@ access, no AI/Gemini call, no Supabase dependency — see the corpus-wide
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from bible_engine.greek_analysis_bundle import (
     GreekAnalysisBundle,
     GreekCoverageReport,
@@ -189,6 +191,23 @@ def _verse_analysis(book: str, chapter: int, verse: int, tokens: tuple[GreekToke
         greek_text=render_greek_text(list(ordered)),
         tokens=token_analyses,
     )
+
+
+def get_greek_analysis_with_syntax(
+    reference: str, syntax_database_path: str | None = None
+) -> GreekAnalysisBundle:
+    """Phase 2B convenience wrapper: builds the Phase 2A deterministic
+    bundle, then attaches syntax data from the local normalized store when
+    available (silently falls back to the Phase 2A-only bundle — with
+    every verse's ``syntax_grounding`` left at ``NO_GROUNDED_SYNTAX`` —
+    when the store does not exist, e.g. a fresh checkout that has not run
+    ``scripts/build_greek_syntax_store.py``)."""
+    from bible_engine.greek_syntax_service import attach_syntax
+    from bible_engine.greek_syntax_sqlite import resolve_default_syntax_database_path
+
+    bundle = get_greek_analysis(reference)
+    path = Path(syntax_database_path) if syntax_database_path else resolve_default_syntax_database_path()
+    return attach_syntax(bundle, path)
 
 
 def get_greek_analysis(reference: str) -> GreekAnalysisBundle:

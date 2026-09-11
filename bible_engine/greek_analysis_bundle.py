@@ -215,6 +215,20 @@ class GreekParticipantMention:
 
 
 @dataclass(frozen=True)
+class GreekCoreferenceLink:
+    """One MACULA-supplied referential link — kept as source data, not an
+    interpretive claim. ``link_type`` distinguishes the two genuinely
+    different kinds MACULA provides (never conflated): ``"referent"``
+    (a pronoun pointing at its antecedent token(s)) and ``"subjref"`` (a
+    participle/infinitive pointing at its implicit subject's token) — see
+    ``bible_engine.greek_syntax_sqlite`` module docstring."""
+
+    source_token_id: str
+    link_type: str  # "referent" | "subjref"
+    target_token_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class GreekDetectedPattern:
     """Deterministically detected structural fact — none exist in Phase
     2A (no construction detection has been built yet; the audit's §8
@@ -248,6 +262,7 @@ class GreekVerseAnalysis:
     syntax_relations: tuple[GreekSyntaxRelation, ...] = ()
     semantic_roles: tuple[GreekSemanticRole, ...] = ()
     participants: tuple[GreekParticipantMention, ...] = ()
+    coreference: tuple[GreekCoreferenceLink, ...] = ()
     detected_patterns: tuple[GreekDetectedPattern, ...] = ()
     syntax_grounding: str = SYNTAX_GROUNDING_NONE
 
@@ -289,6 +304,7 @@ __all__ = [
     "GreekSyntaxRelation",
     "GreekSemanticRole",
     "GreekParticipantMention",
+    "GreekCoreferenceLink",
     "GreekDetectedPattern",
     "GreekVerseAnalysis",
     "GreekAnalysisBundle",
