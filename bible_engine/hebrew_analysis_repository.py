@@ -307,12 +307,14 @@ def _grounding_from_counts(counts: dict[str, int]) -> str:
 
 class SupabaseHebrewAnalysisRepository:
     """Production-capable read path — see the module docstring for the
-    fail-closed contract. NOT exercised against a real Supabase project
-    from this environment (no credentials available here); see
-    docs/hebrew_analysis_v2_phase2d.md §15/§16 for what still needs to run
-    against the real project, and
-    ``tests/test_hebrew_analysis_repository.py`` for the fake-client test
-    coverage this class does have (same pattern as
+    fail-closed contract. ``get_verse_syntax`` reads via the
+    ``get_verse_syntax_bundle`` RPC (one request per verse — see
+    supabase/migrations/20260910120000_hebrew_verse_syntax_bundle_rpc.sql);
+    if that RPC is not present on the configured project (migration not
+    yet applied), the fail-closed contract still applies — this degrades
+    to an empty ``VerseSyntaxData`` rather than raising, same as any other
+    query failure. See ``tests/test_hebrew_analysis_repository_supabase.py``
+    for the fake-client test coverage this class has (same pattern as
     ``tests/test_textus_kb/test_commentary_translation_store_supabase.py``)."""
 
     def dataset_version_signature(self) -> str:
@@ -333,6 +335,14 @@ class SupabaseHebrewAnalysisRepository:
         return ",".join(f"{row['dataset_id']}:{row['revision']}" for row in sorted(rows, key=lambda r: r["dataset_id"]))
 
     def get_verse_syntax(self, verse_ref: str) -> VerseSyntaxData:
+        # Phase 2D.2 read-path fix (see supabase/migrations/
+        # 20260910120000_hebrew_verse_syntax_bundle_rpc.sql): one RPC call
+        # replaces what used to be up to 9 sequential REST requests
+        # (phrases, clauses, membership x2, edges, roles, participants,
+        # coreference, grounding) — measured live at ~1.0-1.15s/verse
+        # before this fix. The RPC's jsonb_build_object column names match
+        # the old REST .select() lists exactly, so _assemble_from_rows
+        # below is completely unchanged — same row shapes either way.
         try:
             from supabase_client import get_supabase_client
 
@@ -341,55 +351,29 @@ class SupabaseHebrewAnalysisRepository:
             return VerseSyntaxData()
 
         try:
-            phrase_rows = client.table("hebrew_phrases").select(
-                "id, phrase_type, head_token_id, parent_phrase_id"
-            ).eq("verse_ref", verse_ref).execute().data or []
-            clause_rows = client.table("hebrew_clauses").select(
-                "id, clause_type, predicate_token_id, subject_token_id, parent_clause_id"
-            ).eq("verse_ref", verse_ref).execute().data or []
-            phrase_ids = [row["id"] for row in phrase_rows]
-            clause_ids = [row["id"] for row in clause_rows]
-            membership_rows: list[dict] = []
-            if phrase_ids:
-                membership_rows += client.table("hebrew_syntax_membership").select(
-                    "token_id, phrase_id, clause_id"
-                ).in_("phrase_id", phrase_ids).execute().data or []
-            if clause_ids:
-                membership_rows += client.table("hebrew_syntax_membership").select(
-                    "token_id, phrase_id, clause_id"
-                ).in_("clause_id", clause_ids).execute().data or []
-            edge_rows = client.table("hebrew_syntax_edges").select(
-                "id, relation_type, source_role_code, parent_token_id, child_token_id"
-            ).eq("verse_ref", verse_ref).execute().data or []
-            role_rows = client.table("hebrew_semantic_roles").select(
-                "id, role_code, role_label, predicate_token_id, participant_token_id"
-            ).eq("verse_ref", verse_ref).execute().data or []
-            participant_rows = client.table("hebrew_participants").select("id, token_id").eq(
-                "verse_ref", verse_ref
-            ).execute().data or []
-            coref_rows = client.table("hebrew_coreference").select(
-                "id, referring_token_id, participant_id, relation_type"
-            ).eq("verse_ref", verse_ref).execute().data or []
+            bundle = client.rpc("get_verse_syntax_bundle", {"p_verse_ref": verse_ref}).execute().data or {}
+            phrase_rows = bundle.get("phrases") or []
+            clause_rows = bundle.get("clauses") or []
+            membership_rows = bundle.get("membership") or []
+            edge_rows = bundle.get("edges") or []
+            role_rows = bundle.get("roles") or []
+            participant_rows = bundle.get("participants") or []
+            coref_rows = bundle.get("coreference") or []
 
             grounding = SYNTAX_GROUNDING_NONE
             has_syntax = bool(phrase_rows or clause_rows or edge_rows)
             if has_syntax:
-                # Phase 2D.2: hebrew_verse_syntax_grounding (migration
-                # 20260908223000) computes this server-side in one query,
-                # replacing what previously took three round trips (verse
-                # id -> its tokens -> their alignment types). Falls back to
-                # the old three-query path if the view is not present
-                # (e.g. only the base Phase 2D migration has been applied
-                # so far) — never a hard dependency on the new migration.
-                try:
-                    grounding_rows = client.table("hebrew_verse_syntax_grounding").select(
-                        "grounding_status"
-                    ).eq("verse_ref", verse_ref).limit(1).execute().data or []
-                    if grounding_rows:
-                        grounding = grounding_rows[0]["grounding_status"]
-                    else:
-                        grounding = _fetch_grounding_via_fallback_queries(client, verse_ref)
-                except Exception:  # noqa: BLE001 - view may not exist yet on this project
+                # The bundle RPC already folds in
+                # hebrew_verse_syntax_grounding (migration 20260908223000)
+                # — grounding_status is only absent if that view somehow
+                # has no row for a verse that does have syntax data (should
+                # not happen once both migrations are applied), in which
+                # case fall back to the original three-query computation
+                # rather than silently under-reporting grounding.
+                grounding_status = bundle.get("grounding_status")
+                if grounding_status:
+                    grounding = grounding_status
+                else:
                     grounding = _fetch_grounding_via_fallback_queries(client, verse_ref)
         except Exception:  # noqa: BLE001 - fail-closed, see module docstring
             return VerseSyntaxData()

@@ -63,12 +63,89 @@ class _FakeTable:
         return _FakeQuery(self).select(columns)
 
 
+def _fake_verse_syntax_bundle(tables: dict[str, list[dict]], verse_ref: str) -> dict:
+    """Pure-Python mirror of get_verse_syntax_bundle's SQL (see
+    supabase/migrations/20260910120000_hebrew_verse_syntax_bundle_rpc.sql)
+    — same filtering/column-shape logic, computed from the fake tables
+    instead of a real Postgres query, so these tests still need no
+    network/credentials."""
+    # Sorted to mirror the RPC's own explicit ORDER BY inside each
+    # jsonb_agg (deterministic output) — not required for correctness
+    # (_assemble_from_rows is order-independent) but keeps this fake
+    # faithful to the real SQL.
+    phrases = sorted((r for r in tables.get("hebrew_phrases", []) if r.get("verse_ref") == verse_ref), key=lambda r: r["id"])
+    clauses = sorted((r for r in tables.get("hebrew_clauses", []) if r.get("verse_ref") == verse_ref), key=lambda r: r["id"])
+    phrase_ids = {r["id"] for r in phrases}
+    clause_ids = {r["id"] for r in clauses}
+    # No sort key here (unlike the others): the real SQL orders membership
+    # by its own `id` column (insertion order) — see the migration's
+    # comment on why token_id (a "verse:word" TEXT column) sorts wrong
+    # lexicographically. These hand-written fixtures don't carry an `id`
+    # field, so preserving the literal list order IS the fixture's
+    # intended (already-correct) insertion order.
+    membership = [
+        r for r in tables.get("hebrew_syntax_membership", [])
+        if r.get("phrase_id") in phrase_ids or r.get("clause_id") in clause_ids
+    ]
+    edges = sorted((r for r in tables.get("hebrew_syntax_edges", []) if r.get("verse_ref") == verse_ref), key=lambda r: r["id"])
+    roles = sorted((r for r in tables.get("hebrew_semantic_roles", []) if r.get("verse_ref") == verse_ref), key=lambda r: r["id"])
+    participants = sorted((r for r in tables.get("hebrew_participants", []) if r.get("verse_ref") == verse_ref), key=lambda r: r["id"])
+    coreference = sorted((r for r in tables.get("hebrew_coreference", []) if r.get("verse_ref") == verse_ref), key=lambda r: r["id"])
+    grounding_rows = [r for r in tables.get("hebrew_verse_syntax_grounding", []) if r.get("verse_ref") == verse_ref]
+    return {
+        "phrases": [
+            {"id": r["id"], "phrase_type": r.get("phrase_type"), "head_token_id": r.get("head_token_id"), "parent_phrase_id": r.get("parent_phrase_id")}
+            for r in phrases
+        ],
+        "clauses": [
+            {"id": r["id"], "clause_type": r.get("clause_type"), "predicate_token_id": r.get("predicate_token_id"), "subject_token_id": r.get("subject_token_id"), "parent_clause_id": r.get("parent_clause_id")}
+            for r in clauses
+        ],
+        "membership": [{"token_id": r["token_id"], "phrase_id": r.get("phrase_id"), "clause_id": r.get("clause_id")} for r in membership],
+        "edges": [
+            {"id": r["id"], "relation_type": r.get("relation_type"), "source_role_code": r.get("source_role_code"), "parent_token_id": r.get("parent_token_id"), "child_token_id": r.get("child_token_id")}
+            for r in edges
+        ],
+        "roles": [
+            {"id": r["id"], "role_code": r.get("role_code"), "role_label": r.get("role_label"), "predicate_token_id": r.get("predicate_token_id"), "participant_token_id": r.get("participant_token_id")}
+            for r in roles
+        ],
+        "participants": [{"id": r["id"], "token_id": r.get("token_id")} for r in participants],
+        "coreference": [
+            {"id": r["id"], "referring_token_id": r.get("referring_token_id"), "participant_id": r.get("participant_id"), "relation_type": r.get("relation_type")}
+            for r in coreference
+        ],
+        "grounding_status": grounding_rows[0]["grounding_status"] if grounding_rows else None,
+    }
+
+
+class _FakeRpcResponse:
+    def __init__(self, data: dict) -> None:
+        self.data = data
+
+
+class _FakeRpcQuery:
+    """Mirrors the real client's ``.rpc(name, params)`` return shape —
+    a builder object with its own ``.execute()``, not the response itself
+    (matching every other fake query builder in this file)."""
+
+    def __init__(self, data: dict) -> None:
+        self._data = data
+
+    def execute(self) -> _FakeRpcResponse:
+        return _FakeRpcResponse(self._data)
+
+
 class _FakeClient:
     def __init__(self, data: dict[str, list[dict]]) -> None:
         self._data = data
 
     def table(self, name: str) -> _FakeTable:
         return _FakeTable(self._data.get(name, []))
+
+    def rpc(self, name: str, params: dict) -> _FakeRpcQuery:
+        assert name == "get_verse_syntax_bundle", f"unexpected RPC: {name}"
+        return _FakeRpcQuery(_fake_verse_syntax_bundle(self._data, params["p_verse_ref"]))
 
 
 def _seed_ruth_1_1_data() -> dict[str, list[dict]]:
@@ -201,6 +278,9 @@ def test_supabase_repository_fail_closed_on_missing_client(monkeypatch):
 def test_supabase_repository_fail_closed_on_query_error(monkeypatch):
     class _ExplodingClient:
         def table(self, _name: str):
+            raise RuntimeError("network error")
+
+        def rpc(self, _name: str, _params: dict):
             raise RuntimeError("network error")
 
     monkeypatch.setattr("supabase_client.get_supabase_client", lambda: _ExplodingClient())
