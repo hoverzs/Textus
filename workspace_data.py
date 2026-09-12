@@ -28,6 +28,10 @@ from writing_desk_data import (
     WRITING_DESK_KEY,
     normalize_writing_desk,
 )
+from writing_desk_chat import (
+    WRITING_DESK_CHAT_KEY,
+    normalize_writing_desk_chat,
+)
 
 # Meglévő workspace-export kulcsok (app.py serialize_workspace).
 WORKSPACE_STR_KEYS: list[str] = [
@@ -39,6 +43,10 @@ WORKSPACE_STR_KEYS: list[str] = [
     "passage_text",
     "passage_text_source",
     "passage_text_source_url",
+    # 2026-09 audit fix: fresh/stale_fallback finomság a durva
+    # passage_text_source osztályozástól függetlenül — lásd
+    # bible_text_ui.DURABLE_SOURCE_CACHE_STATUS.
+    "passage_text_cache_status",
     "passage_text_fetched_at",
     "passage_text_fetched_reference",
     "passage_text_last_fetched_text",
@@ -94,6 +102,10 @@ PROJECT_NESTED_KEYS: list[str] = [
     SERMON_WORKSHOP_KEY,
     OCCASION_CONTEXT_KEY,
     WRITING_DESK_KEY,
+    # 2026-09 audit fix: a Segítő chat mostantól a projekt tartós
+    # állapotának része — korábban explicit ki volt zárva
+    # (lásd EXCLUDED_SESSION_KEYS lentebb, "_wd_helper_chat" már nincs benne).
+    WRITING_DESK_CHAT_KEY,
 ]
 
 PROJECT_DATA_STR_KEYS: list[str] = WORKSPACE_STR_KEYS + PROJECT_EXTRA_STR_KEYS
@@ -154,7 +166,9 @@ EXCLUDED_SESSION_KEYS: frozenset[str] = frozenset(
         "_wd_draft_resync_bumped",
         "_wd_draft_revision",
         "_wd_outline_handoff_confirm",
-        "_wd_helper_chat",
+        # "_wd_helper_chat" SZÁNDÉKOSAN NINCS itt (2026-09 audit fix) — lásd
+        # PROJECT_NESTED_KEYS: a Segítő chat mostantól a projekt tartós
+        # állapotának része, csak a live input-mező marad kizárva.
         "_wd_helper_chat_input",
         "writing_desk_docx_download",
         "_tw_main_idea_adopt_pending",
@@ -335,6 +349,7 @@ def build_project_data(
         state.get(OCCASION_CONTEXT_KEY)
     )
     payload[WRITING_DESK_KEY] = normalize_writing_desk(state.get(WRITING_DESK_KEY))
+    payload[WRITING_DESK_CHAT_KEY] = normalize_writing_desk_chat(state.get(WRITING_DESK_CHAT_KEY))
 
     # Biztonsági szűrés: kizárt / titkos / futásidejű kulcsok soha ne maradjanak.
     for excluded in EXCLUDED_SESSION_KEYS:
@@ -477,6 +492,11 @@ def sanitize_project_data_report(
                 value, path=key_s, depth=1, report=report
             )
             clean[key_s] = normalize_writing_desk(nested)
+        elif key_s == WRITING_DESK_CHAT_KEY:
+            nested = _sanitize_value(
+                value, path=key_s, depth=1, report=report
+            )
+            clean[key_s] = normalize_writing_desk_chat(nested)
         else:
             cleaned = _sanitize_value(
                 value, path=key_s, depth=1, report=report
@@ -496,6 +516,7 @@ def sanitize_project_data_report(
         "passage_text",
         "passage_text_source",
         "passage_text_source_url",
+        "passage_text_cache_status",
         "passage_text_fetched_at",
         "passage_text_fetched_reference",
     ):
@@ -505,6 +526,8 @@ def sanitize_project_data_report(
         clean[OCCASION_CONTEXT_KEY] = normalize_occasion_context(None)
     if WRITING_DESK_KEY not in clean:
         clean[WRITING_DESK_KEY] = normalize_writing_desk(None)
+    if WRITING_DESK_CHAT_KEY not in clean:
+        clean[WRITING_DESK_CHAT_KEY] = normalize_writing_desk_chat(None)
 
     # Titkok soha
     for excluded in EXCLUDED_SESSION_KEYS:
@@ -598,6 +621,7 @@ def project_content_fingerprint(state: Mapping[str, Any]) -> str:
         state.get(OCCASION_CONTEXT_KEY)
     )
     payload[WRITING_DESK_KEY] = normalize_writing_desk(state.get(WRITING_DESK_KEY))
+    payload[WRITING_DESK_CHAT_KEY] = normalize_writing_desk_chat(state.get(WRITING_DESK_CHAT_KEY))
     raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 

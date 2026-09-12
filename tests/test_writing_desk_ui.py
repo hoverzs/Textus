@@ -403,7 +403,12 @@ def test_writing_desk_ui_mode_is_not_a_durable_session_key():
     assert WRITING_DESK_DRAFT_REVISION_KEY in EXCLUDED_SESSION_KEYS
     from writing_desk_chat import WRITING_DESK_CHAT_INPUT_KEY, WRITING_DESK_CHAT_KEY
 
-    assert WRITING_DESK_CHAT_KEY in EXCLUDED_SESSION_KEYS
+    # 2026-09 audit fix: the Segítő chat is now part of the persisted
+    # project (PROJECT_NESTED_KEYS), not excluded — only its live input
+    # widget key stays session-only, same as every other widget key here.
+    assert WRITING_DESK_CHAT_KEY not in EXCLUDED_SESSION_KEYS
+    assert WRITING_DESK_CHAT_KEY in PROJECT_DATA_KEYS
+    assert WRITING_DESK_CHAT_KEY in PROJECT_NESTED_KEYS
     assert WRITING_DESK_CHAT_INPUT_KEY in EXCLUDED_SESSION_KEYS
     assert "writing_desk_docx_download" in EXCLUDED_SESSION_KEYS
     assert WRITING_DESK_KEY in PROJECT_DATA_KEYS

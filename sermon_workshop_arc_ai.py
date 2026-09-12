@@ -446,6 +446,15 @@ def generate_seven_point_arc(
                 response_mime_type="application/json",
                 response_schema=ARC_RESPONSE_SCHEMA,
                 truncation_notice_mode="never",
+                # 2026-09 audit fix: az ELSŐ (felhasználó által indított)
+                # hívás marad cooldown-védett; KIZÁRÓLAG a belső JSON-
+                # kinyerési hiba miatti, ugyanazon a gombnyomáson belüli
+                # ismétlés (attempt > 0) kapja meg a bypass-t — enélkül a
+                # globális cooldown-kapu szinte mindig elkapta ezt a
+                # milliszekundumokkal később induló belső retry-t, és a
+                # tervezett automatikus javítás sosem érte el ténylegesen
+                # a modellt.
+                bypass_cooldown=attempt > 0,
             )
         except Exception as exc:  # noqa: BLE001 — a UI-nak mindenképp választ kell adnunk
             return ArcGenerationOutcome(

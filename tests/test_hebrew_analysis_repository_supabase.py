@@ -273,6 +273,12 @@ def test_supabase_repository_fail_closed_on_missing_client(monkeypatch):
     syntax = repository.get_verse_syntax("Ruth.1.1")
     assert syntax.phrases == ()
     assert not syntax.has_syntax
+    # 2026-09 audit fix: "backend unreachable" is a TRANSIENT_ERROR, never a
+    # normal (cacheable) empty result — see test_supabase_repository_
+    # empty_verse_returns_empty_syntax_data below for the contrasting,
+    # genuinely-empty case that must NOT carry this status.
+    assert syntax.status == repository_module.RESULT_TRANSIENT_ERROR
+    assert syntax.syntax_grounding == repository_module.SYNTAX_GROUNDING_UNAVAILABLE
 
 
 def test_supabase_repository_fail_closed_on_query_error(monkeypatch):
@@ -287,6 +293,12 @@ def test_supabase_repository_fail_closed_on_query_error(monkeypatch):
     repository = SupabaseHebrewAnalysisRepository()
     syntax = repository.get_verse_syntax("Ruth.1.1")
     assert not syntax.has_syntax
+    # 2026-09 audit fix: this is the exact case the prior audit flagged —
+    # an RPC error must never be indistinguishable from a genuinely empty
+    # verse (contrast with the "empty_verse" test below, which must NOT
+    # carry TRANSIENT_ERROR even though both return zero phrases/clauses).
+    assert syntax.status == repository_module.RESULT_TRANSIENT_ERROR
+    assert syntax.syntax_grounding == repository_module.SYNTAX_GROUNDING_UNAVAILABLE
 
 
 def test_supabase_repository_empty_verse_returns_empty_syntax_data(monkeypatch):
@@ -296,3 +308,8 @@ def test_supabase_repository_empty_verse_returns_empty_syntax_data(monkeypatch):
     assert syntax.phrases == ()
     assert syntax.clauses == ()
     assert syntax.semantic_roles == ()
+    # 2026-09 audit fix: a genuinely empty (but successfully queried) verse
+    # must be SUCCESS_NO_DATA, never TRANSIENT_ERROR — this is the
+    # distinction the two tests above depend on existing at all.
+    assert syntax.status == repository_module.RESULT_SUCCESS_NO_DATA
+    assert syntax.syntax_grounding == repository_module.SYNTAX_GROUNDING_NONE

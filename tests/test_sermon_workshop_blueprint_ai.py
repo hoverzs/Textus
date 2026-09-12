@@ -939,6 +939,53 @@ def test_retry_gives_up_after_one_attempt_if_still_invalid():
     assert len(gen.calls) == 2
 
 
+def test_only_the_internal_repair_retry_bypasses_cooldown_not_the_first_call():
+    """2026-09 audit fix regression test. Root cause: the internal JSON-
+    repair retry re-called generate_fn milliseconds after the first call
+    with the SAME `bypass_cooldown` value as the caller's outer flag
+    (which defaults to False for a standalone blueprint generation) — so
+    the repair retry was routinely swallowed by the shared gateway's
+    global cooldown window. Required behavior: a standalone (non-chained)
+    call's FIRST attempt stays cooldown-protected, and ONLY the internal
+    repair attempt (attempt > 0) bypasses cooldown."""
+    state = _base_state()
+    gen = _SequenceGenerator(["{\"central_claim\": \"csonka", _valid_json()])
+
+    outcome = bp_ai.generate_sermon_blueprint(state, generate_fn=gen)
+
+    assert outcome.ok is True
+    assert len(gen.calls) == 2
+    assert gen.calls[0]["kwargs"].get("bypass_cooldown") is False
+    assert gen.calls[1]["kwargs"].get("bypass_cooldown") is True
+
+
+def test_standalone_call_with_no_retry_never_bypasses_cooldown():
+    state = _base_state()
+    gen = _CountingGenerator(_valid_json())
+
+    outcome = bp_ai.generate_sermon_blueprint(state, generate_fn=gen)
+
+    assert outcome.ok is True
+    assert len(gen.calls) == 1
+    assert gen.calls[0]["kwargs"].get("bypass_cooldown") is False
+
+
+def test_chained_call_still_bypasses_cooldown_on_first_attempt_unaffected_by_fix():
+    """The pre-existing, correct chaining behavior (the caller passes
+    bypass_cooldown=True when this blueprint generation is itself part of
+    a single click that also triggers a developed-outline generation)
+    must be unchanged by this fix — the first attempt still honors the
+    caller's explicit bypass_cooldown=True."""
+    state = _base_state()
+    gen = _CountingGenerator(_valid_json())
+
+    outcome = bp_ai.generate_sermon_blueprint(state, generate_fn=gen, bypass_cooldown=True)
+
+    assert outcome.ok is True
+    assert len(gen.calls) == 1
+    assert gen.calls[0]["kwargs"].get("bypass_cooldown") is True
+
+
 def test_semantic_failure_does_not_trigger_a_retry():
     """Tartalmi/sémahiba (pl. üres `textual_center`) esetén NINCS retry —
     ez a modell valódi tartalmi hibája, amit egy néma újrapróbálkozás

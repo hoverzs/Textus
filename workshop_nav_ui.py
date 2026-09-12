@@ -790,11 +790,17 @@ def render_app_toolbar(
     action: str | None = None
     label = (project_label or "").strip() or "Névtelen projekt"
     status = (status_label or "").strip() or "Ideiglenes"
-    kind = status_kind if status_kind in {"temp", "saved", "dirty"} else "temp"
+    kind = (
+        status_kind
+        if status_kind in {"temp", "saved", "dirty", "save_failed", "conflict"}
+        else "temp"
+    )
     kind_cls = {
         "temp": "is-temp",
         "saved": "is-saved",
         "dirty": "is-dirty",
+        "save_failed": "is-save-failed",
+        "conflict": "is-conflict",
     }.get(kind, "is-temp")
 
     def _projects_picker() -> None:

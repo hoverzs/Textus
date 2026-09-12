@@ -32,20 +32,48 @@ szabja — ezek a KÓDBAN is betartandó, nem csak dokumentációs elvárások:
    betöltés történik, SOSE lehet publikus (lásd
    `scripts/setup_ruf_bible_storage.py` — explicit `public: False`).
 3. LÁTHATÓ COPYRIGHT. A `COPYRIGHT_NOTICE`/`SOURCE_ATTRIBUTION`
-   (`ruf_bible_service.py`) minden, ebből a DB-ből származó válasszal
-   együtt megjelenik — ez a helyi-DB-elsőbbségi integráció (lásd
-   `ruf_bible_service._lookup_local_db`) mellett is változatlanul
-   érvényesül, mert ugyanazt a `_ok_result(...)` alakot használja.
+   (`ruf_bible_service.py`) minden, ebből a DB-ből származó szövegnek meg
+   KELL jelennie bármely felhasználói felületen, amely ezt a réteget
+   fogyasztja. **2026-09 audit megjegyzés:** ez a modul (`lookup_local`,
+   `search_literal`) önmagában nyers verssorokat ad vissza, semmilyen
+   copyright-becsomagolást nem végez, és a jelenlegi fogyasztók
+   (`concordance_ui.py`, `original_language_concordance.py`,
+   `concept_concordance.py`) sem jelenítenek meg ilyen jelzést — ez tehát
+   ma egy KÖVETELMÉNY, nem egy már teljesült garancia. Bármely új
+   fogyasztónak (vagy egy jövőbeli javításnak a meglévőknél) a copyright
+   szöveget explicit meg kell jelenítenie.
 4. TELJES, EGYLÉPÉSES TÖRÖLHETŐSÉG. A teljes szöveg egyetlen fájlban
    (`DEFAULT_DATABASE_PATH`) él, semmilyen más helyen nincs tartósan
    duplikálva. Szerződés megszűnése esetén: `purge_database()` (vagy
    `python scripts/purge_ruf_bible_db.py --yes`) azonnal és teljesen
    eltávolítja.
 
-Ez a modul a helyi DB-t elsődleges, gyors olvasási forrásként kezeli a
-meglévő `ruf_bible_service.fetch_ruf_passage` elé kapcsolva (nem-törő
-integráció); ha a DB hiányzik vagy egy adott vers nincs benne, a hívó fél
-a jelenlegi élő API-útvonalra esik vissza.
+SZEREP A RENDSZERBEN (2026-09 audit fix — a korábbi állítás pontatlan volt)
+---------------------------------------------------------------------------
+Ez a modul egy ÖNÁLLÓ, KÜLÖNÁLLÓ adatforrás — NEM a fő RÚF-olvasási
+útvonal elé kapcsolt, elsődleges gyorstár. A `ruf_bible_service.
+fetch_ruf_passage` (a fő "Igehely" nézet és minden más, szakaszonkénti
+igehely-betöltő funkció mögötti hívás) SOHA nem éri el ezt a DB-t —
+kizárólag az élő Szentírás.eu API-t és a saját, folyamat-szintű memória-
+cache-ét használja (lásd `ruf_bible_service.py` modul-docstringje és
+`tests/test_ruf_bible_local_db.py::test_fetch_ruf_passage_never_consults_
+local_db`, amely ezt explicit regressziós teszttel rögzíti).
+
+Ezt a helyi, teljes szövegű snapshotot ma kizárólag a Konkordancia-réteg
+fogyasztja: `concordance_ui.py` (`search_literal`), `original_language_
+concordance.py` és `concept_concordance.py` (mindkettő `lookup_local`).
+A snapshot build-je (`scripts/build_ruf_bible_db.py`) kizárólag manuális
+futtatással történik, minden már `'ok'` státuszú fejezetet kihagyva —
+nincs automatikus/időzített frissítés, és nincs semmilyen kód, ami a
+snapshot frissességét összevetné az élő forrással. Ebből következik: ha
+az élő forrás egy verset a snapshot építése után javít, a fő olvasónézet
+(élő API) és a Konkordancia (helyi snapshot) EGY IDŐBEN eltérő szöveget
+mutathat ugyanarra a versre — ezt a UI ma sehol nem jelzi.
+
+A `lookup_local` / `search_literal` visszatérési értéke tehát nem
+"gyorsítótárazott" változata a fő olvasónézet szövegének, hanem egy
+elvileg AZONOS, de gyakorlatilag függetlenül frissülő, autoritásban
+alárendelt másolat.
 """
 
 from __future__ import annotations

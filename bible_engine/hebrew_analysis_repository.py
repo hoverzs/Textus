@@ -32,6 +32,7 @@ LLM.
 
 from __future__ import annotations
 
+import logging
 import os
 import sqlite3
 from dataclasses import dataclass
@@ -46,6 +47,8 @@ from bible_engine.hebrew_analysis_bundle import (
     SemanticRole,
     SyntaxRelation,
 )
+
+logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOCAL_LINGUISTIC_STORE_PATH = ROOT / "data" / "generated" / "hebrew_linguistic_dev.sqlite3"
@@ -69,6 +72,31 @@ MACULA_DATASET_ID = "macula_hebrew_lowfat"
 SYNTAX_GROUNDING_FULL = "FULLY_GROUNDED_SYNTAX"
 SYNTAX_GROUNDING_PARTIAL = "PARTIALLY_GROUNDED_SYNTAX"
 SYNTAX_GROUNDING_NONE = "NO_GROUNDED_SYNTAX"
+# 2026-09 audit fix: a verse whose syntax fetch failed transiently must never
+# look like a verse that genuinely has no MACULA data. Every UI/AI consumer
+# that already branches on syntax_grounding gets this as a distinct value
+# instead of silently collapsing into SYNTAX_GROUNDING_NONE.
+SYNTAX_GROUNDING_UNAVAILABLE = "SYNTAX_UNAVAILABLE_TRANSIENT"
+
+# Repository-call result classification (2026-09 audit fix). Before this,
+# every failure path in this module (network error, RPC error, locked/
+# missing local file) collapsed into the same empty VerseSyntaxData as a
+# verse that genuinely has no MACULA syntax data — so a transient Supabase
+# outage got cached and treated exactly like a normal, permanent "no data"
+# result for the rest of the session. ``status`` is the machine-readable
+# signal a caller (cache, service) uses to decide whether a result may be
+# cached/trusted; ``syntax_grounding`` above stays the UI/AI-facing value.
+RESULT_SUCCESS_WITH_DATA = "SUCCESS_WITH_DATA"
+RESULT_SUCCESS_NO_DATA = "SUCCESS_NO_DATA"
+RESULT_TRANSIENT_ERROR = "TRANSIENT_ERROR"
+# Defined for a complete, self-documenting vocabulary alongside the other
+# three; no code path in this module currently distinguishes a permanent/
+# invalid-input backend error from a transient one (verse_ref reaching this
+# layer is always internally constructed and pre-validated), so nothing
+# raises it today. A future caller that CAN tell the two apart (e.g. a
+# structured 4xx vs. 5xx from the RPC) should use it instead of
+# RESULT_TRANSIENT_ERROR.
+RESULT_PERMANENT_ERROR = "PERMANENT_ERROR"
 
 
 @dataclass(frozen=True)
@@ -80,6 +108,7 @@ class VerseSyntaxData:
     participants: tuple[ParticipantMention, ...] = ()
     coreference: tuple[CoreferenceLink, ...] = ()
     syntax_grounding: str = SYNTAX_GROUNDING_NONE
+    status: str = RESULT_SUCCESS_NO_DATA
 
     @property
     def has_syntax(self) -> bool:
@@ -134,16 +163,16 @@ class LocalHebrewAnalysisRepository:
 
     def get_verse_syntax(self, verse_ref: str) -> VerseSyntaxData:
         if not self.database_path.exists():
-            return VerseSyntaxData()
+            return VerseSyntaxData(status=RESULT_SUCCESS_NO_DATA)
         try:
             connection = sqlite3.connect(f"file:{self.database_path.as_posix()}?mode=ro", uri=True)
             connection.row_factory = sqlite3.Row
         except sqlite3.Error:
-            return VerseSyntaxData()
+            return VerseSyntaxData(status=RESULT_TRANSIENT_ERROR, syntax_grounding=SYNTAX_GROUNDING_UNAVAILABLE)
         try:
             return _read_verse_syntax(connection, verse_ref)
         except sqlite3.Error:
-            return VerseSyntaxData()
+            return VerseSyntaxData(status=RESULT_TRANSIENT_ERROR, syntax_grounding=SYNTAX_GROUNDING_UNAVAILABLE)
         finally:
             connection.close()
 
@@ -294,6 +323,7 @@ def _read_verse_syntax(connection: sqlite3.Connection, verse_ref: str) -> VerseS
         participants=participants,
         coreference=coreference,
         syntax_grounding=grounding,
+        status=RESULT_SUCCESS_WITH_DATA if has_syntax else RESULT_SUCCESS_NO_DATA,
     )
 
 
@@ -347,8 +377,8 @@ class SupabaseHebrewAnalysisRepository:
             from supabase_client import get_supabase_client
 
             client = get_supabase_client()
-        except Exception:  # noqa: BLE001 - fail-closed, see module docstring
-            return VerseSyntaxData()
+        except Exception:  # noqa: BLE001 - transient: never confuse "backend unreachable" with "no data"
+            return VerseSyntaxData(status=RESULT_TRANSIENT_ERROR, syntax_grounding=SYNTAX_GROUNDING_UNAVAILABLE)
 
         try:
             bundle = client.rpc("get_verse_syntax_bundle", {"p_verse_ref": verse_ref}).execute().data or {}
@@ -375,11 +405,12 @@ class SupabaseHebrewAnalysisRepository:
                     grounding = grounding_status
                 else:
                     grounding = _fetch_grounding_via_fallback_queries(client, verse_ref)
-        except Exception:  # noqa: BLE001 - fail-closed, see module docstring
-            return VerseSyntaxData()
+        except Exception:  # noqa: BLE001 - transient: the RPC call itself failed, this is not "no data"
+            return VerseSyntaxData(status=RESULT_TRANSIENT_ERROR, syntax_grounding=SYNTAX_GROUNDING_UNAVAILABLE)
 
         return _assemble_from_rows(
-            phrase_rows, clause_rows, membership_rows, edge_rows, role_rows, participant_rows, coref_rows, grounding
+            phrase_rows, clause_rows, membership_rows, edge_rows, role_rows, participant_rows, coref_rows, grounding,
+            status=RESULT_SUCCESS_WITH_DATA if has_syntax else RESULT_SUCCESS_NO_DATA,
         )
 
 
@@ -412,6 +443,7 @@ def _fetch_grounding_via_fallback_queries(client, verse_ref: str) -> str:
 def _assemble_from_rows(
     phrase_rows, clause_rows, membership_rows, edge_rows, role_rows, participant_rows, coref_rows,
     grounding: str = SYNTAX_GROUNDING_NONE,
+    status: str = RESULT_SUCCESS_NO_DATA,
 ) -> VerseSyntaxData:
     tokens_by_phrase: dict[int, list[str]] = {}
     tokens_by_clause: dict[int, list[str]] = {}
@@ -501,7 +533,7 @@ def _assemble_from_rows(
     return VerseSyntaxData(
         phrases=phrases, clauses=clauses, syntax_relations=syntax_relations,
         semantic_roles=semantic_roles, participants=participants, coreference=coreference,
-        syntax_grounding=grounding,
+        syntax_grounding=grounding, status=status,
     )
 
 
@@ -531,6 +563,18 @@ def _configured_hebrew_analysis_backend() -> str:
     return os.environ.get(HEBREW_ANALYSIS_BACKEND_ENV_VAR, "").strip().lower() or "local"
 
 
+def _looks_like_cloud_environment() -> bool:
+    """Pure env-var check, deliberately independent of ``auth_config.
+    is_local_runtime()`` (which needs a live Streamlit request context and
+    would violate this module's zero-Streamlit-dependency invariant tested
+    by ``test_phase2d_modules_have_no_llm_or_direct_network_dependency``).
+    Mirrors only the two unambiguous "definitely cloud" signals
+    ``is_local_runtime()`` also short-circuits on."""
+    if (os.environ.get("TEXTUS_FORCE_CLOUD") or "").strip().lower() in ("1", "true", "yes"):
+        return True
+    return (os.environ.get("STREAMLIT_RUNTIME_ENVIRONMENT") or "").strip().lower() == "cloud"
+
+
 def get_default_hebrew_analysis_repository(
     *, local_store_path: str | Path | None = None
 ) -> "HebrewAnalysisRepository":
@@ -543,8 +587,23 @@ def get_default_hebrew_analysis_repository(
     ``HebrewAnalysisService`` always overrides this, exactly like an
     explicit ``database_path`` overrides backend selection in
     ``textus_kb.commentary_translation_store``."""
-    if _configured_hebrew_analysis_backend() == "supabase":
+    backend = _configured_hebrew_analysis_backend()
+    if backend == "supabase":
         return SupabaseHebrewAnalysisRepository()
+    # 2026-09 audit fix: an unset/unrecognized TEXTUS_HEBREW_ANALYSIS_BACKEND
+    # silently serves the bundled local SQLite dataset instead of the
+    # Supabase-backed one — safe (no crash, no data leak) but potentially
+    # stale/incomplete in a real deployment that simply forgot to set the
+    # env var. Local development/tests are unaffected (no cloud signal),
+    # but a detected-cloud runtime gets a loud, one-time warning.
+    if _looks_like_cloud_environment():
+        logger.warning(
+            "TEXTUS_HEBREW_ANALYSIS_BACKEND is '%s' (not 'supabase') in a "
+            "detected cloud runtime — serving the bundled local Hebrew "
+            "dataset instead of the Supabase-backed one. If this is "
+            "unintentional, set TEXTUS_HEBREW_ANALYSIS_BACKEND=supabase.",
+            backend,
+        )
     return LocalHebrewAnalysisRepository(local_store_path)
 
 
@@ -554,9 +613,14 @@ __all__ = [
     "HebrewAnalysisRepository",
     "LocalHebrewAnalysisRepository",
     "MACULA_DATASET_ID",
+    "RESULT_PERMANENT_ERROR",
+    "RESULT_SUCCESS_NO_DATA",
+    "RESULT_SUCCESS_WITH_DATA",
+    "RESULT_TRANSIENT_ERROR",
     "SYNTAX_GROUNDING_FULL",
     "SYNTAX_GROUNDING_NONE",
     "SYNTAX_GROUNDING_PARTIAL",
+    "SYNTAX_GROUNDING_UNAVAILABLE",
     "SupabaseHebrewAnalysisRepository",
     "VerseSyntaxData",
     "get_default_hebrew_analysis_repository",

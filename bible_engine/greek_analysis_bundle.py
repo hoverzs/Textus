@@ -270,6 +270,11 @@ class GreekDetectedPattern:
 SYNTAX_GROUNDING_NONE = "NO_GROUNDED_SYNTAX"
 SYNTAX_GROUNDING_PARTIAL = "PARTIALLY_GROUNDED_SYNTAX"
 SYNTAX_GROUNDING_FULL = "FULLY_GROUNDED_SYNTAX"
+# 2026-09 audit fix: a verse whose syntax fetch failed transiently (network/
+# RPC error) must never look like a verse that genuinely has no MACULA
+# syntax data — see bible_engine.greek_analysis_repository._attach_verse and
+# the parallel bible_engine.hebrew_analysis_repository.SYNTAX_GROUNDING_UNAVAILABLE.
+SYNTAX_GROUNDING_UNAVAILABLE = "SYNTAX_UNAVAILABLE_TRANSIENT"
 
 
 @dataclass(frozen=True)
@@ -334,4 +339,5 @@ __all__ = [
     "SYNTAX_GROUNDING_NONE",
     "SYNTAX_GROUNDING_PARTIAL",
     "SYNTAX_GROUNDING_FULL",
+    "SYNTAX_GROUNDING_UNAVAILABLE",
 ]

@@ -43,3 +43,40 @@ def test_local_store_path_override_is_honored_regardless_of_backend_env(monkeypa
     repository = get_default_hebrew_analysis_repository(local_store_path=custom_path)
     assert isinstance(repository, LocalHebrewAnalysisRepository)
     assert repository.database_path == custom_path
+
+
+# --- 2026-09 audit fix: production-fallback visibility --------------------
+#
+# An unset/unrecognized TEXTUS_HEBREW_ANALYSIS_BACKEND silently serves the
+# bundled local dataset instead of the Supabase-backed one — harmless in
+# local dev (no cloud signal), but a real deployment that forgot to set
+# the env var previously got zero indication anything was wrong. This adds
+# a startup/runtime warning log, ONLY when a detected-cloud environment
+# also resolves to "local" — local development stays completely silent.
+
+def test_local_fallback_in_cloud_environment_logs_a_warning(monkeypatch, caplog):
+    monkeypatch.delenv(HEBREW_ANALYSIS_BACKEND_ENV_VAR, raising=False)
+    monkeypatch.setenv("TEXTUS_FORCE_CLOUD", "1")
+    with caplog.at_level("WARNING", logger="bible_engine.hebrew_analysis_repository"):
+        repo = get_default_hebrew_analysis_repository()
+    assert isinstance(repo, LocalHebrewAnalysisRepository)
+    assert any("TEXTUS_HEBREW_ANALYSIS_BACKEND" in r.message for r in caplog.records)
+
+
+def test_local_fallback_in_local_dev_does_not_log_a_warning(monkeypatch, caplog):
+    monkeypatch.delenv(HEBREW_ANALYSIS_BACKEND_ENV_VAR, raising=False)
+    monkeypatch.delenv("TEXTUS_FORCE_CLOUD", raising=False)
+    monkeypatch.delenv("STREAMLIT_RUNTIME_ENVIRONMENT", raising=False)
+    with caplog.at_level("WARNING", logger="bible_engine.hebrew_analysis_repository"):
+        repo = get_default_hebrew_analysis_repository()
+    assert isinstance(repo, LocalHebrewAnalysisRepository)
+    assert caplog.records == []
+
+
+def test_explicit_supabase_backend_in_cloud_does_not_log_a_warning(monkeypatch, caplog):
+    monkeypatch.setenv(HEBREW_ANALYSIS_BACKEND_ENV_VAR, "supabase")
+    monkeypatch.setenv("STREAMLIT_RUNTIME_ENVIRONMENT", "cloud")
+    with caplog.at_level("WARNING", logger="bible_engine.hebrew_analysis_repository"):
+        repo = get_default_hebrew_analysis_repository()
+    assert isinstance(repo, SupabaseHebrewAnalysisRepository)
+    assert caplog.records == []

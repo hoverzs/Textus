@@ -1000,7 +1000,15 @@ def generate_sermon_blueprint(
                 include_brevity_directive=False,
                 response_mime_type="application/json",
                 response_schema=BLUEPRINT_RESPONSE_SCHEMA,
-                bypass_cooldown=bypass_cooldown,
+                # 2026-09 audit fix: a hívó `bypass_cooldown` paramétere
+                # a KÜLSŐ, két logikailag független felhasználói hívás
+                # közötti láncolást szabályozza (lásd fent) — ettől
+                # FÜGGETLENÜL a belső JSON-kinyerési retry (attempt > 0)
+                # MINDIG bypassolja a cooldown-t, mert az garantáltan
+                # ugyanazon a gombnyomáson belül, milliszekundumokkal az
+                # első hívás után indul, és korábban emiatt szinte
+                # sosem érte el ténylegesen a modellt.
+                bypass_cooldown=bypass_cooldown or attempt > 0,
                 # A csonka válaszhoz fűzött, ember-olvasható magyar
                 # figyelmeztető mondat MINDIG érvénytelenné tenné a
                 # JSON-t (a szintaktikai csonkaság mellett is) — inkább a

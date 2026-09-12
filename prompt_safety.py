@@ -26,6 +26,10 @@ INPUT_LIMITS: dict[str, int] = {
     "prayer_notes": 4000,
     "outline_notes": 4000,
     "prompt_context_total": 90000,
+    # 2026-09 audit fix — az Íróasztal Segítő chat előzményének karakter-
+    # plafonja (lásd writing_desk_chat.MAX_HISTORY_MESSAGES az üzenetszám-
+    # oldali korláthoz; a kettő együtt adja a determinisztikus ablakot).
+    "chat_history": 6000,
 }
 
 

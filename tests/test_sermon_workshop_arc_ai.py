@@ -1249,6 +1249,42 @@ def test_retry_recovers_from_a_truncated_first_response():
     assert "KORREKCIÓ" in gen.calls[1]["prompt"]
 
 
+def test_only_the_internal_repair_retry_bypasses_cooldown_not_the_first_call():
+    """2026-09 audit fix regression test. Root cause: the internal JSON-
+    repair retry re-called generate_fn milliseconds after the first call,
+    with no bypass_cooldown at all — so it was routinely swallowed by the
+    shared gateway's global cooldown window, making the designed recovery
+    from a truncated/malformed first response effectively non-functional.
+
+    Required behavior: the FIRST, user-initiated call stays cooldown-
+    protected (bypass_cooldown must be False/absent), and ONLY the
+    second, same-click internal repair call passes bypass_cooldown=True."""
+    state = _base_state()
+    gen = _SequenceGenerator(
+        ['{"entry": "csonka', _valid_response_json()]
+    )
+
+    outcome = arc_ai.generate_seven_point_arc(state, generate_fn=gen)
+
+    assert outcome.ok is True
+    assert len(gen.calls) == 2
+    assert gen.calls[0]["kwargs"].get("bypass_cooldown") is False
+    assert gen.calls[1]["kwargs"].get("bypass_cooldown") is True
+
+
+def test_standalone_call_with_no_retry_never_bypasses_cooldown():
+    """A normal, single-shot user-initiated call (no repair needed) must
+    never bypass the cooldown — only the internal retry path may."""
+    state = _base_state()
+    gen = _CountingGenerator(_valid_response_json())
+
+    outcome = arc_ai.generate_seven_point_arc(state, generate_fn=gen)
+
+    assert outcome.ok is True
+    assert len(gen.calls) == 1
+    assert gen.calls[0]["kwargs"].get("bypass_cooldown") is False
+
+
 def test_retry_gives_up_after_one_attempt_if_still_invalid():
     state = _base_state()
     gen = _CountingGenerator("{\"entry\": \"még mindig csonka")

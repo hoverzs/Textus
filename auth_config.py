@@ -48,7 +48,20 @@ def request_host() -> str:
 
 
 def is_local_runtime(*, host: str | None = None) -> bool:
-    """True, ha fejlesztői localhoston futunk."""
+    """True, ha BIZONYÍTOTTAN fejlesztői localhoston/loopback- vagy
+    privát-hálózati címen futunk.
+
+    2026-09 audit fix — fail-CLOSED: korábban egy sikertelen host-
+    detektálás (üres, hiányzó vagy nem értelmezhető ``Host`` fejléc) is
+    ``True``-t (local) adott vissza, ami egy production biztonsági
+    ellenőrzést (``validate_oauth_redirect_safe``) csendben kikapcsolhatott,
+    ha pl. egy proxy/CDN eltüntette a fejlécet. Mostantól csak a
+    BIZONYÍTOTTAN localhost/loopback/privát-IP eset ad ``True``-t; minden
+    más eset — ismert cloud host, VAGY hiányzó/hibás/nem értelmezhető
+    host információ — ``False`` (nem local). Ugyanaz a fail-closed
+    konvenció, mint ``illustration_review_ui.is_local_loopback_request()``-
+    nél, amely már eddig is explicit dokumentálta ezt az irányt ugyanerre
+    a hibaesetre."""
     if _s(os.environ.get("TEXTUS_FORCE_CLOUD")).lower() in ("1", "true", "yes"):
         return False
     if _s(os.environ.get("STREAMLIT_RUNTIME_ENVIRONMENT")).lower() == "cloud":
@@ -56,11 +69,7 @@ def is_local_runtime(*, host: str | None = None) -> bool:
     h = (host if host is not None else request_host()).lower()
     if h.endswith(".streamlit.app"):
         return False
-    if h in _LOCAL_HOSTS or h.startswith("192.168.") or h.startswith("10."):
-        return True
-    if h:
-        return False
-    return True
+    return h in _LOCAL_HOSTS or h.startswith("192.168.") or h.startswith("10.")
 
 
 def _secret_get(mapping: Any, key: str, default: str = "") -> str:

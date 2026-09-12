@@ -1386,6 +1386,18 @@ body:has(.st-key-passage_search_occasion_field [aria-expanded="true"])
     color: #5d5347;
 }
 
+.tx-project-status-chip.is-save-failed {
+    border-color: rgba(178, 58, 46, 0.4);
+    background: rgba(178, 58, 46, 0.14);
+    color: #8f2e21;
+}
+
+.tx-project-status-chip.is-conflict {
+    border-color: rgba(146, 78, 176, 0.4);
+    background: rgba(146, 78, 176, 0.14);
+    color: #6a3d80;
+}
+
 .st-key-textus_app_toolbar .st-key-tx_appbar_home button,
 .st-key-textus_app_toolbar .st-key-bar_title_edit button,
 .st-key-textus_app_toolbar .st-key-tx_appbar_settings button {

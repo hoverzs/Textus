@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from bible_engine.hebrew_analysis_bundle import VerseAnalysis
-from bible_engine.hebrew_analysis_repository import SYNTAX_GROUNDING_NONE
+from bible_engine.hebrew_analysis_repository import SYNTAX_GROUNDING_NONE, SYNTAX_GROUNDING_UNAVAILABLE
 from bible_engine.hebrew_contextual_analysis import (
     CONFIDENCE_LOW,
     CONTEXTUAL_ANALYSIS_SCHEMA_VERSION,
@@ -212,7 +212,7 @@ def _build_word_notes(
         actual_state = token.morphology.state if token is not None else ""
 
         syntax_explanation = str(raw.get("syntax_explanation_hu") or "").strip()
-        if grounding_status == SYNTAX_GROUNDING_NONE and syntax_explanation:
+        if grounding_status in (SYNTAX_GROUNDING_NONE, SYNTAX_GROUNDING_UNAVAILABLE) and syntax_explanation:
             warnings.append(f"{token_id}: mondattani állítás eldobva (NO_GROUNDED_SYNTAX)")
             syntax_explanation = ""
         elif token_id not in covered_token_ids and syntax_explanation:
@@ -426,11 +426,16 @@ def _build_syntax_summary(
     grounding_status: str,
     warnings: list[str],
 ) -> SyntaxSummary:
-    if grounding_status == SYNTAX_GROUNDING_NONE:
+    if grounding_status in (SYNTAX_GROUNDING_NONE, SYNTAX_GROUNDING_UNAVAILABLE):
         if isinstance(raw_summary, dict) and (
             str(raw_summary.get("summary_hu") or "").strip() or raw_summary.get("clause_ids")
         ):
-            warnings.append("Mondatelemzés eldobva (NO_GROUNDED_SYNTAX — nincs mondattani adat ehhez a vershez)")
+            reason = (
+                "SYNTAX_UNAVAILABLE_TRANSIENT — a mondattani adatforrás átmenetileg nem elérhető"
+                if grounding_status == SYNTAX_GROUNDING_UNAVAILABLE
+                else "NO_GROUNDED_SYNTAX — nincs mondattani adat ehhez a vershez"
+            )
+            warnings.append(f"Mondatelemzés eldobva ({reason})")
         return SyntaxSummary()
 
     if not isinstance(raw_summary, dict):
@@ -529,7 +534,20 @@ def request_hebrew_contextual_analysis(
     and return a validated result. Never makes more than one call. Never
     raises — any failure (network, malformed JSON, provider error text)
     degrades to ``STATUS_UNAVAILABLE``/``STATUS_INVALID_RESPONSE`` with no
-    fabricated content, per the Phase 2E fallback contract."""
+    fabricated content, per the Phase 2E fallback contract.
+
+    2026-09 audit fix: if the deterministic bundle's own syntax fetch hit a
+    transient backend error (``verse.syntax_grounding ==
+    SYNTAX_GROUNDING_UNAVAILABLE`` — see ``hebrew_analysis_repository``),
+    this returns ``STATUS_UNAVAILABLE`` immediately, WITHOUT calling the
+    model. Two reasons: (1) an AI call built on a known-degraded input is
+    wasted cost, and (2) the caller's cache only stores ``STATUS_OK``
+    results, so this guarantees the degraded case is never cached — the
+    next request for the same verse retries the repository from scratch,
+    picking up a recovered backend automatically.
+    """
+    if verse.syntax_grounding == SYNTAX_GROUNDING_UNAVAILABLE:
+        return HebrewContextualAnalysisResult(status=STATUS_UNAVAILABLE)
     prompt = build_hebrew_contextual_analysis_prompt(verse)
     call_kwargs = dict(generate_kwargs or {})
 

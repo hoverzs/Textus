@@ -19,7 +19,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from bible_engine.greek_analysis_bundle import SYNTAX_GROUNDING_NONE, GreekVerseAnalysis
+from bible_engine.greek_analysis_bundle import SYNTAX_GROUNDING_NONE, SYNTAX_GROUNDING_UNAVAILABLE, GreekVerseAnalysis
 from bible_engine.greek_contextual_analysis import (
     CONFIDENCE_HIGH,
     CONFIDENCE_LOW,
@@ -472,8 +472,8 @@ def _build_word_notes(
             lexical_provenance = ""
 
         syntax_role = str(raw.get("syntax_role_hu") or "").strip()
-        if verse.syntax_grounding == SYNTAX_GROUNDING_NONE and syntax_role:
-            warnings.append(f"{token_id}: mondattani állítás eldobva (NO_GROUNDED_SYNTAX)")
+        if verse.syntax_grounding in (SYNTAX_GROUNDING_NONE, SYNTAX_GROUNDING_UNAVAILABLE) and syntax_role:
+            warnings.append(f"{token_id}: mondattani állítás eldobva ({verse.syntax_grounding})")
             syntax_role = ""
         elif token_id not in covered_token_ids and syntax_role:
             warnings.append(f"{token_id}: mondattani állítás eldobva (nincs mondattani adat ehhez a tokenhez)")
@@ -669,7 +669,7 @@ def _build_construction_notes(
 def _build_syntax_summary(
     raw: object, *, grounding_status: str, has_coordination: bool, warnings: list[str]
 ) -> GreekSyntaxSummary:
-    if grounding_status == SYNTAX_GROUNDING_NONE:
+    if grounding_status in (SYNTAX_GROUNDING_NONE, SYNTAX_GROUNDING_UNAVAILABLE):
         return GreekSyntaxSummary()
     if not isinstance(raw, dict):
         return GreekSyntaxSummary()
@@ -775,7 +775,19 @@ def request_greek_contextual_analysis(
     """Orchestrates exactly ONE model call for this verse — the caller
     (``bible_engine.greek_contextual_analysis_cache``) is responsible for
     never calling this twice for the same verse within one cache
-    lifetime."""
+    lifetime.
+
+    2026-09 audit fix: if the deterministic bundle's own syntax fetch hit a
+    transient backend error (``verse.syntax_grounding ==
+    SYNTAX_GROUNDING_UNAVAILABLE`` — see ``greek_analysis_repository.
+    _attach_verse``), this returns ``STATUS_UNAVAILABLE`` immediately
+    without calling the model: an AI call built on a known-degraded input is
+    wasted cost, and the caller's cache only stores ``STATUS_OK`` results,
+    so this guarantees the degraded case is never cached — the next request
+    for the same verse re-attaches syntax from the repository from scratch,
+    picking up a recovered backend automatically."""
+    if verse.syntax_grounding == SYNTAX_GROUNDING_UNAVAILABLE:
+        return GreekContextualAnalysisResult(status=STATUS_UNAVAILABLE)
     prompt = build_greek_contextual_analysis_prompt(verse)
     try:
         raw = generate_fn(prompt, **(generate_kwargs or {}))

@@ -22,9 +22,24 @@ from __future__ import annotations
 from collections import OrderedDict
 
 from bible_engine.hebrew_analysis_bundle import HebrewAnalysisBundle
+from bible_engine.hebrew_analysis_repository import SYNTAX_GROUNDING_UNAVAILABLE
 from bible_engine.hebrew_analysis_service import HebrewAnalysisService
 
 DEFAULT_MAX_ENTRIES = 256
+
+
+def _bundle_has_unavailable_syntax(bundle: HebrewAnalysisBundle) -> bool:
+    """True if any verse's syntax fetch hit a transient backend error
+    (2026-09 audit fix) — such a bundle must never be cached: caching it
+    would keep serving the degraded result for the rest of the session even
+    after the backend recovers, since nothing would ever invalidate it.
+
+    ``getattr(..., "verses", ())`` rather than a direct attribute access
+    deliberately: this cache is only ever exercised in tests against real
+    ``HebrewAnalysisBundle`` instances OR a minimal fake double standing in
+    for one (see ``tests/test_hebrew_analysis_cache.py``) — a fake with no
+    ``verses`` attribute at all is simply never degraded."""
+    return any(v.syntax_grounding == SYNTAX_GROUNDING_UNAVAILABLE for v in getattr(bundle, "verses", ()))
 
 
 class CachedHebrewAnalysisService:
@@ -33,7 +48,12 @@ class CachedHebrewAnalysisService:
     Only successful lookups are cached — a raised ``HebrewAnalysisUnavailable``
     propagates straight through and is never stored, so a transiently
     unavailable reference is retried on the next call rather than being
-    "cached" as a failure.
+    "cached" as a failure. Likewise, a bundle whose syntax layer degraded to
+    ``SYNTAX_GROUNDING_UNAVAILABLE`` (a transient repository-level error,
+    not genuine absence of MACULA data — see ``hebrew_analysis_repository``)
+    is returned to the caller but never stored, so the very next call for
+    that reference retries the repository instead of replaying the same
+    degraded result for the rest of the session.
 
     When the underlying repository cannot report a dataset-version signature
     (``dataset_version_signature()`` returns ``""`` — e.g. no local store
@@ -66,6 +86,8 @@ class CachedHebrewAnalysisService:
             return cached
 
         bundle = self._service.get_hebrew_analysis(reference)
+        if _bundle_has_unavailable_syntax(bundle):
+            return bundle
         self._cache[key] = bundle
         self._cache.move_to_end(key)
         while len(self._cache) > self._max_entries:

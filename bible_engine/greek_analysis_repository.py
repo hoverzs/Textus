@@ -15,6 +15,7 @@ regardless of which repository backend is selected.
 
 from __future__ import annotations
 
+import logging
 import os
 import sqlite3
 from dataclasses import dataclass, replace
@@ -30,10 +31,23 @@ from bible_engine.greek_analysis_bundle import (
     SYNTAX_GROUNDING_FULL,
     SYNTAX_GROUNDING_NONE,
     SYNTAX_GROUNDING_PARTIAL,
+    SYNTAX_GROUNDING_UNAVAILABLE,
 )
 from bible_engine.greek_syntax_sqlite import resolve_default_syntax_database_path
 
+logger = logging.getLogger(__name__)
+
 MACULA_DATASET_ID = "macula_greek_sblgnt"
+
+# Repository-call result classification (2026-09 audit fix) — mirrors
+# bible_engine.hebrew_analysis_repository's RESULT_* constants exactly: a
+# transient network/RPC failure must never be indistinguishable from a verse
+# that genuinely has no MACULA syntax data. See that module's docstring for
+# the full rationale (same bug, same fix, both languages).
+RESULT_SUCCESS_WITH_DATA = "SUCCESS_WITH_DATA"
+RESULT_SUCCESS_NO_DATA = "SUCCESS_NO_DATA"
+RESULT_TRANSIENT_ERROR = "TRANSIENT_ERROR"
+RESULT_PERMANENT_ERROR = "PERMANENT_ERROR"  # not raised anywhere yet — see hebrew_analysis_repository docstring
 
 
 @dataclass(frozen=True)
@@ -43,6 +57,7 @@ class GreekVerseSyntaxData:
     semantic_roles: tuple[GreekSemanticRole, ...] = ()
     coreference: tuple[GreekCoreferenceLink, ...] = ()
     alignment_status_by_token: dict[str, str] | None = None
+    status: str = RESULT_SUCCESS_NO_DATA
 
     @property
     def has_syntax(self) -> bool:
@@ -86,16 +101,16 @@ class LocalGreekAnalysisRepository:
 
     def get_verse_syntax(self, verse_ref: str) -> GreekVerseSyntaxData:
         if not self.database_path.exists():
-            return GreekVerseSyntaxData()
+            return GreekVerseSyntaxData(status=RESULT_SUCCESS_NO_DATA)
         try:
             connection = sqlite3.connect(f"file:{self.database_path.as_posix()}?mode=ro", uri=True)
             connection.row_factory = sqlite3.Row
         except sqlite3.Error:
-            return GreekVerseSyntaxData()
+            return GreekVerseSyntaxData(status=RESULT_TRANSIENT_ERROR)
         try:
             return _read_local_verse_syntax(connection, verse_ref)
         except sqlite3.Error:
-            return GreekVerseSyntaxData()
+            return GreekVerseSyntaxData(status=RESULT_TRANSIENT_ERROR)
         finally:
             connection.close()
 
@@ -126,7 +141,7 @@ def _read_local_verse_syntax(connection: sqlite3.Connection, verse_ref: str) -> 
             macula_to_tagnt[row["macula_xml_id"]] = row["tagnt_token_id"]
 
     if not alignment_rows:
-        return GreekVerseSyntaxData()
+        return GreekVerseSyntaxData(status=RESULT_SUCCESS_NO_DATA)
 
     group_rows = connection.execute(
         "SELECT group_id, group_class, rule, role, predication, token_ids_json, parent_group_id "
@@ -262,9 +277,11 @@ def _read_local_verse_syntax(connection: sqlite3.Connection, verse_ref: str) -> 
         for (src, lt), targets in coreference_by_source.items()
     )
 
+    has_data = bool(phrases or clauses or semantic_roles or coreference)
     return GreekVerseSyntaxData(
         phrases=tuple(phrases), clauses=tuple(clauses), semantic_roles=tuple(semantic_roles),
         coreference=coreference, alignment_status_by_token=alignment_status_by_token,
+        status=RESULT_SUCCESS_WITH_DATA if has_data else RESULT_SUCCESS_NO_DATA,
     )
 
 
@@ -306,12 +323,12 @@ class SupabaseGreekAnalysisRepository:
     def get_verse_syntax(self, verse_ref: str) -> GreekVerseSyntaxData:
         try:
             client = self._resolve_client()
-        except Exception:
-            return GreekVerseSyntaxData()
+        except Exception:  # noqa: BLE001 - transient: backend unreachable is not "no data"
+            return GreekVerseSyntaxData(status=RESULT_TRANSIENT_ERROR)
         try:
             result = client.rpc("get_greek_verse_syntax_bundle", {"p_verse_ref": verse_ref}).execute()
-        except Exception:
-            return GreekVerseSyntaxData()
+        except Exception:  # noqa: BLE001 - transient: the RPC call itself failed
+            return GreekVerseSyntaxData(status=RESULT_TRANSIENT_ERROR)
         payload = result.data or {}
         return _parse_bundle_payload(payload)
 
@@ -366,9 +383,11 @@ def _parse_bundle_payload(payload: dict) -> GreekVerseSyntaxData:
         row["token_id"]: row["alignment_status"] for row in payload.get("tokens", []) if row.get("alignment_status")
     }
 
+    has_data = bool(phrases or clauses or semantic_roles or coreference)
     return GreekVerseSyntaxData(
         phrases=phrases, clauses=clauses, semantic_roles=semantic_roles, coreference=coreference,
         alignment_status_by_token=alignment_status_by_token or None,
+        status=RESULT_SUCCESS_WITH_DATA if has_data else RESULT_SUCCESS_NO_DATA,
     )
 
 
@@ -385,10 +404,38 @@ def _configured_greek_analysis_backend() -> str:
     return (os.environ.get("TEXTUS_GREEK_ANALYSIS_BACKEND", "local") or "local").strip().lower()
 
 
+def _looks_like_cloud_environment() -> bool:
+    """Pure env-var check, deliberately independent of ``auth_config.
+    is_local_runtime()`` (which needs a live Streamlit request context and
+    would violate this module's zero-Streamlit-dependency invariant — see
+    ``tests/test_hebrew_macula_alignment.py::
+    test_phase2d_modules_have_no_llm_or_direct_network_dependency``).
+    Mirrors only the two unambiguous "definitely cloud" signals
+    ``is_local_runtime()`` also short-circuits on."""
+    if (os.environ.get("TEXTUS_FORCE_CLOUD") or "").strip().lower() in ("1", "true", "yes"):
+        return True
+    return (os.environ.get("STREAMLIT_RUNTIME_ENVIRONMENT") or "").strip().lower() == "cloud"
+
+
 def get_default_greek_analysis_repository() -> GreekAnalysisRepository:
     backend = _configured_greek_analysis_backend()
     if backend == "supabase":
         return SupabaseGreekAnalysisRepository()
+    # 2026-09 audit fix: an unset/unrecognized TEXTUS_GREEK_ANALYSIS_BACKEND
+    # silently serves the bundled local SQLite dataset instead of the
+    # Supabase-backed one — safe (no crash, no data leak) but potentially
+    # stale/incomplete in a real deployment that simply forgot to set the
+    # env var. Local development/tests are unaffected (no cloud signal),
+    # but a detected-cloud runtime gets a loud, one-time warning so the
+    # misconfiguration is at least visible to whoever reads the logs.
+    if _looks_like_cloud_environment():
+        logger.warning(
+            "TEXTUS_GREEK_ANALYSIS_BACKEND is '%s' (not 'supabase') in a "
+            "detected cloud runtime — serving the bundled local Greek "
+            "dataset instead of the Supabase-backed one. If this is "
+            "unintentional, set TEXTUS_GREEK_ANALYSIS_BACKEND=supabase.",
+            backend,
+        )
     return LocalGreekAnalysisRepository()
 
 
@@ -408,6 +455,13 @@ def _attach_verse(verse, repository: GreekAnalysisRepository):
     new_tokens = tuple(
         replace(t, alignment_status=status_by_token.get(t.token_id, t.alignment_status)) for t in verse.tokens
     )
+    if data.status in (RESULT_TRANSIENT_ERROR, RESULT_PERMANENT_ERROR):
+        # 2026-09 audit fix: never let a failed repository call look like a
+        # verse that genuinely has no MACULA syntax data — SYNTAX_GROUNDING_
+        # UNAVAILABLE is a distinct value so downstream AI-analysis code
+        # (bible_engine.greek_contextual_analysis_service) can refuse to
+        # produce/cache a STATUS_OK result built on this degraded input.
+        return replace(verse, tokens=new_tokens, syntax_grounding=SYNTAX_GROUNDING_UNAVAILABLE)
     if not data.phrases and not data.clauses and not data.semantic_roles and not data.coreference:
         return replace(verse, tokens=new_tokens) if status_by_token else verse
 
@@ -439,6 +493,10 @@ def _attach_verse(verse, repository: GreekAnalysisRepository):
 
 __all__ = [
     "MACULA_DATASET_ID",
+    "RESULT_PERMANENT_ERROR",
+    "RESULT_SUCCESS_NO_DATA",
+    "RESULT_SUCCESS_WITH_DATA",
+    "RESULT_TRANSIENT_ERROR",
     "GreekVerseSyntaxData",
     "GreekAnalysisRepository",
     "LocalGreekAnalysisRepository",

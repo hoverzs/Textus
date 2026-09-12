@@ -42,11 +42,29 @@ DURABLE_SOURCE_URL = "passage_text_source_url"
 DURABLE_FETCHED_AT = "passage_text_fetched_at"
 DURABLE_FETCHED_REF = "passage_text_fetched_reference"
 DURABLE_LAST_FETCHED_TEXT = "passage_text_last_fetched_text"
+# 2026-09 audit fix: a `ruf_bible_service` folyamat-szintű memória-cache-
+# ének frissesség-állapota (`fetch_ruf_passage`'s "cache_status": "live" |
+# "fresh" | "stale_fallback") — KÜLÖN mezőben, hogy a durva forrás-
+# osztályozástól (DURABLE_SOURCE) függetlenül is megállapítható legyen,
+# hogy egy adott betöltés friss volt-e, vagy egy hálózati hiba utáni,
+# esetleg elavult stale fallback.
+DURABLE_SOURCE_CACHE_STATUS = "passage_text_cache_status"
 
 # adatsema_v1.md 2. pont: BibliaiSzoveg forrás-típusok.
 SOURCE_TYPE_USER_OVERRIDE = "user_override"
+# 2026-09 audit fix: ez az érték korábban tévesen került beírásra minden
+# memória-cache-ből (nem élő API-hívásból) származó eredményre — a
+# `ruf_bible_local_db` valódi helyi SQLite tárát ez a modul SOHA nem éri
+# el (lásd `ruf_bible_local_db.py` modul-docstringje). A konstans a
+# visszafelé kompatibilitás miatt marad (régi mentett projektek ezzel az
+# értékkel is rendelkezhetnek), de ÚJ írásnál többé nem használt — helyette
+# lásd SOURCE_TYPE_CACHED_API.
 SOURCE_TYPE_LOCAL_STORE = "local_store"
 SOURCE_TYPE_EXTERNAL_API = "external_api"
+# Élő hálózati hívás helyett a folyamat-szintű memória-cache-ből (friss
+# vagy stale-fallback) kiszolgált eredmény — lásd DURABLE_SOURCE_CACHE_STATUS
+# a fresh/stale_fallback finomabb megkülönböztetéséhez.
+SOURCE_TYPE_CACHED_API = "cached_api"
 
 # Widget-only
 KEY_PASSAGE_TEXT_INPUT = "passage_text_input"
@@ -458,6 +476,7 @@ def save_bible_text_from_widgets(session_state: MutableMapping[str, Any]) -> dic
         session_state[DURABLE_SOURCE_URL] = ""
         session_state[DURABLE_FETCHED_AT] = ""
         session_state[DURABLE_FETCHED_REF] = ""
+        session_state[DURABLE_SOURCE_CACHE_STATUS] = ""
 
     # A központi blokk RÚF 2014-re van szabva (automatikus + kézi).
     translation = TRANSLATION_NAME
@@ -485,6 +504,9 @@ def get_bible_text_snapshot(session_state: MutableMapping[str, Any]) -> dict[str
         "passage_text_fetched_at": str(session_state.get(DURABLE_FETCHED_AT) or "").strip(),
         "passage_text_fetched_reference": str(
             session_state.get(DURABLE_FETCHED_REF) or ""
+        ).strip(),
+        "passage_text_cache_status": str(
+            session_state.get(DURABLE_SOURCE_CACHE_STATUS) or ""
         ).strip(),
     }
 
@@ -568,13 +590,17 @@ def _apply_ruf_fetch_success(result: dict[str, Any]) -> bool:
         return False
     st.session_state[DURABLE_PASSAGE_TEXT] = text
     st.session_state[DURABLE_TRANSLATION] = TRANSLATION_NAME
+    cache_status = str(result.get("cache_status") or "")
     # cache_status "live" = valódi hálózati hívás; "fresh"/"stale_fallback" a
-    # process-szintű memória-cache-ből jött, nem új API-hívásból.
+    # process-szintű memória-cache-ből jött, nem új API-hívásból, és
+    # semmiképp sem a `ruf_bible_local_db` valódi helyi SQLite tárából
+    # (azt ez a modul sosem éri el — lásd SOURCE_TYPE_LOCAL_STORE docs).
     st.session_state[DURABLE_SOURCE] = (
         SOURCE_TYPE_EXTERNAL_API
-        if result.get("cache_status") == "live"
-        else SOURCE_TYPE_LOCAL_STORE
+        if cache_status == "live"
+        else SOURCE_TYPE_CACHED_API
     )
+    st.session_state[DURABLE_SOURCE_CACHE_STATUS] = cache_status
     st.session_state[DURABLE_SOURCE_URL] = str(result.get("source_url") or "")
     st.session_state[DURABLE_FETCHED_AT] = datetime.now(timezone.utc).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
@@ -918,12 +944,14 @@ __all__ = [
     "DURABLE_PASSAGE",
     "DURABLE_SOURCE",
     "DURABLE_SOURCE_URL",
+    "DURABLE_SOURCE_CACHE_STATUS",
     "DURABLE_FETCHED_AT",
     "DURABLE_FETCHED_REF",
     "DURABLE_LAST_FETCHED_TEXT",
     "SOURCE_TYPE_USER_OVERRIDE",
     "SOURCE_TYPE_LOCAL_STORE",
     "SOURCE_TYPE_EXTERNAL_API",
+    "SOURCE_TYPE_CACHED_API",
     "KEY_PASSAGE_TEXT_INPUT",
     "KEY_TRANSLATION_SELECT",
     "KEY_TRANSLATION_OTHER",

@@ -53,6 +53,10 @@ from sermon_workshop_data import (
     normalize_sermon_workshop,
 )
 from sermon_workshop_ui import flush_sermon_workshop_from_widgets, render_sermon_workshop_shell
+from writing_desk_chat import (
+    WRITING_DESK_CHAT_KEY,
+    normalize_writing_desk_chat,
+)
 from writing_desk_data import (
     WRITING_DESK_KEY,
     ensure_writing_desk_state,
@@ -5238,6 +5242,14 @@ def _apply_project_data_to_session(project_data: dict) -> None:
         project_data.get(WRITING_DESK_KEY)
     )
     ensure_writing_desk_state(st.session_state)
+    # 2026-09 audit fix: a Segítő chat helyreállítása — régi (e módosítás
+    # előtt mentett) projekteknél hiányzó kulcs esetén üres chat. A mentett
+    # context_fingerprint majd a következő rendereléskor (ensure_writing_
+    # desk_chat_state) egyezik a frissen beállított current_project_id-vel,
+    # tehát ez a rerun-on túli lépés NEM üríti ki most visszaírt előzményt.
+    st.session_state[WRITING_DESK_CHAT_KEY] = normalize_writing_desk_chat(
+        project_data.get(WRITING_DESK_CHAT_KEY)
+    )
     # Igehely-keresés alkalom típusa a háttérrel összhangban
     _occ_type = str(
         (st.session_state.get(OCCASION_CONTEXT_KEY) or {}).get("occasion_type") or ""
@@ -5338,6 +5350,120 @@ def _resolve_project_title() -> str:
     return title or "Névtelen projekt"
 
 
+# 2026-09 audit fix — explicit mentési állapotgép. "dirty" és "saved" a
+# meglévő tartalmi fingerprint-összevetésből (_is_project_dirty) számolt,
+# soha nem tárolt állapot — csak a SAVING/FAILED/CONFLICT tranziens
+# kimenetek élnek session_state-ben, mert ezeket egy adott mentési
+# kísérlet eredménye állítja be, nem a szerkesztett tartalom.
+_SAVE_STATE_SAVING = "saving"
+_SAVE_STATE_SAVED = "saved"
+_SAVE_STATE_FAILED = "save_failed"
+_SAVE_STATE_CONFLICT = "conflict"
+# Tartós (nem egyszeri) autosave-hiba esetén ennyi egymást követő
+# sikertelen kísérletenként emlékeztetünk újra flash-üzenettel — az első
+# hibánál mindig jelezzük, utána nem "bombázzuk" a felhasználót minden
+# ~3 percben, de egy valóban elhúzódó kiesés nem marad néma sem.
+_AUTOSAVE_FAILURE_REMINDER_EVERY = 3
+
+
+def _project_save_status() -> str:
+    """Az aktuális mentési állapot — "dirty"/"saving"/"saved"/"save_failed"/
+    "conflict". A tranziens kimenetek (utóbbi 3) elsőbbséget élveznek a
+    tartalmi dirty-számításhoz képest, mert egy sikertelen/ütköző mentés
+    utáni állapotot akkor is jelezni kell, ha időközben a tartalom
+    véletlenül visszakerült a legutóbb ismert mentett fingerprintre."""
+    transient = st.session_state.get("_project_save_state")
+    if transient in (_SAVE_STATE_SAVING, _SAVE_STATE_FAILED, _SAVE_STATE_CONFLICT):
+        return transient
+    return "dirty" if _is_project_dirty() else _SAVE_STATE_SAVED
+
+
+def _reset_project_save_state() -> None:
+    """Új projekt / friss betöltés után a mentési állapotgép nullázása."""
+    st.session_state["_project_save_state"] = None
+    st.session_state["_project_save_error_streak"] = 0
+    st.session_state["_project_conflict_streak"] = 0
+    st.session_state["_project_conflict_current_revision"] = None
+
+
+def _apply_update_result(result, *, title: str, autosave: bool) -> bool:
+    """Egységesen alkalmazza egy ``update_project()``-hívás kimenetét a
+    munkamenet mentési állapotára — mind a kézi, mind az autosave-ág ezt
+    hívja, hogy a state machine mindkét helyen ugyanúgy viselkedjen.
+    Visszaadja, hogy a hívó folytathatja-e a "sikeres mentés" ágat."""
+    from project_storage import SaveOutcome
+
+    if result.outcome == SaveOutcome.OK:
+        row = result.row or {}
+        st.session_state["current_project_revision"] = row.get("revision")
+        st.session_state["current_project_title"] = title
+        st.session_state["_pending_project_title_input"] = title
+        st.session_state["_project_save_state"] = _SAVE_STATE_SAVED
+        st.session_state["_project_save_error_streak"] = 0
+        # 2026-09 audit fix (regression from the previous round): a sikeres
+        # mentés zárja le a konfliktus-sorozatot is, hogy egy KÉSŐBBI, ÚJ
+        # ütközés megint jelezhető legyen (lásd lentebb a streak-logikát).
+        st.session_state["_project_conflict_streak"] = 0
+        _mark_project_clean()
+        invalidate_used_passage_cache(st.session_state)
+        return True
+
+    if result.outcome == SaveOutcome.CONFLICT:
+        # 2026-09 audit fix — regresszió javítva: a dedup korábban a
+        # PILLANATNYI `_project_save_state`-et nézte ("már conflict volt-e
+        # ELŐZŐLEG?"), de az autosave a hívás előtt mindig "saving"-re
+        # írja azt (lásd _cloud_save_project) — így a state-alapú
+        # ellenőrzés SOSEM látta igaznak a "már jeleztük" esetet, és
+        # minden autosave-ciklusnál újra felvillant az értesítés.
+        # Explicit, a `_project_save_state`-től FÜGGETLEN streak-számláló
+        # (ugyanaz a minta, mint a NOT_FOUND ág `_project_save_error_streak`-je
+        # lentebb): csak az adott ütközés-sorozat ELSŐ előfordulásakor jelez,
+        # utána csendben marad, amíg a sorozat meg nem szakad egy sikeres
+        # mentéssel (lásd fent az OK ágat) — ha AZUTÁN új ütközés keletkezik,
+        # a streak újra 0-ról indul, tehát ismét jelez.
+        conflict_streak = int(st.session_state.get("_project_conflict_streak") or 0) + 1
+        st.session_state["_project_conflict_streak"] = conflict_streak
+        st.session_state["_project_save_state"] = _SAVE_STATE_CONFLICT
+        st.session_state["_project_conflict_current_revision"] = result.current_revision
+        track_event(
+            "content_save",
+            {
+                "method": "cloud_autosave" if autosave else "cloud",
+                "feature_name": "project",
+                "status": "conflict",
+            },
+        )
+        if conflict_streak == 1:
+            _set_flash(
+                "Ütközés: ezt a projektet időközben egy másik lap vagy eszköz elmentette. "
+                "A helyi változásaid NEM íródtak felül és NEM lettek elmentve. "
+                "Töltsd be újra a legfrissebb verziót, vagy mentsd „Mentés másolatként” "
+                "gombbal, ha meg akarod tartani a saját változataidat.",
+                "warning",
+            )
+        return False
+
+    # SaveOutcome.NOT_FOUND — a projekt törölve lett, vagy nem a sajátunk.
+    streak = int(st.session_state.get("_project_save_error_streak") or 0) + 1
+    st.session_state["_project_save_error_streak"] = streak
+    st.session_state["_project_save_state"] = _SAVE_STATE_FAILED
+    track_event(
+        "content_save",
+        {
+            "method": "cloud_autosave" if autosave else "cloud",
+            "feature_name": "project",
+            "status": "error",
+            "error_code": "not_found",
+        },
+    )
+    if not autosave or streak == 1:
+        _set_flash(
+            "A projekt nem található, vagy nem a te fiókodhoz tartozik — a mentés nem történt meg.",
+            "error",
+        )
+    return False
+
+
 def _cloud_save_project(*, as_new: bool = False, autosave: bool = False) -> None:
     """Mentés a fejlécsávból. Vendégnél no-op. Autosave csak meglévő projektre."""
     owner = _owner_sub()
@@ -5362,14 +5488,19 @@ def _cloud_save_project(*, as_new: bool = False, autosave: bool = False) -> None
 
         if autosave:
             if not cur_id:
+                # 2026-09 audit fix: a brand-new, never-saved project still
+                # has no autosave protection here (create_project needs an
+                # explicit user action, per the existing "Mentés újként"
+                # flow) — but this is no longer a SILENT gap: the toolbar
+                # status chip (_project_status_meta) shows "Ideiglenes" for
+                # exactly this case, distinct from "Nincs mentve", so the
+                # user has a persistent visual signal to save explicitly.
                 return
-            updated = update_project(cur_id, owner, title, passage, pdata)
-            if not updated:
+            st.session_state["_project_save_state"] = _SAVE_STATE_SAVING
+            expected_revision = int(st.session_state.get("current_project_revision") or 0)
+            result = update_project(cur_id, owner, title, passage, pdata, expected_revision=expected_revision)
+            if not _apply_update_result(result, title=title, autosave=True):
                 return
-            st.session_state["current_project_title"] = title
-            st.session_state["_pending_project_title_input"] = title
-            _mark_project_clean()
-            invalidate_used_passage_cache(st.session_state)
             _set_flash(f"Automatikus mentés: {title}", "info")
             st.rerun()
             return
@@ -5377,8 +5508,10 @@ def _cloud_save_project(*, as_new: bool = False, autosave: bool = False) -> None
         if as_new or not cur_id:
             row = create_project(owner, title, passage, pdata)
             st.session_state["current_project_id"] = str(row.get("id") or "")
+            st.session_state["current_project_revision"] = row.get("revision")
             st.session_state["current_project_title"] = title
             st.session_state["_pending_project_title_input"] = title
+            _reset_project_save_state()
             _mark_project_clean()
             invalidate_used_passage_cache(st.session_state)
             track_event(
@@ -5391,26 +5524,9 @@ def _cloud_save_project(*, as_new: bool = False, autosave: bool = False) -> None
             )
             _set_flash(f"Új projekt mentve: {title}")
         else:
-            updated = update_project(cur_id, owner, title, passage, pdata)
-            if not updated:
-                track_event(
-                    "content_save",
-                    {
-                        "method": "cloud",
-                        "feature_name": "project",
-                        "status": "error",
-                        "error_code": "not_found",
-                    },
-                )
-                _set_flash(
-                    "A projekt nem található, vagy nem a te fiókodhoz tartozik.",
-                    "error",
-                )
-            else:
-                st.session_state["current_project_title"] = title
-                st.session_state["_pending_project_title_input"] = title
-                _mark_project_clean()
-                invalidate_used_passage_cache(st.session_state)
+            expected_revision = int(st.session_state.get("current_project_revision") or 0)
+            result = update_project(cur_id, owner, title, passage, pdata, expected_revision=expected_revision)
+            if _apply_update_result(result, title=title, autosave=False):
                 track_event(
                     "content_save",
                     {
@@ -5420,23 +5536,43 @@ def _cloud_save_project(*, as_new: bool = False, autosave: bool = False) -> None
                     },
                 )
                 _set_flash(f"Mentve: {title}")
+            # else: _apply_update_result already set the flash + tracked the
+            # event for both CONFLICT and NOT_FOUND — the shared reset/rerun
+            # below still runs either way, exactly like the success path.
         st.session_state["project_delete_confirm_id"] = None
         st.session_state["project_open_confirm_id"] = None
         st.rerun()
     except Exception as exc:
-        if autosave:
-            return
+        streak = int(st.session_state.get("_project_save_error_streak") or 0) + 1
+        st.session_state["_project_save_error_streak"] = streak
+        st.session_state["_project_save_state"] = _SAVE_STATE_FAILED
         track_event(
             "content_save",
             {
-                "method": "cloud",
+                "method": "cloud_autosave" if autosave else "cloud",
                 "feature_name": "project",
                 "status": "error",
                 "error_code": "exception",
             },
         )
-        _set_flash(f"Mentési hiba: {exc}", "error")
-        st.rerun()
+        if not autosave:
+            _set_flash(f"Mentési hiba: {exc}", "error")
+            st.rerun()
+            return
+        # 2026-09 audit fix: autosave failures used to be completely silent
+        # (bare `return`, no flash, no log) — now every failure is tracked,
+        # and the user gets a visible (but not spammy) signal: the first
+        # failure in a streak always flashes, a persistent outage reminds
+        # periodically instead of firing every ~3 minutes forever, and the
+        # toolbar status chip (_project_status_meta) stays on "Mentési hiba"
+        # for the whole streak regardless of whether a flash fires.
+        if streak == 1 or streak % _AUTOSAVE_FAILURE_REMINDER_EVERY == 0:
+            _set_flash(
+                f"Automatikus mentés sikertelen ({streak}. egymást követő alkalommal) — "
+                "a módosításaid egyelőre csak ebben a böngészőlapban léteznek. "
+                "Mentsd kézzel, ha ez tovább folytatódik.",
+                "warning",
+            )
 
 
 def _project_confirm_blocking() -> bool:
@@ -5504,11 +5640,13 @@ def _cloud_open_project(project_id: str) -> None:
         _apply_project_data_to_session(row.get("project_data") or {})
         title = (row.get("title") or "").strip() or "Névtelen projekt"
         st.session_state["current_project_id"] = str(row.get("id") or "")
+        st.session_state["current_project_revision"] = row.get("revision")
         st.session_state["current_project_title"] = title
         st.session_state["_pending_project_title_input"] = title
         st.session_state["project_open_confirm_id"] = None
         st.session_state["project_delete_confirm_id"] = None
         st.session_state["show_projects_panel"] = False
+        _reset_project_save_state()
         _mark_project_clean()
         _close_projects_popover()
         _set_flash(f"Betöltve: {title}")
@@ -5553,14 +5691,17 @@ def _clear_workspace_content() -> None:
     st.session_state["series_weeks"] = 4
     st.session_state["_clear_outline_workshop_editors"] = True
     st.session_state["current_project_id"] = ""
+    st.session_state["current_project_revision"] = 0
     st.session_state["current_project_title"] = ""
     st.session_state["_pending_project_title_input"] = ""
     st.session_state["project_saved_fingerprint"] = ""
+    _reset_project_save_state()
     st.session_state[_BIBLE_TEXT_RESYNC_FLAG] = True
     # Nested workshop állapotok is nullázódjanak (ne maradjon régi vázlat)
     st.session_state[TEXT_WORKSHOP_KEY] = get_default_text_workshop()
     st.session_state[SERMON_WORKSHOP_KEY] = get_default_sermon_workshop()
     st.session_state[WRITING_DESK_KEY] = get_default_writing_desk()
+    st.session_state[WRITING_DESK_CHAT_KEY] = normalize_writing_desk_chat(None)
     ensure_text_workshop_state(st.session_state)
     ensure_sermon_workshop_state(st.session_state)
     ensure_writing_desk_state(st.session_state)
@@ -5659,8 +5800,10 @@ def _render_projects_quick_list(owner: str) -> None:
                             del_pending
                         ):
                             st.session_state["current_project_id"] = ""
+                            st.session_state["current_project_revision"] = 0
                             st.session_state["current_project_title"] = ""
                             st.session_state["project_saved_fingerprint"] = ""
+                            _reset_project_save_state()
                         st.session_state["project_delete_confirm_id"] = None
                         invalidate_used_passage_cache(st.session_state)
                         _set_flash("Projekt törölve.")
@@ -5764,15 +5907,25 @@ def _apply_pending_project_title_input() -> None:
 
 
 def _project_status_meta() -> tuple[str, str, str]:
-    """(label, status_label, status_kind) a project toolbarhoz."""
+    """(label, status_label, status_kind) a project toolbarhoz.
+
+    2026-09 audit fix: a status_kind most már a teljes mentési
+    állapotgépet (_project_save_status) tükrözi, nem csak a bináris
+    dirty/saved különbséget — így egy sikertelen autosave vagy egy
+    revízió-ütközés a fejlécen is látható, nem csak egy elmúló flash-ben.
+    """
     cur_id = (st.session_state.get("current_project_id") or "").strip()
     cur_title = (st.session_state.get("current_project_title") or "").strip()
     title_input = (st.session_state.get("project_title_input") or "").strip()
     label = title_input or cur_title or "Névtelen projekt"
-    dirty = _is_project_dirty()
     if not cur_id:
         return label, "Ideiglenes", "temp"
-    if dirty:
+    status = _project_save_status()
+    if status == _SAVE_STATE_CONFLICT:
+        return label, "Ütközés", "conflict"
+    if status == _SAVE_STATE_FAILED:
+        return label, "Mentési hiba", "save_failed"
+    if status == "dirty":
         return label, "Nincs mentve", "dirty"
     return label, "Mentve", "saved"
 
@@ -5967,6 +6120,7 @@ defaults = {
 
     # Felhő projekt (Saját munkáim) — csak bejelentkezve használt
     "current_project_id": "",
+    "current_project_revision": 0,
     "current_project_title": "",
     "project_delete_confirm_id": None,
     "project_open_confirm_id": None,
@@ -5977,6 +6131,17 @@ defaults = {
     "shell_panel": None,
     "project_saved_fingerprint": "",
     "_project_last_save_ts": 0.0,
+    # 2026-09 audit fix — explicit mentési állapotgép (lásd
+    # _project_save_status / _apply_update_result): None amíg nem volt még
+    # mentési kísérlet ebben a munkamenetben, utána "saving"/"save_failed"/
+    # "conflict" a legutóbbi próbálkozás kimenete szerint.
+    "_project_save_state": None,
+    "_project_save_error_streak": 0,
+    # 2026-09 audit fix (post-fix verification regression): a konfliktus-
+    # értesítés dedup-ja EZEN a saját, streak-alapú számlálón múlik, nem a
+    # _project_save_state pillanatnyi értékén — lásd _apply_update_result.
+    "_project_conflict_streak": 0,
+    "_project_conflict_current_revision": None,
     "_flash_message": None,
     "_pending_project_title_input": None,
     "_pending_project_widget_sync": None,

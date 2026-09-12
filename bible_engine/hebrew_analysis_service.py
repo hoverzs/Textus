@@ -31,6 +31,7 @@ from bible_engine.hebrew_analysis_bundle import (
     VerseAnalysis,
 )
 from bible_engine.hebrew_analysis_repository import (
+    RESULT_TRANSIENT_ERROR,
     HebrewAnalysisRepository,
     VerseSyntaxData,
     get_default_hebrew_analysis_repository,
@@ -154,7 +155,7 @@ class HebrewAnalysisService:
         language = "mixed" if len(languages) > 1 else (next(iter(languages), "hebrew"))
 
         verses = tuple(
-            self._build_verse_analysis(canonical_book_id, chapter_num, verse_num, verses_map, text_by_verse)
+            self._build_verse_analysis(canonical_book_id, chapter_num, verse_num, verses_map, text_by_verse, warnings)
             for chapter_num, verse_num in sorted(verses_map)
         )
 
@@ -213,10 +214,22 @@ class HebrewAnalysisService:
         verse_num: int,
         verses_map: dict[tuple[int, int], list[TokenAnalysis]],
         text_by_verse: dict[tuple[int, int], list[str]],
+        warnings: list[BundleWarning],
     ) -> VerseAnalysis:
         verse_id = f"{canonical_book_id}.{chapter_num}.{verse_num}"
         verse_tokens = verses_map[(chapter_num, verse_num)]
         syntax: VerseSyntaxData = self._linguistic_repository.get_verse_syntax(verse_id)
+        if syntax.status == RESULT_TRANSIENT_ERROR:
+            warnings.append(
+                BundleWarning(
+                    scope="verse",
+                    target_id=verse_id,
+                    code="syntax_backend_transient_error",
+                    message_hu="A mondattani (MACULA) adatforrás átmenetileg nem elérhető ehhez a "
+                    "vershez — ez NEM azt jelenti, hogy nincs mondattani adat, csak hogy a lekérés "
+                    "most nem sikerült. Próbáld újra később.",
+                )
+            )
         verse = VerseAnalysis(
             verse_id=verse_id,
             chapter=chapter_num,

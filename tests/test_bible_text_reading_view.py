@@ -12,10 +12,16 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from bible_text_ui import (
+    DURABLE_SOURCE,
+    DURABLE_SOURCE_CACHE_STATUS,
     RESYNC_FLAG,
+    SOURCE_TYPE_CACHED_API,
     SOURCE_TYPE_EXTERNAL_API,
+    SOURCE_TYPE_LOCAL_STORE,
+    SOURCE_TYPE_USER_OVERRIDE,
     build_formatted_bible_text_html,
     format_passage_text_blocks,
+    get_bible_text_snapshot,
     normalize_verse_number_spacing,
     parse_passage_text_blocks,
     save_bible_text_from_widgets,
@@ -578,6 +584,112 @@ def test_raw_data_storage_helpers_are_untouched_by_the_display_fix() -> None:
     assert blocks == [("1", "Cím <a href='X'>X</a> szöveg.")]
     normalized = normalize_verse_number_spacing(text)
     assert "<a href='X'>X</a>" in normalized
+
+
+# --- 2026-09 audit fix: RÚF source metadata semantics ----------------------
+#
+# Root cause of the bug these guard against: _apply_ruf_fetch_success()
+# labeled EVERY non-"live" cache_status (i.e. a process-memory cache hit,
+# fresh or stale-fallback) as SOURCE_TYPE_LOCAL_STORE — but this module
+# never reads ruf_bible_local_db's actual local SQLite store at all, so a
+# saved project's passage_text_source metadata was misleading. The fix
+# introduces SOURCE_TYPE_CACHED_API for the memory-cache case, and a
+# separate DURABLE_SOURCE_CACHE_STATUS field carrying the raw
+# fresh/stale_fallback distinction.
+
+def _render_editor() -> None:
+    import streamlit as st
+
+    import bible_text_ui
+
+    st.session_state["igehely_input"] = "Jn 3,16"
+    bible_text_ui.render_bible_text_editor()
+
+
+def _run_editor_with_fake_fetch(cache_status: str) -> AppTest:
+    """Monkeypatches bible_text_ui.fetch_ruf_passage (module level, so the
+    AppTest-executed script picks it up) and drives the real button-click
+    flow — the same established pattern as
+    test_szentiras_eu_ruf_load_preserves_source_attribution_and_text above."""
+    import bible_text_ui
+
+    original_fetch = bible_text_ui.fetch_ruf_passage
+
+    def fake_fetch(reference: str) -> dict[str, object]:
+        result = _ruf_result(reference, [(16, "Mert úgy szerette Isten a világot.")])
+        result["cache_status"] = cache_status
+        return result
+
+    bible_text_ui.fetch_ruf_passage = fake_fetch
+    try:
+        app = AppTest.from_function(_render_editor).run()
+        app.button[0].click().run()
+        return app
+    finally:
+        bible_text_ui.fetch_ruf_passage = original_fetch
+
+
+def test_live_api_result_is_labeled_external_api() -> None:
+    app = _run_editor_with_fake_fetch("live")
+    assert not app.exception
+    assert app.session_state[DURABLE_SOURCE] == SOURCE_TYPE_EXTERNAL_API
+    assert app.session_state[DURABLE_SOURCE_CACHE_STATUS] == "live"
+
+
+def test_fresh_memory_cache_result_is_labeled_cached_api_not_local_store() -> None:
+    app = _run_editor_with_fake_fetch("fresh")
+    assert not app.exception
+    assert app.session_state[DURABLE_SOURCE] == SOURCE_TYPE_CACHED_API
+    assert app.session_state[DURABLE_SOURCE] != SOURCE_TYPE_LOCAL_STORE
+    assert app.session_state[DURABLE_SOURCE_CACHE_STATUS] == "fresh"
+
+
+def test_stale_fallback_result_is_labeled_cached_api_and_distinguishable_from_fresh() -> None:
+    app = _run_editor_with_fake_fetch("stale_fallback")
+    assert not app.exception
+    assert app.session_state[DURABLE_SOURCE] == SOURCE_TYPE_CACHED_API
+    # The coarse source type alone no longer distinguishes fresh from
+    # stale — that is exactly what the separate cache-status field is for.
+    assert app.session_state[DURABLE_SOURCE_CACHE_STATUS] == "stale_fallback"
+
+
+def test_old_saved_project_with_legacy_local_store_value_still_loads() -> None:
+    """A project saved BEFORE this fix may have passage_text_source ==
+    "local_store" persisted from a cache hit. Loading it must not break,
+    and get_bible_text_snapshot must still surface that legacy value
+    verbatim (no silent/forced rewrite of already-saved data), even
+    though the new cache-status field never existed in that old project."""
+    state = {
+        "last_igehely": "Jn 3,16",
+        "passage_text": "16. Mert úgy szerette Isten a világot.",
+        "passage_text_source": "local_store",
+        "passage_text_source_url": "",
+        # Legacy project predates the cache-status field entirely — no
+        # "passage_text_cache_status" key at all.
+    }
+    snap = get_bible_text_snapshot(state)
+    assert snap["passage_text_source"] == SOURCE_TYPE_LOCAL_STORE
+    assert snap["passage_text_cache_status"] == ""  # missing key defaults empty, no crash
+
+
+def test_user_override_clears_cache_status() -> None:
+    """Manually overriding the text must not leave a stale cache_status
+    from a PRIOR fetch lingering behind a now-unrelated user_override
+    source."""
+    import bible_text_ui
+
+    state = {
+        "igehely_input": "Jn 3,16",
+        DURABLE_SOURCE: SOURCE_TYPE_CACHED_API,
+        DURABLE_SOURCE_CACHE_STATUS: "fresh",
+        "passage_text_last_fetched_text": "16. Eredeti szöveg.",
+        "passage_text_input": "16. Kézzel átírt szöveg.",
+    }
+
+    bible_text_ui.save_bible_text_from_widgets(state)
+
+    assert state[DURABLE_SOURCE] == SOURCE_TYPE_USER_OVERRIDE
+    assert state[DURABLE_SOURCE_CACHE_STATUS] == ""
 
 
 def main() -> None:

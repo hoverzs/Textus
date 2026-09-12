@@ -201,21 +201,31 @@ def test_llm_exception_keeps_history():
     assert session[WRITING_DESK_KEY]["draft"]["content"]
 
 
-def test_chat_does_not_write_into_project_persistence():
+def test_chat_persists_into_project_data_separately_from_the_draft():
+    """2026-09 audit fix: the Segítő chat now IS part of the persisted
+    project (previously it was explicitly excluded — see git history of
+    EXCLUDED_SESSION_KEYS/PROJECT_NESTED_KEYS — which meant closing and
+    reopening a project silently discarded the whole conversation, the
+    exact 'missing chat-history' finding a prior audit flagged). It still
+    lives under its OWN top-level key, never commingled into
+    WRITING_DESK_KEY's draft/extracts structure."""
     session = {
         "last_igehely": "Jn 3,16",
         "passage_text": "szöveg",
         WRITING_DESK_CHAT_KEY: {
             "context_fingerprint": "abc",
-            "messages": [{"role": "user", "content": "titkos chat"}],
+            "messages": [{"role": "user", "content": "korábbi üzenet"}],
         },
     }
     set_writing_desk_draft(session, "<p>Nyilvános vázlat.</p>")
     payload = build_project_data(session)
     dumped = str(payload)
-    assert WRITING_DESK_CHAT_KEY in EXCLUDED_SESSION_KEYS
-    assert WRITING_DESK_CHAT_KEY not in payload
-    assert "titkos chat" not in dumped
+    assert WRITING_DESK_CHAT_KEY not in EXCLUDED_SESSION_KEYS
+    assert WRITING_DESK_CHAT_KEY in payload
+    assert "korábbi üzenet" in dumped
+    assert payload[WRITING_DESK_CHAT_KEY]["messages"] == [
+        {"role": "user", "content": "korábbi üzenet"}
+    ]
     assert payload[WRITING_DESK_KEY]["draft"]["content"]
     assert "chat" not in payload[WRITING_DESK_KEY]
 
