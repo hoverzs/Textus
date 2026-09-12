@@ -236,7 +236,97 @@ _CATEGORICAL_OVERCLAIM_RULES: tuple[_CategoricalOverclaimRule, ...] = (
         token_matches=lambda t: _pos_is(t, "határozott névelő"),
         qualifier_re=r"hangsúly\w*|teológiai\s+jelentőség|kiemel\w*\s+(?:jelentőség|szerep)",
     ),
+    _CategoricalOverclaimRule(
+        name="present_participle_duration",
+        # Live-test finding: "ὁ πιστεύων" (present participle) described
+        # as "folyamatos, aktív cselekvés" — present-tense morphology
+        # alone does not license a claim about the DURATION or repetition
+        # of the underlying believing event (continuous/persistent/
+        # repeated/lifelong faith); only that article+participle forms a
+        # substantival expression ("aki hisz" / "a hívő"). Distinct from
+        # the general "participle" rule above (which targets FUNCTION —
+        # causal/temporal/concessive relation to the main verb): this one
+        # targets DURATIVITY/ASPECT claims about the event itself, and
+        # only for PRESENT-tense participles specifically (imperfect-style
+        # durative readings are even less licensed for an unaugmented
+        # present-stem participle than for a genuinely imperfect verb).
+        token_matches=lambda t: _verb_form_is(t, "participle") and _tense_is(t, "jelen idő"),
+        qualifier_re=r"folyamatos\w*|állandó\w*|tartós\w*|ismétlődő\w*|kitartó\w*|"
+                     r"élethosszig|szüntelen\w*|megszakítás\s+nélküli",
+        anchor_re=r"hit\w*|hívő\w*|cselekvés|élet\w*",
+    ),
 )
+
+
+# --- Coordinated-predicate clause-count overclaim (task: apply to ALL
+# generated fields, not only ConstructionNote) --------------------------
+#
+# Complements ``_collapse_coordinated_clause_inflation`` below (a
+# STRUCTURAL check: two construction_notes each citing one real sibling
+# clause as if independent). This is a TEXT-PATTERN check that runs
+# whenever the verse has ANY coordinated-sibling-clause situation
+# (regardless of which evidence a given field cites, or whether it cites
+# any at all) — catching prose anywhere ("A két koordinált tagmondat...")
+# that numerically calls the coordination "két tagmondat"/"két
+# mellékmondat" (two CLAUSES) instead of "két koordinált állítmány" (two
+# coordinated PREDICATES). A short negative lookbehind exempts the
+# correctly-hedged negated form ("nem két tagmondatról van szó...").
+_CLAUSE_COUNT_OVERCLAIM_RE = re.compile(
+    r"(?<!nem\s)két\s+(?:külön\s+)?(?:tagmondat|mellékmondat)|"
+    r"(?<!nem\s)kettő\s+(?:tagmondat|mellékmondat)",
+    re.IGNORECASE,
+)
+
+
+def _verse_has_coordinated_sibling_clauses(clauses: tuple[Any, ...]) -> bool:
+    children_by_parent: dict[str, int] = {}
+    for c in clauses:
+        if c.parent_clause_id:
+            children_by_parent[c.parent_clause_id] = children_by_parent.get(c.parent_clause_id, 0) + 1
+    return any(count >= 2 for count in children_by_parent.values())
+
+
+def _text_wrongly_counts_coordinated_clauses(text: str) -> bool:
+    if not text:
+        return False
+    for sentence in _split_sentences(text):
+        if _HEDGE_MARKER_RE.search(sentence):
+            continue
+        if _CLAUSE_COUNT_OVERCLAIM_RE.search(sentence):
+            return True
+    return False
+
+
+# --- Exegetical fact vs. interpretation (task §3) -----------------------
+#
+# exegetical_notes exist to carry theological/doctrinal readings — that is
+# their purpose, and this check never removes the field. It rejects only
+# entries that assert a categorical theological claim (identity/nature/
+# salvation-condition language) WITHOUT any of the required interpretive-
+# framing markers the prompt now asks for, so a claim beyond the linguistic
+# evidence is never presented as if it were as certain as a lexical fact.
+_INTERPRETIVE_FRAMING_MARKERS_RE = re.compile(
+    r"értelmezhető\s+úgy|egyik\s+lehetséges\s+olvasat|lehetséges\s+értelmezés|"
+    r"jánosi\s+\w*\s*teológiá|tágabb\s+teológiá|egyes\s+(?:magyarázók|értelmezők)\s+szerint|"
+    r"teológiai\s+szempontból\s+értelmezve|hagyományosan\s+úgy\s+értik|"
+    r"exegetikai\s+hagyomány",
+    re.IGNORECASE,
+)
+
+_THEOLOGICAL_CATEGORICAL_CLAIM_RE = re.compile(
+    r"isteni\s+(?:mivolt|identitás|természet|eredet|származás)|"
+    r"üdvösség\s+(?:egyetlen\s+)?feltétele|az\s+üdvösség\s+(?:egyetlen\s+)?(?:útja|módja)|"
+    r"bűnös\s+emberiség|bűnbe\s+esett\s+világ",
+    re.IGNORECASE,
+)
+
+
+def _exegetical_note_needs_interpretive_framing(text: str) -> bool:
+    if not text:
+        return False
+    if not _THEOLOGICAL_CATEGORICAL_CLAIM_RE.search(text):
+        return False
+    return not _INTERPRETIVE_FRAMING_MARKERS_RE.search(text)
 
 
 def _token_categorical_overclaim(text: str, token: Any) -> str | None:
@@ -344,6 +434,7 @@ def _build_word_notes(
     verse: GreekVerseAnalysis,
     tokens_by_id: dict[str, Any],
     covered_token_ids: set[str],
+    has_coordination: bool,
     warnings: list[str],
 ) -> tuple[GreekWordNote, ...]:
     if not isinstance(raw_notes, list):
@@ -403,12 +494,22 @@ def _build_word_notes(
             or _token_categorical_overclaim(contextual_meaning, token)
             or _token_categorical_overclaim(syntax_role, token)
         )
-        if forbidden or overclaim_category:
+        clause_count_overclaim = has_coordination and (
+            _text_wrongly_counts_coordinated_clauses(morphological_explanation)
+            or _text_wrongly_counts_coordinated_clauses(contextual_meaning)
+            or _text_wrongly_counts_coordinated_clauses(syntax_role)
+        )
+        if forbidden or overclaim_category or clause_count_overclaim:
             if forbidden:
                 warnings.append(f"{token_id}: tiltott, túláltalánosító megfogalmazás eldobva ({forbidden!r})")
-            else:
+            elif overclaim_category:
                 warnings.append(
                     f"{token_id}: alátámasztatlan, túláltalánosító paraphrase eldobva ({overclaim_category})"
+                )
+            else:
+                warnings.append(
+                    f"{token_id}: 'két tagmondat' megfogalmazás eldobva — a determinisztikus adat egy "
+                    "tagmondaton belüli koordinált állítmányokat mutat"
                 )
             morphological_explanation = ""
             contextual_meaning = ""
@@ -497,6 +598,7 @@ def _build_construction_notes(
     evidence_index: dict[str, tuple[str, ...]],
     tokens_by_id: dict[str, Any],
     clauses: tuple[Any, ...],
+    has_coordination: bool,
     warnings: list[str],
 ) -> tuple[GreekConstructionNote, ...]:
     if not isinstance(raw_notes, list):
@@ -526,12 +628,21 @@ def _build_construction_notes(
         overclaim_category = _construction_categorical_overclaim(
             explanation, evidence_tokens
         ) or _construction_categorical_overclaim(title, evidence_tokens)
-        if forbidden or overclaim_category:
+        clause_count_overclaim = has_coordination and (
+            _text_wrongly_counts_coordinated_clauses(explanation)
+            or _text_wrongly_counts_coordinated_clauses(title)
+        )
+        if forbidden or overclaim_category or clause_count_overclaim:
             if forbidden:
                 warnings.append(f"konstrukció-megjegyzés eldobva: tiltott megfogalmazás ({forbidden!r})")
-            else:
+            elif overclaim_category:
                 warnings.append(
                     f"konstrukció-megjegyzés eldobva: alátámasztatlan, túláltalánosító paraphrase ({overclaim_category})"
+                )
+            else:
+                warnings.append(
+                    "konstrukció-megjegyzés eldobva: 'két tagmondat' megfogalmazás — a determinisztikus adat "
+                    "egy tagmondaton belüli koordinált állítmányokat mutat"
                 )
             continue
 
@@ -555,7 +666,9 @@ def _build_construction_notes(
     return tuple(notes)
 
 
-def _build_syntax_summary(raw: object, *, grounding_status: str, warnings: list[str]) -> GreekSyntaxSummary:
+def _build_syntax_summary(
+    raw: object, *, grounding_status: str, has_coordination: bool, warnings: list[str]
+) -> GreekSyntaxSummary:
     if grounding_status == SYNTAX_GROUNDING_NONE:
         return GreekSyntaxSummary()
     if not isinstance(raw, dict):
@@ -565,6 +678,12 @@ def _build_syntax_summary(raw: object, *, grounding_status: str, warnings: list[
     )
     if _text_uses_forbidden_phrase(summary_hu):
         warnings.append("syntax_summary eldobva: tiltott megfogalmazás")
+        return GreekSyntaxSummary()
+    if has_coordination and _text_wrongly_counts_coordinated_clauses(summary_hu):
+        warnings.append(
+            "syntax_summary eldobva: 'két tagmondat' megfogalmazás — a determinisztikus adat egy "
+            "tagmondaton belüli koordinált állítmányokat mutat"
+        )
         return GreekSyntaxSummary()
     return GreekSyntaxSummary(
         summary_hu=summary_hu,
@@ -584,30 +703,54 @@ def validate_and_build_contextual_analysis(
     tokens_by_id = {t.token_id: t for t in verse.tokens}
     covered = token_syntax_coverage(verse)
     evidence_index = build_construction_evidence_index(verse)
+    has_coordination = _verse_has_coordinated_sibling_clauses(verse.clauses)
 
     word_notes = _build_word_notes(
         parsed.get("word_notes"), verse=verse, tokens_by_id=tokens_by_id, covered_token_ids=covered,
-        warnings=warnings,
+        has_coordination=has_coordination, warnings=warnings,
     )
     construction_notes = _build_construction_notes(
         parsed.get("construction_notes"), evidence_index=evidence_index, tokens_by_id=tokens_by_id,
-        clauses=verse.clauses, warnings=warnings,
+        clauses=verse.clauses, has_coordination=has_coordination, warnings=warnings,
     )
     syntax_summary = _build_syntax_summary(
-        parsed.get("syntax_summary"), grounding_status=verse.syntax_grounding, warnings=warnings
+        parsed.get("syntax_summary"), grounding_status=verse.syntax_grounding,
+        has_coordination=has_coordination, warnings=warnings,
     )
 
-    translation_notes = tuple(
-        _truncate(t, _MAX_FIELD_CHARS, warnings=warnings, label="translation_note")
-        for t in _string_list(parsed.get("translation_notes"))
-        if not _text_uses_forbidden_phrase(t)
-    )
-    exegetical_notes = tuple(
-        _truncate(t, _MAX_FIELD_CHARS, warnings=warnings, label="exegetical_note")
-        for t in _string_list(parsed.get("exegetical_notes"))
-        if not _text_uses_forbidden_phrase(t)
-    )
-    model_warnings = _string_list(parsed.get("warnings"), limit=10)
+    translation_notes = []
+    for t in _string_list(parsed.get("translation_notes")):
+        if _text_uses_forbidden_phrase(t):
+            continue
+        if has_coordination and _text_wrongly_counts_coordinated_clauses(t):
+            warnings.append("translation_note eldobva: 'két tagmondat' megfogalmazás")
+            continue
+        translation_notes.append(_truncate(t, _MAX_FIELD_CHARS, warnings=warnings, label="translation_note"))
+    translation_notes = tuple(translation_notes)
+
+    exegetical_notes = []
+    for t in _string_list(parsed.get("exegetical_notes")):
+        if _text_uses_forbidden_phrase(t):
+            continue
+        if has_coordination and _text_wrongly_counts_coordinated_clauses(t):
+            warnings.append("exegetical_note eldobva: 'két tagmondat' megfogalmazás")
+            continue
+        if _exegetical_note_needs_interpretive_framing(t):
+            warnings.append(
+                "exegetical_note eldobva: teológiai állítás explicit értelmezés-jelölés nélkül "
+                "(pl. 'értelmezhető úgy…', 'egyik lehetséges olvasat…')"
+            )
+            continue
+        exegetical_notes.append(_truncate(t, _MAX_FIELD_CHARS, warnings=warnings, label="exegetical_note"))
+    exegetical_notes = tuple(exegetical_notes)
+
+    model_warnings = []
+    for w in _string_list(parsed.get("warnings"), limit=10):
+        if has_coordination and _text_wrongly_counts_coordinated_clauses(w):
+            warnings.append("modell-figyelmeztetés eldobva: 'két tagmondat' megfogalmazás")
+            continue
+        model_warnings.append(_truncate(w, _MAX_FIELD_CHARS, warnings=warnings, label="model_warning"))
+    model_warnings = tuple(model_warnings)
 
     analysis = GreekContextualAnalysis(
         schema_version=CONTEXTUAL_ANALYSIS_SCHEMA_VERSION,

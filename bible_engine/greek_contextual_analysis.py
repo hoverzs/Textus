@@ -19,7 +19,7 @@ CONFIDENCE_MEDIUM = "medium"
 CONFIDENCE_LOW = "low"
 
 CONTEXTUAL_ANALYSIS_SCHEMA_VERSION = "greek-2c.1.0"
-CONTEXTUAL_ANALYSIS_PROMPT_VERSION = "greek-2c.1.2"
+CONTEXTUAL_ANALYSIS_PROMPT_VERSION = "greek-2c.1.3"
 
 
 @dataclass(frozen=True)
@@ -242,6 +242,17 @@ vagy egy determinisztikus konstrukció-jelölés) ezt kifejezetten
 alátámasztja. Egyébként semleges leírást adj: "igenévi alak, funkciója a
 mondattani szerkezetből nem egyértelműen determinisztikus."
 
+JELEN IDEJŰ IGENÉV — IDŐTARTAM/ISMÉTLŐDÉS (pl. ὁ πιστεύων): a jelen idejű
+igenév alaktana ÖNMAGÁBAN SOSE bizonyítja, hogy a mögöttes esemény
+folyamatos, állandó, ismétlődő, kitartó vagy élethosszig tartó — azaz NE
+állíts ilyesmit: "folyamatos, aktív cselekvés", "állandó hit", "kitartó
+hívő élet". A determinisztikusan alátámasztott állítás ennyi: a határozott
+névelő + igenév főnévi értelmű (szubsztantivált) szerkezetet alkot — "aki
+hisz" / "a hívő". Bármilyen erősebb időbeli/aspektuális jellemzés csak
+EXPLICIT mondattani vagy kontextuális evidenciával engedhető meg, és akkor
+is ÉRTELMEZÉSKÉNT jelölve (ld. TÉNY vs. ÉRTELMEZÉS lentebb), sose alaktani
+tényként.
+
 GENITIVUS: az eset önmagában SOSE határozza meg, hogy birtokos, alanyi
 (subjective), tárgyi (objective), részelő (partitive) vagy más genitivus-
 altípusról van szó — ehhez konkrét mondattani vagy lexikai evidencia kell,
@@ -280,13 +291,15 @@ előfordulásra univerzális szabályként.
 LEXIKAI JELENTÉS VS. TEOLÓGIAI/EXEGETIKAI ÉRTELMEZÉS (pl. μονογενής): a
 lexikai alapjelentést (pl. "egyetlen", "egyedülálló") SOSE bővítsd ki
 magadtól olyan teológiai/exegetikai tartalommal, mint "isteni
-származás/eredet" vagy áhítati jellegű kijelentés (pl. "Isten a
-legdrágábbat adta oda"), hacsak ez NEM világosan ÉRTELMEZÉSKÉNT van
-megjelölve (ld. TÉNY vs. ÉRTELMEZÉS lentebb). A lexikai/exegetikai
-tényszerű részben maradj a forrás által ténylegesen adott jelentésnél
-("egyetlen", "egyedülálló", "páratlan"); a jánosi teológiai értelmezést
-(ha egyáltalán megadod) különítsd el explicit módon, és jelöld
-egyértelműen értelmezésként, sose lexikai tényként.
+származás/eredet", "isteni mivolt/identitás/természet hangsúlyozása" vagy
+áhítati jellegű kijelentés (pl. "Isten a legdrágábbat adta oda"), hacsak ez
+NEM világosan ÉRTELMEZÉSKÉNT van megjelölve (ld. TÉNY vs. ÉRTELMEZÉS
+lentebb). A lexikai/exegetikai tényszerű részben maradj a forrás által
+ténylegesen adott jelentésnél ("egyetlen", "egyedülálló", "páratlan"); a
+jánosi teológiai értelmezést (ha egyáltalán megadod) különítsd el explicit
+módon, és jelöld egyértelműen értelmezésként, sose lexikai tényként. Ez a
+szabály minden generált mezőre vonatkozik (contextual_meaning_hu,
+exegetical_notes stb.), nem csak a lexikai alapjelentés mezőre.
 
 ==================================================
 TÉNY vs. KONTEXTUÁLIS MAGYARÁZAT vs. ÉRTELMEZÉS — HÁROM SZINT, SOSE KEVERD ÖSSZE
@@ -306,6 +319,28 @@ TÉNY vs. KONTEXTUÁLIS MAGYARÁZAT vs. ÉRTELMEZÉS — HÁROM SZINT, SOSE KEVE
 Ha a rendelkezésre álló adat nem elegendő egy állításhoz, használj
 óvatos, bizonytalanságot jelző magyar megfogalmazást ("a rendelkezésre
 álló adat alapján nem egyértelmű…"), NE egészítsd ki saját tudásból.
+
+==================================================
+EXEGETIKAI ÁLLÍTÁS VS. NYELVI TÉNY (exegetical_notes)
+==================================================
+
+Az exegetical_notes mező LÉTJOGOSULTSÁGA éppen a teológiai/exegetikai
+értelmezés — ezt NEM kell (és nem is szabad) elhagynod. DE minden olyan
+állítást, amely túlmutat azon, amit a nyelvi/mondattani evidencia
+ténylegesen alátámaszt (pl. "κόσμος = a bűnös emberiség egésze",
+"μονογενής Krisztus isteni mivoltát hangsúlyozza", "a hit az üdvösség
+feltétele"), EXPLICIT értelmezés-jelölő fordulattal kell bevezetned —
+SOSE kategorikus, ténymegállapító formában. Használj ilyen fordulatokat:
+
+  "értelmezhető úgy, hogy…"
+  "az egyik lehetséges olvasat szerint…"
+  "János tágabb teológiájában…"
+  "egyes magyarázók szerint…"
+
+Egy exegetikai megjegyzés, amely ilyen jelölés NÉLKÜL fogalmaz meg egy
+teológiai kategorikus állítást, el lesz dobva — nem azért, mert a tartalom
+önmagában rossz, hanem mert nyelvi/lexikai tényként van tálalva, holott
+nem az.
 
 ==================================================
 MONDATTANI GROUNDING — SOSE JAVÍTSD KI A HIÁNYZÓ ILLESZTÉST
@@ -334,18 +369,27 @@ NEM találhatsz ki — csak a payloadban ténylegesen jelölt mintákra
 (FELISMERT SZERKEZETEK blokk) hivatkozhatsz. A token_ids mezőt NEM kell
 megadnod — a rendszer ezt magától az evidenciából számolja.
 
-KOORDINÁLT ÁLLÍTMÁNYOK EGY TAGMONDATON BELÜL: ha a TAGMONDATOK blokkban egy
-mellékmondat (pl. egy ἵνα-vezette célhatározói mellékmondat) BELSŐ,
-koordinált (pl. μή...ἀλλά-val összekapcsolt) állítmányokat tartalmaz —
-azaz a payload két, KÖZÖS SZÜLŐ tagmondat alatt szereplő testvér
-tagmondatot mutat —, ezt EGY mellékmondaton belüli koordinációként mutasd
-be egyetlen construction_notes tételben, NE két, egymástól független
-mellékmondatként vagy célhatározói szerkezetként két külön tételben. Csak
-akkor jelölj két KÜLÖN mellékmondatot/konstrukciót, ha a determinisztikus
-TAGMONDATOK adat ezt ténylegesen alátámasztja (azaz nem közös szülő alatt,
-hanem valóban egymástól független alárendelési viszonyban állnak). A
-rendszer a payloadban ilyen esetben mindkét testvér tagmondatot elveti,
-ha külön-külön, önálló mellékmondatként hivatkozol rájuk.
+KOORDINÁLT ÁLLÍTMÁNYOK EGY TAGMONDATON BELÜL (EZ A SZABÁLY MINDEN GENERÁLT
+MEZŐRE VONATKOZIK — word_notes, construction_notes, syntax_summary,
+translation_notes, exegetical_notes, warnings, NEM csak a
+construction_notes mezőre): ha a TAGMONDATOK blokkban egy mellékmondat
+(pl. egy ἵνα-vezette célhatározói mellékmondat) BELSŐ, koordinált (pl.
+μή...ἀλλά-val összekapcsolt) állítmányokat tartalmaz — azaz a payload két,
+KÖZÖS SZÜLŐ tagmondat alatt szereplő testvér tagmondatot mutat —, ezt
+SOSE nevezd "két tagmondatnak" vagy "két mellékmondatnak", SEMMILYEN
+generált szövegben. A helyes megfogalmazás: "az ugyanazon ἵνα-tagmondaton
+belüli két koordinált állítmány" (vagy hasonló, "koordinált állítmány"
+nyelvezetű forma), NE "két tagmondat"/"két mellékmondat". Mutasd be EGY
+mellékmondaton belüli koordinációként, egyetlen construction_notes
+tételben, NE két, egymástól független mellékmondatként vagy célhatározói
+szerkezetként két külön tételben. Csak akkor jelölj két KÜLÖN
+mellékmondatot/konstrukciót, ha a determinisztikus TAGMONDATOK adat ezt
+ténylegesen alátámasztja (azaz nem közös szülő alatt, hanem valóban
+egymástól független alárendelési viszonyban állnak). A rendszer minden
+generált mezőben elveti a "két tagmondat"/"két mellékmondat"
+megfogalmazást, ha a payload koordinált testvér tagmondatokat mutat — ez
+construction_notes esetén mindkét érintett tételt eldobja, más mezőkben az
+adott mezőt üríti ki.
 
 TÖMÖRSÉG: legfeljebb 5 word_notes tételt emelj ki részletesen (a
 legfontosabbakat); construction_notes csak annyi, amennyi a payloadban
