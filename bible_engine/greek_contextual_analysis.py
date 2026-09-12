@@ -19,7 +19,7 @@ CONFIDENCE_MEDIUM = "medium"
 CONFIDENCE_LOW = "low"
 
 CONTEXTUAL_ANALYSIS_SCHEMA_VERSION = "greek-2c.1.0"
-CONTEXTUAL_ANALYSIS_PROMPT_VERSION = "greek-2c.1.1"
+CONTEXTUAL_ANALYSIS_PROMPT_VERSION = "greek-2c.1.2"
 
 
 @dataclass(frozen=True)
@@ -257,6 +257,37 @@ hely- vagy eszközhatározói jelentés") determinisztikus és közölhető. A
 kontextuális, finomabb jelentésárnyalatot mindig VILÁGOSAN magyarázó,
 nem kánoni jellegű megfogalmazásban add meg (ld. TÉNY vs. ÉRTELMEZÉS).
 
+HATÁROZÓSZÓK MÓD- VS. MÉRTÉK-JELENTÉSE (pl. οὕτως): ha egy határozószó
+lexikai adata több, eltérő biztonságú jelentést tartalmaz (pl. mód: "így,
+ekképpen" ÉS mérték/fok: "ennyire, ilyen mértékben"), a MÓD-jelentést
+kezeld elsődleges, determinisztikusan megalapozott jelentésként — a
+mérték/fok-jelentést csak ÓVATOS, kontextuális LEHETŐSÉGKÉNT említheted
+(pl. "a szó elsősorban módhatározói ('így'), bizonyos kontextusokban
+mérték-/fokhatározói ('ilyen mértékben') árnyalatot is felvehet"). SOSE
+mutasd be a kettőt egyenrangú, egyformán biztos tényként.
+
+IGEI VONZATOS ELÖLJÁRÓSZÓS SZERKEZETEK (pl. πιστεύω εἰς + accusativus): az
+alapvető elöljárószó+eset tény (pl. "εἰς + accusativus: irányt/célt
+kifejező szerkezet") determinisztikus és közölhető, DE ha egy ige (pl.
+πιστεύω) rendszeresen egy adott elöljárószóval vonzatos szerkezetet alkot,
+a kontextuális jelentésben/fordítási megjegyzésben ismerd fel ezt mint
+VERBÁLIS VONZATOT, és természetes magyar megfelelőt adj (pl. "hisz
+benne", "belé veti a hitét") — SOSE szó szerinti, magyartalan fordítást
+(pl. "ránéz", "rá tekint"). Ez a szabály KIZÁRÓLAG az adott ige ismert
+vonzat-szerkezetére vonatkozik, NE általánosítsd minden εἰς + accusativus
+előfordulásra univerzális szabályként.
+
+LEXIKAI JELENTÉS VS. TEOLÓGIAI/EXEGETIKAI ÉRTELMEZÉS (pl. μονογενής): a
+lexikai alapjelentést (pl. "egyetlen", "egyedülálló") SOSE bővítsd ki
+magadtól olyan teológiai/exegetikai tartalommal, mint "isteni
+származás/eredet" vagy áhítati jellegű kijelentés (pl. "Isten a
+legdrágábbat adta oda"), hacsak ez NEM világosan ÉRTELMEZÉSKÉNT van
+megjelölve (ld. TÉNY vs. ÉRTELMEZÉS lentebb). A lexikai/exegetikai
+tényszerű részben maradj a forrás által ténylegesen adott jelentésnél
+("egyetlen", "egyedülálló", "páratlan"); a jánosi teológiai értelmezést
+(ha egyáltalán megadod) különítsd el explicit módon, és jelöld
+egyértelműen értelmezésként, sose lexikai tényként.
+
 ==================================================
 TÉNY vs. KONTEXTUÁLIS MAGYARÁZAT vs. ÉRTELMEZÉS — HÁROM SZINT, SOSE KEVERD ÖSSZE
 ==================================================
@@ -302,6 +333,19 @@ clause_id vagy szerep-azonosító). Új szócsoportosítást vagy szerkezetet
 NEM találhatsz ki — csak a payloadban ténylegesen jelölt mintákra
 (FELISMERT SZERKEZETEK blokk) hivatkozhatsz. A token_ids mezőt NEM kell
 megadnod — a rendszer ezt magától az evidenciából számolja.
+
+KOORDINÁLT ÁLLÍTMÁNYOK EGY TAGMONDATON BELÜL: ha a TAGMONDATOK blokkban egy
+mellékmondat (pl. egy ἵνα-vezette célhatározói mellékmondat) BELSŐ,
+koordinált (pl. μή...ἀλλά-val összekapcsolt) állítmányokat tartalmaz —
+azaz a payload két, KÖZÖS SZÜLŐ tagmondat alatt szereplő testvér
+tagmondatot mutat —, ezt EGY mellékmondaton belüli koordinációként mutasd
+be egyetlen construction_notes tételben, NE két, egymástól független
+mellékmondatként vagy célhatározói szerkezetként két külön tételben. Csak
+akkor jelölj két KÜLÖN mellékmondatot/konstrukciót, ha a determinisztikus
+TAGMONDATOK adat ezt ténylegesen alátámasztja (azaz nem közös szülő alatt,
+hanem valóban egymástól független alárendelési viszonyban állnak). A
+rendszer a payloadban ilyen esetben mindkét testvér tagmondatot elveti,
+ha külön-külön, önálló mellékmondatként hivatkozol rájuk.
 
 TÖMÖRSÉG: legfeljebb 5 word_notes tételt emelj ki részletesen (a
 legfontosabbakat); construction_notes csak annyi, amennyi a payloadban

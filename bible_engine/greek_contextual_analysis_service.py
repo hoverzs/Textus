@@ -307,7 +307,23 @@ def _string_list(value: object, limit: int = _MAX_STRING_LIST_ITEMS) -> tuple[st
     return tuple(str(item).strip() for item in value[:limit] if str(item or "").strip())
 
 
+# Generated Hungarian/Greek prose never legitimately contains a literal
+# backslash — no markdown/regex/escape syntax is intended in this output.
+# A stray backslash occasionally surfaces in raw model text around a
+# quoted Greek word or elision mark; this sanitizer strips it before
+# rendering. It runs ONLY on AI-generated text fields (routed through
+# ``_truncate``, the common funnel every such field passes through) —
+# never on deterministic Greek token data (``token.surface``,
+# ``verse.greek_text``), which this module never touches.
+_STRAY_BACKSLASH_RE = re.compile(r"\\")
+
+
+def _sanitize_generated_text(text: str) -> str:
+    return _STRAY_BACKSLASH_RE.sub("", text or "")
+
+
 def _truncate(text: str, limit: int, *, warnings: list[str], label: str) -> str:
+    text = _sanitize_generated_text(text)
     if len(text) <= limit:
         return text
     warnings.append(f"{label}: szöveg levágva ({len(text)} -> {limit} karakter)")
@@ -421,11 +437,66 @@ def _build_word_notes(
     return tuple(notes)
 
 
+def _collapse_coordinated_clause_inflation(
+    notes: list[GreekConstructionNote], clauses: tuple[Any, ...], warnings: list[str]
+) -> list[GreekConstructionNote]:
+    """Rejects presenting COORDINATED PREDICATES within one deterministic
+    clause (e.g. Jn 3:16's single ἵνα-clause internally coordinating
+    "μὴ ἀπόληται" and "ἀλλ᾽ ἔχῃ" as sibling constituents under one shared
+    parent clause) as if they were two independent subordinate/purpose
+    clauses. Each half individually cites REAL clause evidence (so the
+    existing evidence-id check alone does not catch this — the problem is
+    the model choosing to split ONE governing clause into two notes, not
+    inventing evidence), so this is a separate, narrow structural check:
+    if 2+ construction_notes each exactly match one SIBLING clause (same
+    parent_clause_id, 2+ siblings exist), that pair is dropped entirely —
+    fail-closed, since silently keeping one half would itself misrepresent
+    the coordination as an independent, self-sufficient clause."""
+    clause_by_id = {c.clause_id: c for c in clauses}
+    children_by_parent: dict[str, list[str]] = {}
+    for c in clauses:
+        if c.parent_clause_id:
+            children_by_parent.setdefault(c.parent_clause_id, []).append(c.clause_id)
+
+    def _matching_clause_id(note: GreekConstructionNote) -> str | None:
+        token_set = frozenset(note.token_ids)
+        for cid, c in clause_by_id.items():
+            if frozenset(c.token_ids) == token_set:
+                return cid
+        return None
+
+    notes_by_parent: dict[str, list[int]] = {}
+    matched_clause_id: dict[int, str] = {}
+    for i, note in enumerate(notes):
+        if "clause" not in note.construction_type.lower():
+            continue
+        cid = _matching_clause_id(note)
+        if cid is None:
+            continue
+        clause = clause_by_id[cid]
+        if clause.parent_clause_id and len(children_by_parent.get(clause.parent_clause_id, [])) >= 2:
+            notes_by_parent.setdefault(clause.parent_clause_id, []).append(i)
+            matched_clause_id[i] = cid
+
+    to_drop: set[int] = set()
+    for parent_id, indices in notes_by_parent.items():
+        if len(indices) >= 2:
+            cited = ", ".join(matched_clause_id[i] for i in indices)
+            warnings.append(
+                f"konstrukció-megjegyzés(ek) eldobva: koordinált testvér tagmondatok ({cited}) "
+                f"külön mellékmondatokként lettek bemutatva egy közös ('{parent_id}') szerkezet helyett"
+            )
+            to_drop.update(indices)
+
+    return [n for i, n in enumerate(notes) if i not in to_drop]
+
+
 def _build_construction_notes(
     raw_notes: object,
     *,
     evidence_index: dict[str, tuple[str, ...]],
     tokens_by_id: dict[str, Any],
+    clauses: tuple[Any, ...],
     warnings: list[str],
 ) -> tuple[GreekConstructionNote, ...]:
     if not isinstance(raw_notes, list):
@@ -480,6 +551,7 @@ def _build_construction_notes(
                 evidence_ids=resolved_evidence,
             )
         )
+    notes = _collapse_coordinated_clause_inflation(notes, clauses, warnings)
     return tuple(notes)
 
 
@@ -518,7 +590,8 @@ def validate_and_build_contextual_analysis(
         warnings=warnings,
     )
     construction_notes = _build_construction_notes(
-        parsed.get("construction_notes"), evidence_index=evidence_index, tokens_by_id=tokens_by_id, warnings=warnings
+        parsed.get("construction_notes"), evidence_index=evidence_index, tokens_by_id=tokens_by_id,
+        clauses=verse.clauses, warnings=warnings,
     )
     syntax_summary = _build_syntax_summary(
         parsed.get("syntax_summary"), grounding_status=verse.syntax_grounding, warnings=warnings
