@@ -126,6 +126,40 @@ def test_aorist_cautious_wording_survives(explanation: str) -> None:
 
 
 @requires_syntax_store
+@pytest.mark.parametrize("explanation", [
+    # the exact live-test finding from the post-commit semantic inspection:
+    # aspect (perfective viewpoint) conflated with an ontological
+    # completedness claim about the event itself
+    "Az aoristos itt egy lezárt, múltbeli eseményt rögzít, az eseményt egészében szemlélő elbeszélő alak részeként.",
+    "Az aoristos itt az eseményt egészében szemlélő, lezárt cselekvésként mutatja be.",
+    "Ez egy befejezett cselekvés volt.",
+])
+def test_aorist_completedness_claim_about_the_event_is_rejected(explanation: str) -> None:
+    """'lezárt'/'befejezett' esemény/cselekvés must be rejected even
+    without 'egyszeri'/'pontszerű' present — the claim being made is
+    telicity/completedness of the EVENT, not mere one-time-ness, and both
+    are equally unsupported by aorist morphology alone (task's explicit
+    aorist rule: must not imply completed/telic/irreversible action)."""
+    verse = _verse_with_token_morphology(_jn316_verse(), "Jhn.3.16:3", tense="aorisztoszi")
+    note, warnings = _word_note_result(verse, "Jhn.3.16:3", morphological_explanation_hu=explanation)
+    assert note.morphological_explanation_hu == ""
+    assert any("aorist" in w and "paraphrase" in w for w in warnings)
+
+
+@requires_syntax_store
+def test_aorist_recommended_safe_vocabulary_survives() -> None:
+    """The task's own recommended replacement vocabulary ('perfektív
+    aspektus', '...nézőpont', '...szemlélete') must never be blocked —
+    proves the new 'lezárt'/'befejezett' qualifiers don't overblock the
+    exact wording the model is being steered toward."""
+    verse = _verse_with_token_morphology(_jn316_verse(), "Jhn.3.16:3", tense="aorisztoszi")
+    explanation = "Az aoristos perfektív aspektust hordoz, az eseményt egészében szemlélő nézőpontból ábrázolva."
+    note, warnings = _word_note_result(verse, "Jhn.3.16:3", morphological_explanation_hu=explanation)
+    assert note.morphological_explanation_hu == explanation
+    assert not any("aorist" in w for w in warnings)
+
+
+@requires_syntax_store
 def test_aorist_overclaim_phrase_does_not_trigger_on_non_aorist_token() -> None:
     """The same text is fine when the token it describes is NOT aorist —
     proves the check is grammatical-category-conditioned, not a bare
@@ -238,6 +272,47 @@ def test_participle_morphology_assigned_causal_function_is_rejected() -> None:
 def test_participle_function_offered_as_alternatives_survives() -> None:
     verse = _verse_with_token_morphology(_jn316_verse(), "Jhn.3.16:3", verb_form="participle")
     explanation = "Az igenév a főige cselekvésének előzményét vagy kísérő körülményét fejezheti ki."
+    note, warnings = _word_note_result(verse, "Jhn.3.16:3", morphological_explanation_hu=explanation)
+    assert note.morphological_explanation_hu == explanation
+    assert not any("participle" in w for w in warnings)
+
+
+@requires_syntax_store
+def test_participle_temporal_anteriority_asserted_from_tense_form_alone_is_rejected() -> None:
+    """The exact live-test finding from the post-commit semantic
+    inspection: 'előidejű cselekvést fejez ki' asserts anteriority as a
+    definite function of an aorist participle relative to the main verb,
+    with no clause/role/construction evidence in the bundle supporting a
+    relative-time claim for this token — an aorist participle does not
+    automatically mean 'antecedent participle' in every context."""
+    verse = _verse_with_token_morphology(_jn316_verse(), "Jhn.3.16:3", tense="aorisztoszi", verb_form="participle")
+    explanation = (
+        "Az aoristos participium itt egy előidejű cselekvést fejez ki a főige cselekvéséhez képest."
+    )
+    note, warnings = _word_note_result(verse, "Jhn.3.16:3", morphological_explanation_hu=explanation)
+    assert note.morphological_explanation_hu == ""
+    assert any("participle" in w for w in warnings)
+
+
+@requires_syntax_store
+@pytest.mark.parametrize("relation_word", ["utóidejű", "egyidejű"])
+def test_participle_other_temporal_relation_synonyms_also_rejected(relation_word: str) -> None:
+    verse = _verse_with_token_morphology(_jn316_verse(), "Jhn.3.16:3", verb_form="participle")
+    note, warnings = _word_note_result(
+        verse, "Jhn.3.16:3",
+        morphological_explanation_hu=f"Az igenév {relation_word} cselekvést fejez ki a főigéhez képest.",
+    )
+    assert note.morphological_explanation_hu == ""
+    assert any("participle" in w for w in warnings)
+
+
+@requires_syntax_store
+def test_participle_temporal_relation_hedged_with_alternative_survives() -> None:
+    """Exercises the participle rule's own extra_hedge_re ('vagy') — an
+    explicit alternative is the established safe pattern for this
+    category, distinct from the other categories' hedge markers."""
+    verse = _verse_with_token_morphology(_jn316_verse(), "Jhn.3.16:3", verb_form="participle")
+    explanation = "Az igenév előidejű vagy egyidejű cselekvést is kifejezhet a főigéhez képest."
     note, warnings = _word_note_result(verse, "Jhn.3.16:3", morphological_explanation_hu=explanation)
     assert note.morphological_explanation_hu == explanation
     assert not any("participle" in w for w in warnings)

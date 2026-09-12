@@ -102,8 +102,12 @@ def _split_sentences(text: str) -> list[str]:
     return [s for s in _SENTENCE_SPLIT_RE.split(text or "") if s.strip()]
 
 
-def _sentence_has_overclaim(sentence: str, qualifier_re: str, anchor_re: str | None) -> bool:
+def _sentence_has_overclaim(
+    sentence: str, qualifier_re: str, anchor_re: str | None, extra_hedge_re: str | None = None
+) -> bool:
     if _HEDGE_MARKER_RE.search(sentence):
+        return False
+    if extra_hedge_re and re.search(extra_hedge_re, sentence, re.IGNORECASE):
         return False
     if not re.search(qualifier_re, sentence, re.IGNORECASE):
         return False
@@ -112,8 +116,12 @@ def _sentence_has_overclaim(sentence: str, qualifier_re: str, anchor_re: str | N
     return bool(re.search(anchor_re, sentence, re.IGNORECASE))
 
 
-def _text_has_overclaim(text: str, qualifier_re: str, anchor_re: str | None) -> bool:
-    return any(_sentence_has_overclaim(s, qualifier_re, anchor_re) for s in _split_sentences(text))
+def _text_has_overclaim(
+    text: str, qualifier_re: str, anchor_re: str | None, extra_hedge_re: str | None = None
+) -> bool:
+    return any(
+        _sentence_has_overclaim(s, qualifier_re, anchor_re, extra_hedge_re) for s in _split_sentences(text)
+    )
 
 
 def _tense_is(token: Any, *values: str) -> bool:
@@ -142,6 +150,13 @@ class _CategoricalOverclaimRule:
     token_matches: Callable[[Any], bool]
     qualifier_re: str
     anchor_re: str | None = None
+    # Rule-specific additional hedge pattern, OR'd with the global
+    # ``_HEDGE_MARKER_RE`` — e.g. the participle rule treats an explicit
+    # "X vagy Y" alternative as the recommended safe phrasing (task's own
+    # established example), which is too broad a hedge to apply to every
+    # category (most categories' overclaims are not meaningfully softened
+    # by a bare "vagy" elsewhere in the sentence).
+    extra_hedge_re: str | None = None
 
 
 # Each rule fires only for a word note whose token's OWN deterministic
@@ -149,9 +164,21 @@ class _CategoricalOverclaimRule:
 _CATEGORICAL_OVERCLAIM_RULES: tuple[_CategoricalOverclaimRule, ...] = (
     _CategoricalOverclaimRule(
         name="aorist",
+        # "lezárt"/"befejezett" (closed/completed) conflate the aorist's
+        # PERFECTIVE ASPECT (a viewpoint — the event presented as a single
+        # whole) with an ontological claim that the event itself was
+        # completed/telic — the exact Aktionsart-vs-aspect conflation the
+        # rule exists to prevent. Found via a live-test re-check: "Az
+        # aoristos itt egy lezárt, múltbeli eseményt rögzít..." slipped
+        # past the original qualifier list (which only caught "lezárt
+        # egyszeli", not bare "lezárt"). The recommended safe vocabulary
+        # ("perfektív aspektus", "...nézőpont", "...szemlélete") never
+        # uses "lezárt"/"befejezett" to describe the event, so this does
+        # not need a viewpoint-framing exemption.
         token_matches=lambda t: _tense_is(t, "aorisztoszi", "második aorisztoszi"),
         qualifier_re=r"pontszerű|egyszeri|egyszer\s+megtörtént|lezárt\s+egyszeri|"
-                     r"megismételhetetlen|once[\s-]for[\s-]all|one[\s-]time",
+                     r"megismételhetetlen|once[\s-]for[\s-]all|one[\s-]time|"
+                     r"lezárt|befejezett|telikus|visszafordíthatatlan",
         anchor_re=r"cselekvés|esemény|action|event",
     ),
     _CategoricalOverclaimRule(
@@ -180,10 +207,23 @@ _CATEGORICAL_OVERCLAIM_RULES: tuple[_CategoricalOverclaimRule, ...] = (
     ),
     _CategoricalOverclaimRule(
         name="participle",
+        # Broadened beyond the original "X funkciót tölt be" phrasing to
+        # also catch the specific temporal-relation SYNONYMS morphology
+        # alone can never license: "előidejű"/"utóidejű"/"egyidejű"
+        # (anterior/posterior/simultaneous). Found via a live-test
+        # re-check: "Az aoristos participium itt egy előidejű cselekvést
+        # fejez ki a főige... cselekvéséhez képest" asserted anteriority
+        # from tense-form alone — this verse's bundle has no clause/role/
+        # construction evidence encoding relative temporal sequence for
+        # this participle, so the claim is unsupported. An explicit "X
+        # vagy Y" alternative (the established safe pattern for this
+        # category) remains allowed via ``extra_hedge_re``.
         token_matches=lambda t: _verb_form_is(t, "participle"),
-        qualifier_re=r"okhatározói\s+funkci|ok-okozati\s+viszonyt\s+fejez|okot\s+fejez\s+ki|"
-                     r"feltételt\s+fejez\s+ki|megengedést\s+fejez\s+ki|időhatározói\s+funkci|"
-                     r"eszközhatározói\s+funkci",
+        qualifier_re=r"okhatározói|ok-okozati|okot\s+fejez\s+ki|feltételes|feltételt\s+fejez\s+ki|"
+                     r"megengedő|megengedést\s+fejez\s+ki|időhatározói|eszközhatározói|"
+                     r"körülményhatározói|célhatározói|előidejű|utóidejű|egyidejű|megelőző\s+cselekvést",
+        anchor_re=r"funkci\w*|fejez(?:i)?\s+ki|tölt(?:i)?\s+be|viszonyt",
+        extra_hedge_re=r"\bvagy\b",
     ),
     _CategoricalOverclaimRule(
         name="genitive",
@@ -206,7 +246,9 @@ def _token_categorical_overclaim(text: str, token: Any) -> str | None:
     if not text:
         return None
     for rule in _CATEGORICAL_OVERCLAIM_RULES:
-        if rule.token_matches(token) and _text_has_overclaim(text, rule.qualifier_re, rule.anchor_re):
+        if rule.token_matches(token) and _text_has_overclaim(
+            text, rule.qualifier_re, rule.anchor_re, rule.extra_hedge_re
+        ):
             return rule.name
     return None
 
@@ -220,7 +262,7 @@ def _construction_categorical_overclaim(text: str, tokens: tuple[Any, ...]) -> s
         return None
     applicable = {rule.name: rule for rule in _CATEGORICAL_OVERCLAIM_RULES if any(rule.token_matches(t) for t in tokens)}
     for rule in applicable.values():
-        if _text_has_overclaim(text, rule.qualifier_re, rule.anchor_re):
+        if _text_has_overclaim(text, rule.qualifier_re, rule.anchor_re, rule.extra_hedge_re):
             return rule.name
     return None
 
