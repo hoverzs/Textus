@@ -41,45 +41,75 @@ def _simulated_rpc_payload(verse_ref: str) -> dict:
     would return, directly from the local store — i.e. simulates "what
     Supabase would say" using the identical underlying data the local
     repository also reads, so a diff between the two proves an assembly
-    bug, not a data difference."""
-    book, rest = verse_ref.split(".", 1)
+    bug, not a data difference.
+
+    Uses a GLOBAL (not per-verse-scoped) alignment map and correctly
+    determines each group's cross-type parent (a phrase's parent can be a
+    clause and vice versa) — mirroring exactly what the real importer/RPC
+    do, after real Local<->Supabase parity testing against the live
+    production project (see tests/test_greek_analysis_repository_real_
+    supabase_parity.py) found that a per-verse-scoped simulation had been
+    silently matching against an equally-scoped (and equally buggy) local
+    implementation, masking real cross-verse resolution and dual-parent-
+    type bugs that the live RPC — built from a genuinely global import —
+    then exposed."""
+    tagnt_book, rest = verse_ref.split(".", 1)
     chapter_str, verse_str = rest.split(".", 1)
-    book, chapter, verse = book.upper(), int(chapter_str), int(verse_str)
+    chapter, verse = int(chapter_str), int(verse_str)
+    macula_book = tagnt_book.upper()
 
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
 
-    align_rows = conn.execute(
-        "SELECT tagnt_token_id, macula_xml_id, status FROM token_alignments WHERE tagnt_token_id LIKE ?",
-        (f"{book}.{chapter}.{verse}:%",),
-    ).fetchall()
-    align_rows = [r for r in align_rows if r["tagnt_token_id"].split(".", 1)[0].upper() == book]
+    align_rows = conn.execute("SELECT tagnt_token_id, macula_xml_id, status FROM token_alignments").fetchall()
     macula_to_tagnt = {r["macula_xml_id"]: r["tagnt_token_id"] for r in align_rows if r["macula_xml_id"]}
-    status_by_token = {r["tagnt_token_id"]: r["status"] for r in align_rows}
+    status_by_token = {
+        r["tagnt_token_id"]: r["status"] for r in align_rows
+        if r["tagnt_token_id"].startswith(f"{tagnt_book}.{chapter}.{verse}:")
+    }
 
     from bible_engine.macula_greek_parser import CLAUSE_CLASS, PHRASE_CLASSES
 
     group_rows = conn.execute(
-        "SELECT group_id, group_class, rule, role, token_ids_json FROM macula_groups "
+        "SELECT group_id, group_class, rule, role, token_ids_json, parent_group_id FROM macula_groups "
         "WHERE book=? AND chapter=? AND verse=?",
-        (book, chapter, verse),
+        (macula_book, chapter, verse),
     ).fetchall()
     group_rows = [r for r in group_rows if r["group_class"] == CLAUSE_CLASS or r["group_class"] in PHRASE_CLASSES]
+
+    is_clause_by_group_id = {r["group_id"]: r["group_class"] == CLAUSE_CLASS for r in group_rows}
+    unknown_parent_ids = {r["parent_group_id"] for r in group_rows if r["parent_group_id"] is not None} - set(
+        is_clause_by_group_id
+    )
+    if unknown_parent_ids:
+        placeholders = ",".join("?" for _ in unknown_parent_ids)
+        for prow in conn.execute(
+            f"SELECT group_id, group_class FROM macula_groups WHERE group_id IN ({placeholders})",
+            tuple(unknown_parent_ids),
+        ):
+            is_clause_by_group_id[prow["group_id"]] = prow["group_class"] == CLAUSE_CLASS
 
     gid_map: dict[str, int] = {}
     phrases_payload, clauses_payload, membership_payload = [], [], []
     next_id = 1
     for row in group_rows:
         gid_map[row["group_id"]] = next_id
+        parent_id = row["parent_group_id"]
+        parent_is_clause = is_clause_by_group_id.get(parent_id) if parent_id is not None else None
+        parent_remote = gid_map.get(parent_id)  # None if parent lies outside this verse's own group_rows
         if row["group_class"] == CLAUSE_CLASS:
             clauses_payload.append({
                 "id": next_id, "clause_type": row["rule"], "predicate_token_id": None,
-                "parent_clause_id": None, "relation_to_parent": "",
+                "parent_clause_id": parent_remote if parent_is_clause else None,
+                "parent_phrase_id": parent_remote if parent_is_clause is False else None,
+                "relation_to_parent": "",
             })
         else:
             phrases_payload.append({
                 "id": next_id, "phrase_type": row["group_class"], "role": row["role"],
-                "head_token_id": None, "parent_phrase_id": None, "parent_clause_id": None,
+                "head_token_id": None,
+                "parent_phrase_id": parent_remote if parent_is_clause is False else None,
+                "parent_clause_id": parent_remote if parent_is_clause else None,
             })
         next_id += 1
     for row in group_rows:
@@ -95,7 +125,7 @@ def _simulated_rpc_payload(verse_ref: str) -> dict:
     role_rows = conn.execute(
         "SELECT predicate_xml_id, role_code, argument_xml_id FROM semantic_role_assignments "
         "WHERE predicate_xml_id IN (SELECT xml_id FROM macula_source_nodes WHERE book=? AND chapter=? AND verse=?)",
-        (book, chapter, verse),
+        (macula_book, chapter, verse),
     ).fetchall()
     roles_payload = []
     for r in role_rows:
@@ -106,15 +136,15 @@ def _simulated_rpc_payload(verse_ref: str) -> dict:
     coref_rows = conn.execute(
         "SELECT source_xml_id, link_type, target_xml_id FROM coreference_links "
         "WHERE source_xml_id IN (SELECT xml_id FROM macula_source_nodes WHERE book=? AND chapter=? AND verse=?)",
-        (book, chapter, verse),
+        (macula_book, chapter, verse),
     ).fetchall()
     coref_payload = []
     for r in coref_rows:
-        st_ = macula_to_tagnt.get(r["source_xml_id"])
-        if st_:
+        st_, tt_ = macula_to_tagnt.get(r["source_xml_id"]), macula_to_tagnt.get(r["target_xml_id"])
+        if st_ and tt_:
             coref_payload.append({
                 "id": len(coref_payload) + 1, "link_type": r["link_type"], "source_token_id": st_,
-                "target_token_id": macula_to_tagnt.get(r["target_xml_id"], r["target_xml_id"]),
+                "target_token_id": tt_,
             })
 
     tokens_payload = [

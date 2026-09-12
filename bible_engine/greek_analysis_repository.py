@@ -138,18 +138,87 @@ def _read_local_verse_syntax(connection: sqlite3.Connection, verse_ref: str) -> 
 
     from bible_engine.macula_greek_parser import CLAUSE_CLASS, PHRASE_CLASSES
 
+    role_rows = connection.execute(
+        "SELECT predicate_xml_id, role_code, argument_xml_id FROM semantic_role_assignments "
+        "WHERE predicate_xml_id IN (SELECT xml_id FROM macula_source_nodes WHERE book=? AND chapter=? AND verse=?)",
+        (book, chapter, verse),
+    ).fetchall()
+    coref_rows = connection.execute(
+        "SELECT source_xml_id, link_type, target_xml_id FROM coreference_links "
+        "WHERE source_xml_id IN (SELECT xml_id FROM macula_source_nodes WHERE book=? AND chapter=? AND verse=?)",
+        (book, chapter, verse),
+    ).fetchall()
+
+    # A group's own constituent tokens (a clause/phrase can span a verse
+    # boundary — e.g. Mt 28:19-20's single long sentence), a role's
+    # argument (often an elided/implicit subject named earlier), or a
+    # coreference link's target/referent very commonly lie OUTSIDE this
+    # verse's own token set — genuinely real MACULA-supplied cross-verse
+    # facts, not an error. ``macula_to_tagnt`` above is scoped to only this
+    # verse's own tokens, so any such "other side" xml_id needs a separate,
+    # narrowly-targeted lookup rather than silently dropping the whole
+    # group member/role/link (which the Supabase import path already
+    # resolves globally — this keeps the two backends in real parity, not
+    # just verse-local parity).
+    #
+    # Kept in a SEPARATE ``combined_map`` rather than merged into
+    # ``macula_to_tagnt`` itself: a predicate/source xml_id must resolve
+    # ONLY via the strict per-verse map — merging would let an xml_id
+    # resolved here for one row's "other side" (e.g. a target) leak into
+    # and silently override another row's predicate/source lookup, which
+    # can point to a genuinely different verse (a real bug hit and fixed
+    # during this same investigation).
+    other_side_ids = {row["argument_xml_id"] for row in role_rows} | {row["target_xml_id"] for row in coref_rows}
+    for row in group_rows:
+        other_side_ids.update(_json.loads(row["token_ids_json"]))
+    other_side_ids -= set(macula_to_tagnt)
+    combined_map = dict(macula_to_tagnt)
+    if other_side_ids:
+        placeholders = ",".join("?" for _ in other_side_ids)
+        extra_rows = connection.execute(
+            f"SELECT tagnt_token_id, macula_xml_id FROM token_alignments "
+            f"WHERE macula_xml_id IN ({placeholders})",
+            tuple(other_side_ids),
+        ).fetchall()
+        for row in extra_rows:
+            combined_map[row["macula_xml_id"]] = row["tagnt_token_id"]
+
+    # A group's own parent is not always the SAME constituent type (a
+    # phrase's parent can be a clause and vice versa — see
+    # GreekPhraseAnalysis.parent_clause_id / GreekClauseAnalysis.
+    # parent_phrase_id's own docstrings). Determine each referenced
+    # parent's class: first from this verse's own group_rows, and for any
+    # parent not found there (it can lie in a different verse, same as
+    # group membership above), a narrowly-targeted extra lookup.
+    is_clause_by_group_id = {row["group_id"]: row["group_class"] == CLAUSE_CLASS for row in group_rows}
+    unknown_parent_ids = {
+        row["parent_group_id"] for row in group_rows if row["parent_group_id"] is not None
+    } - set(is_clause_by_group_id)
+    if unknown_parent_ids:
+        placeholders = ",".join("?" for _ in unknown_parent_ids)
+        parent_class_rows = connection.execute(
+            f"SELECT group_id, group_class FROM macula_groups WHERE group_id IN ({placeholders})",
+            tuple(unknown_parent_ids),
+        ).fetchall()
+        for prow in parent_class_rows:
+            is_clause_by_group_id[prow["group_id"]] = prow["group_class"] == CLAUSE_CLASS
+
     phrases: list[GreekPhraseAnalysis] = []
     clauses: list[GreekClauseAnalysis] = []
     for row in group_rows:
         macula_token_ids = _json.loads(row["token_ids_json"])
-        mapped = tuple(macula_to_tagnt[mid] for mid in macula_token_ids if mid in macula_to_tagnt)
+        mapped = tuple(combined_map[mid] for mid in macula_token_ids if mid in combined_map)
         if not mapped:
             continue
+        parent_id = row["parent_group_id"]
+        parent_is_clause = is_clause_by_group_id.get(parent_id) if parent_id is not None else None
         if row["group_class"] == CLAUSE_CLASS:
             clauses.append(
                 GreekClauseAnalysis(
                     clause_id=row["group_id"], clause_type=row["rule"] or "", token_ids=mapped,
-                    predicate_id=None, parent_clause_id=row["parent_group_id"],
+                    predicate_id=None,
+                    parent_clause_id=parent_id if parent_is_clause else None,
+                    parent_phrase_id=parent_id if parent_is_clause is False else None,
                     relation_to_parent=row["predication"] or "",
                 )
             )
@@ -157,19 +226,17 @@ def _read_local_verse_syntax(connection: sqlite3.Connection, verse_ref: str) -> 
             phrases.append(
                 GreekPhraseAnalysis(
                     phrase_id=row["group_id"], phrase_type=row["group_class"], token_ids=mapped,
-                    head_token_id=None, parent_phrase_id=row["parent_group_id"], function=row["role"] or "",
+                    head_token_id=None,
+                    parent_phrase_id=parent_id if parent_is_clause is False else None,
+                    parent_clause_id=parent_id if parent_is_clause else None,
+                    function=row["role"] or "",
                 )
             )
 
-    role_rows = connection.execute(
-        "SELECT predicate_xml_id, role_code, argument_xml_id FROM semantic_role_assignments "
-        "WHERE predicate_xml_id IN (SELECT xml_id FROM macula_source_nodes WHERE book=? AND chapter=? AND verse=?)",
-        (book, chapter, verse),
-    ).fetchall()
     semantic_roles: list[GreekSemanticRole] = []
     for row in role_rows:
         predicate_token = macula_to_tagnt.get(row["predicate_xml_id"])
-        argument_token = macula_to_tagnt.get(row["argument_xml_id"])
+        argument_token = combined_map.get(row["argument_xml_id"])
         if predicate_token is None or argument_token is None:
             continue
         semantic_roles.append(
@@ -179,17 +246,16 @@ def _read_local_verse_syntax(connection: sqlite3.Connection, verse_ref: str) -> 
             )
         )
 
-    coref_rows = connection.execute(
-        "SELECT source_xml_id, link_type, target_xml_id FROM coreference_links "
-        "WHERE source_xml_id IN (SELECT xml_id FROM macula_source_nodes WHERE book=? AND chapter=? AND verse=?)",
-        (book, chapter, verse),
-    ).fetchall()
     coreference_by_source: dict[tuple[str, str], list[str]] = {}
     for row in coref_rows:
         source_token = macula_to_tagnt.get(row["source_xml_id"])
-        if source_token is None:
+        target_token = combined_map.get(row["target_xml_id"])
+        if source_token is None or target_token is None:
+            # Genuinely unresolvable anywhere in TAGNT (not just outside
+            # this verse) — matches the Supabase importer's own skip
+            # behavior; never fall back to the raw MACULA xml_id, which
+            # would be a differently-typed, inconsistent value.
             continue
-        target_token = macula_to_tagnt.get(row["target_xml_id"], row["target_xml_id"])
         coreference_by_source.setdefault((source_token, row["link_type"]), []).append(target_token)
     coreference = tuple(
         GreekCoreferenceLink(source_token_id=src, link_type=lt, target_token_ids=tuple(targets))
@@ -255,7 +321,7 @@ def _parse_bundle_payload(payload: dict) -> GreekVerseSyntaxData:
         GreekPhraseAnalysis(
             phrase_id=str(row["id"]), phrase_type=row["phrase_type"], token_ids=(),
             head_token_id=row.get("head_token_id"), parent_phrase_id=_stringify(row.get("parent_phrase_id")),
-            function=row.get("role") or "",
+            function=row.get("role") or "", parent_clause_id=_stringify(row.get("parent_clause_id")),
         )
         for row in payload.get("phrases", [])
     )
@@ -264,6 +330,7 @@ def _parse_bundle_payload(payload: dict) -> GreekVerseSyntaxData:
             clause_id=str(row["id"]), clause_type=row.get("clause_type") or "", token_ids=(),
             predicate_id=row.get("predicate_token_id"), parent_clause_id=_stringify(row.get("parent_clause_id")),
             relation_to_parent=row.get("relation_to_parent") or "",
+            parent_phrase_id=_stringify(row.get("parent_phrase_id")),
         )
         for row in payload.get("clauses", [])
     )

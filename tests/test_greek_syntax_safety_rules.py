@@ -29,7 +29,13 @@ def test_greek_phrase_analysis_has_no_semantic_function_claim_field() -> None:
     e.g. "s"/"o", verbatim) — no field named/shaped to claim a stronger
     semantic relationship (e.g. "modifies", "describes")."""
     fields = set(GreekPhraseAnalysis.__dataclass_fields__)
-    assert fields == {"phrase_id", "phrase_type", "token_ids", "head_token_id", "parent_phrase_id", "function"}
+    assert fields == {
+        "phrase_id", "phrase_type", "token_ids", "head_token_id", "parent_phrase_id", "function",
+        # Phase 2C addition — a phrase's immediate parent can be a clause,
+        # not just another phrase (measured via real cross-verse parity
+        # testing); still a structural id, not a semantic-function claim.
+        "parent_clause_id",
+    }
     assert "modifies" not in fields
     assert "semantic_relation" not in fields
 

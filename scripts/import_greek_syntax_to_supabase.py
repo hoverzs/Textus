@@ -52,8 +52,14 @@ the real local stores without ever calling the Supabase client. Pass
 
 Usage:
     python scripts/import_greek_syntax_to_supabase.py \\
-        [--tagnt-db PATH] [--syntax-store PATH] \\
+        [--tagnt-db PATH] [--syntax-store PATH] [--books Php,Col,1Th,...] \\
         --dry-run    # default; add --execute to actually write to Supabase
+
+``--books`` (comma-separated TAGNT book codes, e.g. ``--books
+Php,Col,1Th,2Th,Tit,Phm,Jud,1Jn,2Jn,3Jn``) scopes every step to only those
+books — a bounded real-Supabase benchmark subset (task: "run a REAL bounded
+benchmark on a few thousand rows... before full import"). Omit it for the
+real full-27-book production import.
 """
 
 from __future__ import annotations
@@ -208,6 +214,22 @@ class RemoteWriter:
                 description=f"delete {table} where id in (...{len(ids)} rows matching {column}={value})",
             )
 
+    def delete_where_in(self, table: str, column: str, values: list, chunk_size: int = DEFAULT_BATCH_SIZE) -> None:
+        # Chunked .in_() delete — see scripts/import_macula_to_supabase.py's
+        # own RemoteWriter.delete_where_in for why a single .in_() with
+        # corpus-scale cardinality can exceed the HTTP client's URL length
+        # limit. Used for greek_syntax_membership, which has no natural
+        # unique constraint (a token can appear in many phrases/clauses) —
+        # scoped replace by the specific phrase/clause remote ids about to
+        # be reimported, so re-running this importer (e.g. a bounded
+        # benchmark subset followed by the full corpus) never duplicates
+        # membership rows for groups that already existed.
+        for chunk in _chunks(values, chunk_size):
+            _call_with_retry(
+                lambda chunk=chunk: self.client.table(table).delete().in_(column, chunk).execute(),
+                description=f"delete {table} where {column} in (...{len(chunk)} of {len(values)} values)",
+            )
+
     def bulk_link_greek_clause_parents(self, rows: list[dict]) -> None:
         ids = [row["id"] for row in rows]
         parent_clause_ids = [row.get("parent_clause_id") for row in rows]
@@ -266,6 +288,13 @@ class DryRunWriter:
     def delete_all_where(self, table: str, column: str, value, chunk_size: int = DEFAULT_BATCH_SIZE) -> None:
         self.deleted_counts[table] = self.deleted_counts.get(table, 0) + 1
 
+    def delete_where_in(self, table: str, column: str, values: list, chunk_size: int = DEFAULT_BATCH_SIZE) -> None:
+        self.deleted_counts[table] = self.deleted_counts.get(table, 0) + len(values)
+        store = self._store.get(table)
+        if store is not None and column == "id":
+            for v in values:
+                store.pop(v, None)
+
     def bulk_link_greek_clause_parents(self, rows: list[dict]) -> None:
         ids = [row["id"] for row in rows]
         parent_clause_ids = [row.get("parent_clause_id") for row in rows]
@@ -319,7 +348,9 @@ def import_dataset_versions(writer, batch_size: int) -> dict[str, int]:
 # ---------------------------------------------------------------------------
 
 
-def load_tagnt_by_verse(tagnt_db_path: Path) -> dict[tuple[str, int, int], list[GreekToken]]:
+def load_tagnt_by_verse(
+    tagnt_db_path: Path, book_filter: set[str] | None = None
+) -> dict[tuple[str, int, int], list[GreekToken]]:
     with sqlite3.connect(tagnt_db_path) as connection:
         rows = connection.execute(
             "SELECT book, chapter, verse, word_index, greek_form, lemma, morph_code, strong_id, edition_flags "
@@ -327,6 +358,8 @@ def load_tagnt_by_verse(tagnt_db_path: Path) -> dict[tuple[str, int, int], list[
         ).fetchall()
     by_verse: dict[tuple[str, int, int], list[GreekToken]] = defaultdict(list)
     for book, chapter, verse, word_index, greek_form, lemma, morph_code, strong_id, edition_flags in rows:
+        if book_filter is not None and book not in book_filter:
+            continue
         by_verse[(book, chapter, verse)].append(
             GreekToken(
                 book=book, chapter=chapter, verse=verse, word_index=word_index,
@@ -338,14 +371,14 @@ def load_tagnt_by_verse(tagnt_db_path: Path) -> dict[tuple[str, int, int], list[
 
 
 def import_verses_and_tokens(
-    tagnt_db_path: Path, writer, batch_size: int, dv_map: dict[str, int]
+    tagnt_db_path: Path, writer, batch_size: int, dv_map: dict[str, int], book_filter: set[str] | None = None
 ) -> tuple[dict[str, int], int, int]:
     entries = load_default_hungarian_lexicon(DEFAULT_HUNGARIAN_LEXICON_PATH) or {}
     from bible_engine.lexicon_hu import DEFAULT_STRONG_ALIASES_PATH, load_strong_aliases
 
     aliases = load_strong_aliases(DEFAULT_STRONG_ALIASES_PATH)
 
-    by_verse = load_tagnt_by_verse(tagnt_db_path)
+    by_verse = load_tagnt_by_verse(tagnt_db_path, book_filter)
     tagnt_dv_id = dv_map["tagnt"]
 
     verse_map: dict[str, int] = {}
@@ -419,8 +452,13 @@ def import_lexicon_hu(writer, batch_size: int, dv_map: dict[str, int]) -> int:
 # ---------------------------------------------------------------------------
 
 
-def import_source_nodes(conn: sqlite3.Connection, writer, batch_size: int, dv_map: dict[str, int]) -> dict[str, int]:
+def import_source_nodes(
+    conn: sqlite3.Connection, writer, batch_size: int, dv_map: dict[str, int],
+    macula_book_filter: set[str] | None = None,
+) -> dict[str, int]:
     rows = conn.execute("SELECT * FROM macula_source_nodes").fetchall()
+    if macula_book_filter is not None:
+        rows = [r for r in rows if r["book"] in macula_book_filter]
     macula_dv_id = dv_map["macula_greek_sblgnt"]
     node_map: dict[str, int] = {}
     for chunk in _chunks(rows, batch_size):
@@ -492,12 +530,14 @@ def import_token_alignments(
 
 def import_phrases_and_clauses(
     conn: sqlite3.Connection, writer, batch_size: int, dv_map: dict[str, int], node_map: dict[str, int],
-    link_batch_size: int,
+    link_batch_size: int, macula_book_filter: set[str] | None = None,
 ) -> tuple[dict[str, int], dict[str, int], dict[str, bool]]:
     rows = conn.execute(
         "SELECT group_id, book, chapter, verse, group_class, rule, role, predication, token_ids_json, parent_group_id "
         "FROM macula_groups"
     ).fetchall()
+    if macula_book_filter is not None:
+        rows = [r for r in rows if r["book"] in macula_book_filter]
     macula_dv_id = dv_map["macula_greek_sblgnt"]
 
     phrase_rows = [r for r in rows if r["group_class"] in PHRASE_CLASSES]
@@ -609,6 +649,18 @@ def import_syntax_membership(
     conn: sqlite3.Connection, writer, batch_size: int, phrase_map: dict[str, int], clause_map: dict[str, int],
     macula_to_tagnt: dict[str, str],
 ) -> int:
+    # No natural unique constraint on this table (a token can belong to
+    # many phrases/clauses) — scoped replace: delete existing membership
+    # rows for exactly the phrase/clause remote ids about to be reimported
+    # before inserting the fresh batch, so re-running this importer (e.g.
+    # a bounded benchmark subset followed by the full corpus, where the
+    # subset's phrases/clauses upsert to the SAME remote ids) never
+    # duplicates membership rows.
+    if phrase_map:
+        writer.delete_where_in("greek_syntax_membership", "phrase_id", list(phrase_map.values()))
+    if clause_map:
+        writer.delete_where_in("greek_syntax_membership", "clause_id", list(clause_map.values()))
+
     rows = conn.execute("SELECT group_id, group_class, token_ids_json FROM macula_groups").fetchall()
     count = 0
     skipped_unknown_token = 0
@@ -717,7 +769,19 @@ def main() -> int:
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument("--link-batch-size", type=int, default=DEFAULT_LINK_BATCH_SIZE)
     parser.add_argument("--execute", action="store_true", help="actually write to Supabase (default: dry run)")
+    parser.add_argument(
+        "--books", type=str, default="",
+        help="comma-separated TAGNT book codes (e.g. Php,Col,1Th) to scope a bounded benchmark run; "
+             "omit for the full 27-book corpus",
+    )
     args = parser.parse_args()
+
+    book_filter: set[str] | None = None
+    macula_book_filter: set[str] | None = None
+    if args.books.strip():
+        book_filter = {b.strip() for b in args.books.split(",") if b.strip()}
+        macula_book_filter = {b.upper() for b in book_filter}
+        print(f"BOOK-SCOPED RUN: {sorted(book_filter)}")
 
     if not args.tagnt_db.exists():
         print(f"TAGNT database not found: {args.tagnt_db}")
@@ -746,13 +810,15 @@ def main() -> int:
     dv_map = import_dataset_versions(writer, args.batch_size)
     print(f"  dataset_versions: {len(dv_map)} rows")
 
-    verse_map, verse_count, token_count = import_verses_and_tokens(args.tagnt_db, writer, args.batch_size, dv_map)
+    verse_map, verse_count, token_count = import_verses_and_tokens(
+        args.tagnt_db, writer, args.batch_size, dv_map, book_filter
+    )
     print(f"  verses: {verse_count} rows, tokens: {token_count} rows")
 
     lexicon_count = import_lexicon_hu(writer, args.batch_size, dv_map)
     print(f"  lexicon_hu: {lexicon_count} rows")
 
-    node_map = import_source_nodes(conn, writer, args.batch_size, dv_map)
+    node_map = import_source_nodes(conn, writer, args.batch_size, dv_map, macula_book_filter)
     print(f"  source_nodes: {len(node_map)} rows")
 
     macula_to_tagnt = {
@@ -763,12 +829,13 @@ def main() -> int:
 
     all_known_token_ids = {
         row["tagnt_token_id"] for row in conn.execute("SELECT DISTINCT tagnt_token_id FROM token_alignments")
+        if book_filter is None or row["tagnt_token_id"].split(".", 1)[0] in book_filter
     }
     alignment_count = import_token_alignments(conn, writer, args.batch_size, dv_map, node_map, all_known_token_ids)
     print(f"  token_alignments: {alignment_count} rows")
 
     phrase_map, clause_map, _is_clause = import_phrases_and_clauses(
-        conn, writer, args.batch_size, dv_map, node_map, args.link_batch_size
+        conn, writer, args.batch_size, dv_map, node_map, args.link_batch_size, macula_book_filter
     )
     print(f"  phrases: {len(phrase_map)} rows, clauses: {len(clause_map)} rows")
 

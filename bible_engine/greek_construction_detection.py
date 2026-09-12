@@ -321,9 +321,19 @@ def _detect_genitive_absolute(verse: GreekVerseAnalysis) -> list[GreekDetectedPa
 def _detect_coordinated_structures(verse: GreekVerseAnalysis) -> list[GreekDetectedPattern]:
     patterns = []
     phrases_by_id = {p.phrase_id: p for p in verse.phrases}
-    siblings_by_parent: dict[str | None, list] = {}
+    # Grouped by the FULL parent identity (a phrase's immediate parent can
+    # be another phrase OR a clause — see GreekPhraseAnalysis.
+    # parent_clause_id's docstring), never by parent_phrase_id alone: two
+    # phrases that both happen to have NO phrase parent are not thereby
+    # siblings of each other if their real parents (a clause, or nothing
+    # at all) differ or are absent — grouping under a single None key
+    # would treat unrelated top-level/clause-parented phrases as if they
+    # shared one common parent.
+    siblings_by_parent: dict[tuple[str | None, str | None], list] = {}
     for phrase in verse.phrases:
-        siblings_by_parent.setdefault(phrase.parent_phrase_id, []).append(phrase)
+        if phrase.parent_phrase_id is None and phrase.parent_clause_id is None:
+            continue  # no real shared-parent context — not a sibling group
+        siblings_by_parent.setdefault((phrase.parent_phrase_id, phrase.parent_clause_id), []).append(phrase)
 
     coord_conjunctions = [t for t in verse.tokens if t.lemma in {"καί", "δέ"}]
     if not coord_conjunctions:

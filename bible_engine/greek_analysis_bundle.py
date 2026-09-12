@@ -187,6 +187,14 @@ class GreekPhraseAnalysis:
     head_token_id: str | None
     parent_phrase_id: str | None
     function: str
+    # A phrase's immediate constituent parent is not always another
+    # phrase — it can be a clause (e.g. a noun phrase that is itself a
+    # clause's direct child in the MACULA lowfat tree). Additive Phase 2C
+    # field, default "" so existing construction sites need not pass it;
+    # see supabase/migrations/20260911220000_greek_linguistic_layer.sql's
+    # note on greek_clauses.parent_phrase_id for the symmetric, measured
+    # cross-type-parent case this mirrors.
+    parent_clause_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -197,6 +205,12 @@ class GreekClauseAnalysis:
     predicate_id: str | None
     parent_clause_id: str | None
     relation_to_parent: str
+    # A clause's immediate parent is not always another clause — measured
+    # 2,565 of 83,198 parented MACULA groups corpus-wide are a clause whose
+    # parent is a phrase (e.g. a relative clause nested inside its head
+    # noun phrase). Additive Phase 2C field, default "" — see
+    # supabase/migrations/20260911220000_greek_linguistic_layer.sql.
+    parent_phrase_id: str | None = None
 
 
 @dataclass(frozen=True)
