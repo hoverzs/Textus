@@ -119,6 +119,9 @@ from biblical_place_enrichment import (
 from bible_engine.greek_analysis_ui import (
     render_greek_analysis_block,
 )
+from bible_engine.greek_contextual_analysis import (
+    GREEK_CONTEXTUAL_ANALYSIS_RESPONSE_SCHEMA,
+)
 from bible_engine.hebrew_contextual_analysis import (
     HEBREW_CONTEXTUAL_ANALYSIS_RESPONSE_SCHEMA,
 )
@@ -7231,6 +7234,32 @@ def generate_hebrew_contextual_analysis_text(prompt: str, **kwargs) -> str:
     )
 
 
+# Greek Analysis v2 Phase 2C — conservative, path-specific timeout, same
+# rationale as PHASE2E_GEMINI_TIMEOUT_S above (a hung request must not
+# block a Streamlit session for GEMINI_TIMEOUT_S's full 120s).
+GREEK_PHASE2C_GEMINI_TIMEOUT_S = 40
+
+
+def generate_greek_contextual_analysis_text(prompt: str, **kwargs) -> str:
+    """The ``generate_fn`` binding ``bible_engine.greek_contextual_analysis_ui
+    .render_greek_contextual_analysis_panel`` calls into — same
+    ``generate_text()`` call every other tab uses, with structured JSON
+    output requested via ``response_schema`` (Phase 2C's grounded
+    contextual-analysis contract). Mirrors
+    ``generate_hebrew_contextual_analysis_text`` exactly; kept as a
+    separate function (not a shared helper) so each language's response
+    schema and timeout constant stay independently adjustable."""
+    kwargs.setdefault("timeout_s", GREEK_PHASE2C_GEMINI_TIMEOUT_S)
+    return generate_text(
+        prompt,
+        tab_label="Eredeti szöveg tanulmányozása",
+        response_mime_type="application/json",
+        response_schema=GREEK_CONTEXTUAL_ANALYSIS_RESPONSE_SCHEMA,
+        include_brevity_directive=False,
+        **kwargs,
+    )
+
+
 # =========================================================
 # CHAT FINOMÍTÓ
 # =========================================================
@@ -7737,6 +7766,7 @@ def render_igehely_panel() -> None:
 
         render_bible_text_editor(
             hebrew_contextual_analysis_generate_fn=generate_hebrew_contextual_analysis_text,
+            greek_contextual_analysis_generate_fn=generate_greek_contextual_analysis_text,
         )
 
     with work_surface("igehely_overview"):
@@ -7813,6 +7843,7 @@ def render_original_text_panel() -> None:
                 reference=_igehely_orig,
                 key_prefix="textus_original_language",
                 hebrew_contextual_analysis_generate_fn=generate_hebrew_contextual_analysis_text,
+                greek_contextual_analysis_generate_fn=generate_greek_contextual_analysis_text,
             )
 
         _orig_running = bool(st.session_state.get("_original_running"))

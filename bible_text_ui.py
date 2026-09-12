@@ -762,6 +762,9 @@ def render_bible_text_editor(
     hebrew_contextual_analysis_generate_fn: Callable[..., str] | None = None,
     hebrew_contextual_analysis_model_id: str = "gemini-2.5-flash",
     hebrew_contextual_analysis_generate_kwargs: dict[str, object] | None = None,
+    greek_contextual_analysis_generate_fn: Callable[..., str] | None = None,
+    greek_contextual_analysis_model_id: str = "gemini-2.5-flash",
+    greek_contextual_analysis_generate_kwargs: dict[str, object] | None = None,
 ) -> None:
     """Szerkeszthető Bibliai szöveg blokk (Textusműhely / Igehely szakasz).
 
@@ -804,6 +807,9 @@ def render_bible_text_editor(
             hebrew_contextual_analysis_generate_fn=hebrew_contextual_analysis_generate_fn,
             hebrew_contextual_analysis_model_id=hebrew_contextual_analysis_model_id,
             hebrew_contextual_analysis_generate_kwargs=hebrew_contextual_analysis_generate_kwargs,
+            greek_contextual_analysis_generate_fn=greek_contextual_analysis_generate_fn,
+            greek_contextual_analysis_model_id=greek_contextual_analysis_model_id,
+            greek_contextual_analysis_generate_kwargs=greek_contextual_analysis_generate_kwargs,
         )
         _render_manual_paste_fallback()
     else:
@@ -814,6 +820,9 @@ def render_bible_text_editor(
             hebrew_contextual_analysis_generate_fn=hebrew_contextual_analysis_generate_fn,
             hebrew_contextual_analysis_model_id=hebrew_contextual_analysis_model_id,
             hebrew_contextual_analysis_generate_kwargs=hebrew_contextual_analysis_generate_kwargs,
+            greek_contextual_analysis_generate_fn=greek_contextual_analysis_generate_fn,
+            greek_contextual_analysis_model_id=greek_contextual_analysis_model_id,
+            greek_contextual_analysis_generate_kwargs=greek_contextual_analysis_generate_kwargs,
         )
         _render_manual_paste_fallback()
 
@@ -846,6 +855,9 @@ def render_bible_text_reading_block(
     hebrew_contextual_analysis_generate_fn: Callable[..., str] | None = None,
     hebrew_contextual_analysis_model_id: str = "gemini-2.5-flash",
     hebrew_contextual_analysis_generate_kwargs: dict[str, object] | None = None,
+    greek_contextual_analysis_generate_fn: Callable[..., str] | None = None,
+    greek_contextual_analysis_model_id: str = "gemini-2.5-flash",
+    greek_contextual_analysis_generate_kwargs: dict[str, object] | None = None,
 ) -> None:
     """Read-only RÚF + eredeti nyelvi token UI.
 
@@ -891,6 +903,9 @@ def render_bible_text_reading_block(
             hebrew_contextual_analysis_generate_fn=hebrew_contextual_analysis_generate_fn,
             hebrew_contextual_analysis_model_id=hebrew_contextual_analysis_model_id,
             hebrew_contextual_analysis_generate_kwargs=hebrew_contextual_analysis_generate_kwargs,
+            greek_contextual_analysis_generate_fn=greek_contextual_analysis_generate_fn,
+            greek_contextual_analysis_model_id=greek_contextual_analysis_model_id,
+            greek_contextual_analysis_generate_kwargs=greek_contextual_analysis_generate_kwargs,
         )
     except Exception as exc:
         _reraise_streamlit_runtime_error(exc)

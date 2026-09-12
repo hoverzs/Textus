@@ -58,11 +58,21 @@ def _attach_verse_syntax(verse: GreekVerseAnalysis, connection: sqlite3.Connecti
         return verse
 
     macula_to_tagnt: dict[str, str] = {}
+    status_by_token: dict[str, str] = {}
     resolved_count = 0
     for tagnt_id, macula_xml_id, status in alignment_rows:
+        status_by_token[tagnt_id] = status
         if macula_xml_id:
             macula_to_tagnt[macula_xml_id] = tagnt_id
             resolved_count += 1
+
+    verse = replace(
+        verse,
+        tokens=tuple(
+            replace(t, alignment_status=status_by_token.get(t.token_id, t.alignment_status))
+            for t in verse.tokens
+        ),
+    )
 
     if resolved_count == 0:
         return verse

@@ -157,6 +157,9 @@ def render_greek_analysis_block(
     hebrew_contextual_analysis_generate_fn: Callable[..., str] | None = None,
     hebrew_contextual_analysis_model_id: str = "gemini-2.5-flash",
     hebrew_contextual_analysis_generate_kwargs: dict[str, object] | None = None,
+    greek_contextual_analysis_generate_fn: Callable[..., str] | None = None,
+    greek_contextual_analysis_model_id: str = "gemini-2.5-flash",
+    greek_contextual_analysis_generate_kwargs: dict[str, object] | None = None,
 ) -> None:
     status = greek_reference_status(reference)
     mode = _normalize_display_mode(display_mode)
@@ -231,6 +234,10 @@ def render_greek_analysis_block(
         key_prefix=key_prefix,
         reference_label=_greek_reference_label(reference),
         display_mode=mode,
+        reference=reference,
+        contextual_analysis_generate_fn=greek_contextual_analysis_generate_fn,
+        contextual_analysis_model_id=greek_contextual_analysis_model_id,
+        contextual_analysis_generate_kwargs=greek_contextual_analysis_generate_kwargs,
     )
 
 
@@ -411,6 +418,10 @@ def _render_loaded_greek_passage_analysis(
     key_prefix: str,
     reference_label: str | None = None,
     display_mode: AnalysisDisplayMode = "full",
+    reference: str = "",
+    contextual_analysis_generate_fn: Callable[..., str] | None = None,
+    contextual_analysis_model_id: str = "gemini-2.5-flash",
+    contextual_analysis_generate_kwargs: dict[str, object] | None = None,
 ) -> None:
     all_tokens = _flatten_tokens(verse_groups)
     selected_word_key = _key(key_prefix, "selected_word_index")
@@ -489,6 +500,10 @@ def _render_loaded_greek_passage_analysis(
         tbesg_lexicon_loader,
         key_prefix=key_prefix,
         display_mode=display_mode,
+        reference=reference,
+        contextual_analysis_generate_fn=contextual_analysis_generate_fn,
+        contextual_analysis_model_id=contextual_analysis_model_id,
+        contextual_analysis_generate_kwargs=contextual_analysis_generate_kwargs,
     )
 
 
@@ -564,6 +579,10 @@ def _render_analysis_panel(
     *,
     key_prefix: str,
     display_mode: AnalysisDisplayMode = "full",
+    reference: str = "",
+    contextual_analysis_generate_fn: Callable[..., str] | None = None,
+    contextual_analysis_model_id: str = "gemini-2.5-flash",
+    contextual_analysis_generate_kwargs: dict[str, object] | None = None,
 ) -> None:
     if display_mode == "compact":
         _render_compact_analysis_panel(
@@ -587,6 +606,18 @@ def _render_analysis_panel(
         st.markdown(_compact_field_markup(ordered), unsafe_allow_html=True)
         _render_lexicon_section(selected, lexicon_entries, tbesg_lexicon_loader)
         _render_concordance_jump_button(selected, key_prefix=key_prefix)
+
+        if contextual_analysis_generate_fn is not None and reference:
+            from bible_engine.greek_contextual_analysis_ui import render_greek_contextual_analysis_panel
+
+            render_greek_contextual_analysis_panel(
+                selected,
+                reference,
+                generate_text_fn=contextual_analysis_generate_fn,
+                key_prefix=key_prefix,
+                model_id=contextual_analysis_model_id,
+                generate_kwargs=contextual_analysis_generate_kwargs,
+            )
 
 
 def _render_greek_fallback_selector(

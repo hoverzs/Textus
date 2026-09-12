@@ -162,6 +162,15 @@ class GreekTokenAnalysis:
 
     provenance: GreekTokenProvenance = field(default_factory=GreekTokenProvenance)
 
+    # Phase 2C addition — additive only, no Phase 2A field's meaning
+    # changed. "" until a syntax-attachment step (attach_syntax /
+    # attach_syntax_via_repository) sets it; one of EXACT/COMPOSITE/
+    # VALIDATED_FALLBACK/UNRESOLVED_TEXTUAL_VARIANT/UNRESOLVED_OTHER
+    # afterward. The contextual-analysis prompt builder uses this to
+    # forbid the model from asserting a syntax role for an unresolved
+    # token (Phase 2C §9/§15).
+    alignment_status: str = ""
+
 
 # ---------------------------------------------------------------------------
 # Verse level. Syntax-shaped fields are structurally present (forward-

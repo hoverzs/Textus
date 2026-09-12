@@ -202,12 +202,19 @@ def get_greek_analysis_with_syntax(
     every verse's ``syntax_grounding`` left at ``NO_GROUNDED_SYNTAX`` —
     when the store does not exist, e.g. a fresh checkout that has not run
     ``scripts/build_greek_syntax_store.py``)."""
+    from bible_engine.greek_construction_detection import attach_detected_patterns
     from bible_engine.greek_syntax_service import attach_syntax
     from bible_engine.greek_syntax_sqlite import resolve_default_syntax_database_path
 
     bundle = get_greek_analysis(reference)
     path = Path(syntax_database_path) if syntax_database_path else resolve_default_syntax_database_path()
-    return attach_syntax(bundle, path)
+    bundle = attach_syntax(bundle, path)
+    # Phase 2C — construction detection needs to run AFTER syntax
+    # attachment (clause-dependent detectors like genitive absolute read
+    # verse.clauses) so the AI contextual-analysis payload/evidence index
+    # actually sees pattern-based evidence, not just phrase/clause/role
+    # evidence (see attach_detected_patterns's own docstring).
+    return attach_detected_patterns(bundle)
 
 
 def get_greek_analysis(reference: str) -> GreekAnalysisBundle:

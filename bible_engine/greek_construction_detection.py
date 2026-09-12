@@ -25,13 +25,33 @@ Detectors are grouped by the evidence tier they require:
 
 from __future__ import annotations
 
-from bible_engine.greek_analysis_bundle import GreekDetectedPattern, GreekTokenAnalysis, GreekVerseAnalysis
+from dataclasses import replace
+
+from bible_engine.greek_analysis_bundle import (
+    GreekAnalysisBundle,
+    GreekDetectedPattern,
+    GreekTokenAnalysis,
+    GreekVerseAnalysis,
+)
 
 DETECTOR_VERSION = "greek-2b-v1"
 
 _NEGATION_LEMMAS = {"μή", "οὐ", "οὐκ", "οὐχ", "οὐχί"}
 _RELATIVE_LEMMAS = {"ὅς", "ἥ", "ὅ", "ὅστις", "ἥτις", "ὅ τι"}
 _CONDITIONAL_LEMMAS = {"εἰ", "ἐάν"}
+
+
+def attach_detected_patterns(bundle: GreekAnalysisBundle) -> GreekAnalysisBundle:
+    """Runs ``detect_patterns`` for every verse and attaches the result to
+    ``verse.detected_patterns`` — needed so the Phase 2C prompt payload
+    (FELISMERT SZERKEZETEK) and the construction-evidence index
+    (``bible_engine.greek_contextual_analysis.build_construction_evidence_index``)
+    actually see pattern-based evidence, not just phrase/clause/role
+    evidence. Call AFTER syntax attachment (``attach_syntax_via_repository``)
+    so clause-dependent detectors (genitive absolute) see populated
+    ``verse.clauses``."""
+    new_verses = tuple(replace(verse, detected_patterns=detect_patterns(verse)) for verse in bundle.verses)
+    return replace(bundle, verses=new_verses)
 
 
 def detect_patterns(verse: GreekVerseAnalysis) -> tuple[GreekDetectedPattern, ...]:
