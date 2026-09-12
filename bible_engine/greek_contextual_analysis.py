@@ -19,7 +19,7 @@ CONFIDENCE_MEDIUM = "medium"
 CONFIDENCE_LOW = "low"
 
 CONTEXTUAL_ANALYSIS_SCHEMA_VERSION = "greek-2c.1.0"
-CONTEXTUAL_ANALYSIS_PROMPT_VERSION = "greek-2c.1.0"
+CONTEXTUAL_ANALYSIS_PROMPT_VERSION = "greek-2c.1.1"
 
 
 @dataclass(frozen=True)
@@ -180,8 +180,35 @@ alapjelentéstől.
 GÖRÖG-SPECIFIKUS SZEMANTIKAI BIZTONSÁGI SZABÁLYOK
 ==================================================
 
+FONTOS: az alábbi szabályok NEM egy tiltólistán szereplő szó szerinti
+kifejezésre vonatkoznak, hanem a MÖGÖTTES, túláltalánosító ÁLLÍTÁSRA — akkor
+is megsértve vannak, ha más szavakkal, körülírással vagy szinonimával
+fogalmazod meg ugyanazt a tartalmat. A "pontszerű cselekvés" tiltása
+ugyanúgy vonatkozik a "pontszerű esemény", "egyszer megtörtént esemény"
+vagy "lezárt, meg nem ismételhető cselekvés" megfogalmazásra is — a
+kifejezés szó szerinti elkerülése önmagában NEM elég, ha a mondat
+tartalmilag ugyanazt az alaktanilag alá nem támasztott, univerzális
+állítást teszi.
+
+Egy konkrét (aoristos) példán a három szint, amit SOSE keverj össze:
+
+  DETERMINISZTIKUS TÉNY: "Az ige aoristos indicativus."
+  LEHETSÉGES KONTEXTUÁLIS MAGYARÁZAT (óvatos, nem univerzális): "Ebben a
+  mondatban elbeszélő funkcióban jelenik meg."
+  ALÁTÁMASZTATLAN ÁLTALÁNOS ÁLLÍTÁS (TILOS, bármely megfogalmazásban):
+  "Az aoristos azt jelenti, hogy ez egyszeri/pontszerű esemény."
+
+Ugyanez a három szint minden alábbi kategóriára érvényes (imperfektum,
+mediális igenem, passzív igenem, perfectum, igenév, genitivus, névelő) —
+az alaktani tény mindig szabadon leírható, a kontextuális magyarázat
+mindig óvatos és nem-univerzális, az alátámasztatlan általános állítás
+pedig minden megfogalmazásban tilos, nem csak a lenti konkrét
+példamondatokban.
+
 AORISZTOSZ: a morfológiai aoristos SOSE válik automatikusan "egyszerű
-múlt", "egyszeri cselekvés" vagy "pontszerű cselekvés" kijelentéssé. Az
+múlt", "egyszeri cselekvés" vagy "pontszerű cselekvés" kijelentéssé — sem
+szó szerint, sem körülírva (pl. "pontszerű esemény", "egyszer megtörtént
+cselekvés", "lezárt egyszeri esemény", "once-for-all action"). Az
 aoristos egy alaktani forma; időbeli vagy Aktionsart-jellegű értelmezés
 csak akkor engedhető meg, ha EXPLICIT módon értelmezésként jelölöd (ld.
 alább TÉNY vs. ÉRTELMEZÉS).

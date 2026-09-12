@@ -62,6 +62,168 @@ _ALL_FORBIDDEN_PHRASES = (
     _FORBIDDEN_AORIST_PHRASES + _FORBIDDEN_IMPERFECT_PHRASES + _FORBIDDEN_MIDDLE_PHRASES + _FORBIDDEN_PERFECT_PHRASES
 )
 
+# --- Paraphrase-resistant categorical-overclaim detection ------------------
+#
+# The literal-phrase screen above catches only exact strings and was found
+# (via the live Gemini quality test — see docs/greek_analysis_v2_production_
+# validation.md §8) to miss close paraphrases of the same forbidden claim:
+# "pontszerű eseményt" instead of the banned "pontszerű cselekvés", and a
+# perfect-tense explanation that echoed the banned formula's structure
+# almost word for word without matching it literally.
+#
+# This second layer is deliberately NOT a bigger word blacklist. It is
+# CONTEXT-AWARE in two ways, both required by the task:
+#   1. Grammatical-category-conditioned: a rule only ever runs against a
+#      word note whose TOKEN actually has the matching deterministic
+#      morphology (e.g. the aorist rule only screens text describing a
+#      token whose own tense IS aorist) — so a word like "egyszeri" used
+#      in an unrelated sentence, or describing a token of a different
+#      category, is never even evaluated.
+#   2. Co-occurrence, not single-keyword: most rules require a "qualifier"
+#      word/phrase (the overclaiming adjective) to occur near an "anchor"
+#      word/phrase (what is being overclaimed about) WITHIN THE SAME
+#      SENTENCE — catching phrasing variants ("pontszerű esemény" as well
+#      as "pontszerű cselekvés") without banning either word in isolation.
+#   3. Hedge-aware: a sentence that explicitly disclaims the categorical
+#      reading (e.g. "...de önmagában nem mondja meg, hogy...") is exempt
+#      — this is exactly the cautious wording the prompt asks for and must
+#      never be rejected.
+_HEDGE_MARKER_RE = re.compile(
+    r"nem\s+mondja\s+meg|önmagában\s+nem|nem\s+feltétlenül|nem\s+szükségszerűen|"
+    r"nem\s+határozza\s+meg\s+egyértelműen|nem\s+következik\s+egyértelműen|"
+    r"kontextustól\s+függ|nem\s+minden\s+esetben|nem\s+kizárólag|nem\s+automatikusan",
+    re.IGNORECASE,
+)
+
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?;])\s+")
+
+
+def _split_sentences(text: str) -> list[str]:
+    return [s for s in _SENTENCE_SPLIT_RE.split(text or "") if s.strip()]
+
+
+def _sentence_has_overclaim(sentence: str, qualifier_re: str, anchor_re: str | None) -> bool:
+    if _HEDGE_MARKER_RE.search(sentence):
+        return False
+    if not re.search(qualifier_re, sentence, re.IGNORECASE):
+        return False
+    if anchor_re is None:
+        return True
+    return bool(re.search(anchor_re, sentence, re.IGNORECASE))
+
+
+def _text_has_overclaim(text: str, qualifier_re: str, anchor_re: str | None) -> bool:
+    return any(_sentence_has_overclaim(s, qualifier_re, anchor_re) for s in _split_sentences(text))
+
+
+def _tense_is(token: Any, *values: str) -> bool:
+    return token.morphology.tense in values
+
+
+def _voice_is(token: Any, *values: str) -> bool:
+    return token.morphology.voice in values
+
+
+def _case_is(token: Any, *values: str) -> bool:
+    return token.morphology.case in values
+
+
+def _verb_form_is(token: Any, value: str) -> bool:
+    return token.morphology.verb_form == value
+
+
+def _pos_is(token: Any, value: str) -> bool:
+    return token.part_of_speech == value
+
+
+@dataclass(frozen=True)
+class _CategoricalOverclaimRule:
+    name: str
+    token_matches: Callable[[Any], bool]
+    qualifier_re: str
+    anchor_re: str | None = None
+
+
+# Each rule fires only for a word note whose token's OWN deterministic
+# morphology matches ``token_matches`` — see module note above.
+_CATEGORICAL_OVERCLAIM_RULES: tuple[_CategoricalOverclaimRule, ...] = (
+    _CategoricalOverclaimRule(
+        name="aorist",
+        token_matches=lambda t: _tense_is(t, "aorisztoszi", "második aorisztoszi"),
+        qualifier_re=r"pontszerű|egyszeri|egyszer\s+megtörtént|lezárt\s+egyszeri|"
+                     r"megismételhetetlen|once[\s-]for[\s-]all|one[\s-]time",
+        anchor_re=r"cselekvés|esemény|action|event",
+    ),
+    _CategoricalOverclaimRule(
+        name="imperfect",
+        token_matches=lambda t: _tense_is(t, "imperfektum"),
+        qualifier_re=r"folyamatos\w*|tartós\w*",
+        anchor_re=r"múlt\w*",
+    ),
+    _CategoricalOverclaimRule(
+        name="middle",
+        token_matches=lambda t: _voice_is(t, "mediális igenem", "mediális deponens"),
+        qualifier_re=r"visszaható",
+    ),
+    _CategoricalOverclaimRule(
+        name="passive",
+        token_matches=lambda t: _voice_is(
+            t, "passzív igenem", "passzív deponens", "mediális vagy passzív igenem", "mediális vagy passzív deponens"
+        ),
+        qualifier_re=r"szenvedő\s+(?:jelentés|értelem|igealak)|passzív\s+jelentés|valódi\s+szenvedő",
+    ),
+    _CategoricalOverclaimRule(
+        name="perfect",
+        token_matches=lambda t: _tense_is(t, "perfectum", "második perfectum"),
+        qualifier_re=r"befejezett\s+múlt|eredménye\s+(?:a\s+jelenben\s+is\s+)?fennáll|"
+                     r"hatása\s+(?:a\s+jelenben\s+is\s+)?fennáll|eredménye\s+ma\s+is",
+    ),
+    _CategoricalOverclaimRule(
+        name="participle",
+        token_matches=lambda t: _verb_form_is(t, "participle"),
+        qualifier_re=r"okhatározói\s+funkci|ok-okozati\s+viszonyt\s+fejez|okot\s+fejez\s+ki|"
+                     r"feltételt\s+fejez\s+ki|megengedést\s+fejez\s+ki|időhatározói\s+funkci|"
+                     r"eszközhatározói\s+funkci",
+    ),
+    _CategoricalOverclaimRule(
+        name="genitive",
+        token_matches=lambda t: _case_is(t, "birtokos eset"),
+        qualifier_re=r"birtokos\s+(?:genitivus|jelentés)|birtok\s*viszonyt\s+(?:jelöl|fejez\s+ki)|"
+                     r"birtoklást\s+fejez\s+ki",
+    ),
+    _CategoricalOverclaimRule(
+        name="article",
+        token_matches=lambda t: _pos_is(t, "határozott névelő"),
+        qualifier_re=r"hangsúly\w*|teológiai\s+jelentőség|kiemel\w*\s+(?:jelentőség|szerep)",
+    ),
+)
+
+
+def _token_categorical_overclaim(text: str, token: Any) -> str | None:
+    """Returns the offending rule's name if `text` (describing `token`)
+    makes an unsupported categorical claim tied to that token's own
+    deterministic morphology, else None."""
+    if not text:
+        return None
+    for rule in _CATEGORICAL_OVERCLAIM_RULES:
+        if rule.token_matches(token) and _text_has_overclaim(text, rule.qualifier_re, rule.anchor_re):
+            return rule.name
+    return None
+
+
+def _construction_categorical_overclaim(text: str, tokens: tuple[Any, ...]) -> str | None:
+    """Same check as ``_token_categorical_overclaim`` but for a construction
+    note, which is anchored to a SET of evidence tokens rather than one —
+    fires if the text overclaims about ANY category actually present among
+    those tokens' own morphology."""
+    if not text:
+        return None
+    applicable = {rule.name: rule for rule in _CATEGORICAL_OVERCLAIM_RULES if any(rule.token_matches(t) for t in tokens)}
+    for rule in applicable.values():
+        if _text_has_overclaim(text, rule.qualifier_re, rule.anchor_re):
+            return rule.name
+    return None
+
 
 @dataclass
 class GreekContextualAnalysisResult:
@@ -178,8 +340,18 @@ def _build_word_notes(
         forbidden = _text_uses_forbidden_phrase(morphological_explanation) or _text_uses_forbidden_phrase(
             contextual_meaning
         ) or _text_uses_forbidden_phrase(syntax_role)
-        if forbidden:
-            warnings.append(f"{token_id}: tiltott, túláltalánosító megfogalmazás eldobva ({forbidden!r})")
+        overclaim_category = (
+            _token_categorical_overclaim(morphological_explanation, token)
+            or _token_categorical_overclaim(contextual_meaning, token)
+            or _token_categorical_overclaim(syntax_role, token)
+        )
+        if forbidden or overclaim_category:
+            if forbidden:
+                warnings.append(f"{token_id}: tiltott, túláltalánosító megfogalmazás eldobva ({forbidden!r})")
+            else:
+                warnings.append(
+                    f"{token_id}: alátámasztatlan, túláltalánosító paraphrase eldobva ({overclaim_category})"
+                )
             morphological_explanation = ""
             contextual_meaning = ""
             syntax_role = ""
@@ -211,6 +383,7 @@ def _build_construction_notes(
     raw_notes: object,
     *,
     evidence_index: dict[str, tuple[str, ...]],
+    tokens_by_id: dict[str, Any],
     warnings: list[str],
 ) -> tuple[GreekConstructionNote, ...]:
     if not isinstance(raw_notes, list):
@@ -236,8 +409,17 @@ def _build_construction_notes(
         explanation = str(raw.get("explanation_hu") or "").strip()
         title = str(raw.get("title_hu") or "").strip()
         forbidden = _text_uses_forbidden_phrase(explanation) or _text_uses_forbidden_phrase(title)
-        if forbidden:
-            warnings.append(f"konstrukció-megjegyzés eldobva: tiltott megfogalmazás ({forbidden!r})")
+        evidence_tokens = tuple(tokens_by_id[tid] for tid in resolved_tokens if tid in tokens_by_id)
+        overclaim_category = _construction_categorical_overclaim(
+            explanation, evidence_tokens
+        ) or _construction_categorical_overclaim(title, evidence_tokens)
+        if forbidden or overclaim_category:
+            if forbidden:
+                warnings.append(f"konstrukció-megjegyzés eldobva: tiltott megfogalmazás ({forbidden!r})")
+            else:
+                warnings.append(
+                    f"konstrukció-megjegyzés eldobva: alátámasztatlan, túláltalánosító paraphrase ({overclaim_category})"
+                )
             continue
 
         notes.append(
@@ -294,7 +476,7 @@ def validate_and_build_contextual_analysis(
         warnings=warnings,
     )
     construction_notes = _build_construction_notes(
-        parsed.get("construction_notes"), evidence_index=evidence_index, warnings=warnings
+        parsed.get("construction_notes"), evidence_index=evidence_index, tokens_by_id=tokens_by_id, warnings=warnings
     )
     syntax_summary = _build_syntax_summary(
         parsed.get("syntax_summary"), grounding_status=verse.syntax_grounding, warnings=warnings
