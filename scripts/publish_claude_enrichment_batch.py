@@ -32,6 +32,15 @@ unit_id, regardless of what the caller believes -- fail-closed, skip
 writes human_reviewed_at. NEVER touches an already-published or
 already-approved row (idempotent: a unit with approval_method already
 set is skipped, not re-approved). No LLM call anywhere in this script.
+
+`--rule-version` (2026-09-14, round 2): each Claude-manual batch gets
+its own auditable rule-version string (e.g. `claude_enrichment_batch_v2`
+for the 100-story round) so `SELECT auto_approval_rule_version,
+count(*) ... GROUP BY 1` always shows exactly which batch approved
+which rows -- the enrichment_model prefix scoping below already
+guarantees this script only ever touches Claude-manual rows regardless
+of which rule-version string is passed; the flag only changes what
+gets RECORDED as the policy name, never which rows are eligible.
 """
 
 from __future__ import annotations
@@ -47,7 +56,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from illustration_engine.source_registry import PUBLISHABLE_LICENSE_STATUSES
 
-RULE_VERSION = "claude_enrichment_batch_v1"
+DEFAULT_RULE_VERSION = "claude_enrichment_batch_v1"
 EXPECTED_ENRICHMENT_MODEL_PREFIX = "claude-manual-enrichment-"
 
 
@@ -104,7 +113,7 @@ def check_eligibility(client, unit: dict) -> str | None:
     return None
 
 
-def publish_unit(client, unit_id: int, *, apply: bool) -> str:
+def publish_unit(client, unit_id: int, *, apply: bool, rule_version: str = DEFAULT_RULE_VERSION) -> str:
     if not apply:
         return "would_publish"
     now = datetime.now(UTC).isoformat()
@@ -113,13 +122,13 @@ def publish_unit(client, unit_id: int, *, apply: bool) -> str:
             "status": "published",
             "approval_method": "automated_corpus_approval",
             "auto_approved_at": now,
-            "auto_approval_rule_version": RULE_VERSION,
+            "auto_approval_rule_version": rule_version,
         }
     ).eq("id", unit_id).execute()
     return "published"
 
 
-def run_publish(client, *, apply: bool) -> dict[str, int]:
+def run_publish(client, *, apply: bool, rule_version: str = DEFAULT_RULE_VERSION) -> dict[str, int]:
     candidates = find_candidate_units(client, enrichment_model_prefix=EXPECTED_ENRICHMENT_MODEL_PREFIX)
     eligible = published = skipped = 0
 
@@ -131,7 +140,7 @@ def run_publish(client, *, apply: bool) -> dict[str, int]:
             continue
 
         eligible += 1
-        outcome = publish_unit(client, unit["id"], apply=apply)
+        outcome = publish_unit(client, unit["id"], apply=apply, rule_version=rule_version)
         if outcome == "published":
             published += 1
             print(f"[PUBLISHED] unit_id={unit['id']} title={unit.get('title_hu')!r}")
@@ -147,12 +156,18 @@ def run_publish(client, *, apply: bool) -> dict[str, int]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="Actually publish. Without this, dry-run only.")
+    parser.add_argument(
+        "--rule-version", default=DEFAULT_RULE_VERSION,
+        help=f"auto_approval_rule_version to record for this run (default: {DEFAULT_RULE_VERSION!r}). "
+             "Give each Claude-manual batch its own string for auditability -- this only changes what "
+             "gets recorded, never which rows are eligible (still scoped to enrichment_model prefix).",
+    )
     args = parser.parse_args()
 
     from illustration_engine.supabase_review_client import get_service_role_client_for_migration
 
     client = get_service_role_client_for_migration()
-    counts = run_publish(client, apply=args.apply)
+    counts = run_publish(client, apply=args.apply, rule_version=args.rule_version)
 
     print(f"\nCANDIDATE_COUNT={counts['candidates']}")
     print(f"ELIGIBLE_COUNT={counts['eligible']}")

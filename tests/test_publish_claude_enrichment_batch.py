@@ -118,6 +118,35 @@ def test_eligible_batch_unit_is_published_with_correct_provenance() -> None:
     assert row["human_reviewed_at"] is None  # never touched
 
 
+def test_custom_rule_version_is_recorded_and_scoping_unaffected() -> None:
+    """--rule-version (round 2, batch v2) must only change what gets
+    recorded, never which rows are eligible -- still scoped by
+    enrichment_model prefix regardless of which string is passed."""
+    client = _client_with([_unit(1)])
+
+    counts = publisher.run_publish(client, apply=True, rule_version="claude_enrichment_batch_v2")
+
+    assert counts == {"candidates": 1, "eligible": 1, "skipped": 0, "published": 1}
+    row = client.data["illustration_units"][0]
+    assert row["auto_approval_rule_version"] == "claude_enrichment_batch_v2"
+    assert row["status"] == "published"
+
+
+def test_two_batches_with_different_rule_versions_coexist_idempotently() -> None:
+    """A round-2 run must never re-touch round-1's already-approved
+    units, even though both share the same enrichment_model prefix."""
+    round1_unit = _unit(1, approval_method="automated_corpus_approval")
+    round2_unit = _unit(2)
+    client = _client_with([round1_unit, round2_unit])
+
+    counts = publisher.run_publish(client, apply=True, rule_version="claude_enrichment_batch_v2")
+
+    assert counts == {"candidates": 2, "eligible": 1, "skipped": 1, "published": 1}
+    rows = {r["id"]: r for r in client.data["illustration_units"]}
+    assert rows[1].get("auto_approval_rule_version") is None  # untouched -- was already approved
+    assert rows[2]["auto_approval_rule_version"] == "claude_enrichment_batch_v2"
+
+
 def test_dry_run_reports_would_publish_and_never_writes() -> None:
     client = _client_with([_unit(1)])
 
