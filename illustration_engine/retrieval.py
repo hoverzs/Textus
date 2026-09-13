@@ -81,16 +81,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import unicodedata
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Protocol
 
 from illustration_engine.illustration_sqlite import (
     PILOT_HOMILETIC_FUNCTIONS,
     PILOT_TOPICS,
 )
 from illustration_engine.source_registry import PUBLISHABLE_LICENSE_STATUSES
+
+logger = logging.getLogger(__name__)
 
 RetrievalMode = str  # "production" | "development"
 ALLOWED_RETRIEVAL_MODES = frozenset({"production", "development"})
@@ -175,6 +178,19 @@ REASON_NO_LOCAL_CANDIDATES = "no_local_candidates"
 REASON_RANKER_REJECTED_ALL = "ranker_rejected_all"
 REASON_PLANNER_ERROR = "planner_error"
 REASON_RANKING_ERROR = "ranking_error"
+# 2026-09 runtime retrieval cutover: Stage A's candidate fetch (now
+# potentially a real network call -- SupabaseIllustrationRepository's RPC
+# -- not just a local file read) was UNGUARDED, unlike the planner/ranker
+# LLM stages either side of it. A genuine RPC/network failure there would
+# have propagated as an unhandled exception straight into the Streamlit
+# callback, instead of failing closed into a distinguishable diagnostics
+# reason the way every other stage already does. Distinct from
+# REASON_NO_LOCAL_CANDIDATES on purpose: that means "the fetch succeeded
+# and genuinely found nothing above threshold" (a normal, expected
+# outcome); this means "the fetch itself could not complete" (an
+# infrastructure problem the end-user UI must show differently -- never
+# as "nincs találat").
+REASON_CANDIDATE_FETCH_ERROR = "candidate_fetch_error"
 
 _DIAGNOSTIC_TOP_SCORES_LIMIT = 8
 
@@ -392,6 +408,154 @@ def _verify_checksum(connection, unit_id: int) -> bool:
     return hashlib.sha256(original_text.encode("utf-8")).hexdigest() == checksum
 
 
+class IllustrationCandidateRepository(Protocol):
+    """Data-access boundary for Stage A -- everything ABOVE this line in
+    the module (Stage 0 planner, `local_relevance_score`, thresholds,
+    Stage B ranker/prompt/parsing, diagnostics, logging) is completely
+    backend-agnostic and untouched by which implementation of this
+    Protocol a caller supplies. Added 2026-09 (runtime retrieval cutover)
+    specifically so introducing a Supabase-backed production read path
+    required zero changes to scoring/ranking semantics -- only a new
+    class implementing this one method."""
+
+    def fetch_eligible_units(self, *, mode: RetrievalMode) -> list[RetrievalCandidate]:
+        """Returns every mode-eligible, provenance-verified candidate,
+        UNSCORED and UNFILTERED by relevance -- scoring/threshold
+        application happens uniformly in `_fetch_and_score_candidates`
+        regardless of which backend produced the list."""
+        ...
+
+
+class LocalSqliteIllustrationRepository:
+    """The pre-2026-09 SQLite query logic, unchanged, just moved into
+    its own class so it can implement `IllustrationCandidateRepository`
+    alongside `SupabaseIllustrationRepository`. Behavior is byte-
+    identical to what `_fetch_and_score_candidates` used to do inline:
+    same two mode-gated queries, same per-row `_verify_checksum`/
+    `_fetch_taxonomy` calls."""
+
+    def __init__(self, connection) -> None:
+        self.connection = connection
+
+    def fetch_eligible_units(self, *, mode: RetrievalMode) -> list[RetrievalCandidate]:
+        connection = self.connection
+        publishable_list = ", ".join(f"'{s}'" for s in sorted(PUBLISHABLE_LICENSE_STATUSES))
+
+        if mode == "production":
+            query = """
+                SELECT p.id, p.title_hu, p.modern_hu_text, p.summary_hu, p.moral_hu,
+                       s.title, s.code, s.tradition, s.license_status
+                FROM published_illustration_units p
+                JOIN stories st ON st.id = p.story_id
+                JOIN sources s ON s.id = st.source_id
+                ORDER BY p.id
+            """
+            provenance_status = "published"
+        else:
+            query = f"""
+                SELECT u.id, u.title_hu, u.modern_hu_text, u.summary_hu, u.moral_hu,
+                       s.title, s.code, s.tradition, s.license_status
+                FROM illustration_units u
+                JOIN stories st ON st.id = u.story_id
+                JOIN sources s ON s.id = st.source_id
+                WHERE u.qa_status = 'passed'
+                  AND s.license_status IN ({publishable_list})
+                ORDER BY u.id
+            """
+            provenance_status = "development_qa_passed"
+
+        rows = connection.execute(query).fetchall()
+
+        candidates: list[RetrievalCandidate] = []
+        for row in rows:
+            (
+                unit_id, title_hu, modern_hu_text, summary_hu, moral_hu,
+                source_title, source_code, tradition, license_status,
+            ) = row
+            if not _verify_checksum(connection, unit_id):
+                continue
+            topics, tone, functions = _fetch_taxonomy(connection, unit_id)
+            candidates.append(
+                RetrievalCandidate(
+                    unit_id=unit_id, title_hu=title_hu, modern_hu_text=modern_hu_text,
+                    summary_hu=summary_hu, moral_hu=moral_hu, topics=topics, tone=tone,
+                    homiletic_functions=functions, source_title=source_title, source_code=source_code,
+                    tradition=tradition, license_status=license_status,
+                    provenance_status=provenance_status,
+                )
+            )
+        return candidates
+
+
+class SupabaseIllustrationRepository:
+    """Production read path (2026-09 runtime cutover) -- a SINGLE
+    PostgREST RPC call (`get_published_illustration_candidates()`, see
+    `supabase/migrations/20260913120000_illustration_corpus_layer.sql`),
+    no N+1: the RPC itself joins/aggregates tags and source fields
+    server-side, so this class issues exactly one HTTP request per
+    `fetch_eligible_units` call, regardless of corpus size.
+
+    Uses the ANON/PUBLISHABLE client (`supabase_client.get_supabase_
+    client()`) -- NEVER service_role. The RPC is SECURITY DEFINER and
+    already independently re-derives `status='published' AND source
+    license publishable` on every call (see the migration's own
+    comment), so the anon key is genuinely safe here, and no elevated
+    credential is needed or used for retrieval.
+
+    Only supports `mode="production"` -- there is no Supabase-side
+    equivalent of the SQLite development view (`qa_status='passed'`,
+    pre-publish preview) yet; that remains local-SQLite-only until a
+    dedicated dev-mode RPC is built as a separate, later change."""
+
+    def __init__(self, client=None) -> None:
+        self._client = client
+
+    def _resolve_client(self):
+        if self._client is not None:
+            return self._client
+        from supabase_client import get_supabase_client
+
+        return get_supabase_client()
+
+    def fetch_eligible_units(self, *, mode: RetrievalMode) -> list[RetrievalCandidate]:
+        if mode != "production":
+            raise NotImplementedError(
+                f"SupabaseIllustrationRepository only supports mode='production' "
+                f"(got {mode!r}) -- there is no Supabase-side development-mode RPC yet."
+            )
+        client = self._resolve_client()
+        result = client.rpc("get_published_illustration_candidates", {}).execute()
+        rows = result.data or []
+        return [
+            RetrievalCandidate(
+                unit_id=row["unit_id"], title_hu=row["title_hu"],
+                modern_hu_text=row["modern_hu_text"], summary_hu=row["summary_hu"],
+                moral_hu=row.get("moral_hu"), topics=tuple(row.get("topics") or ()),
+                tone=row.get("tone"), homiletic_functions=tuple(row.get("homiletic_functions") or ()),
+                source_title=row["source_title"], source_code=row["source_code"],
+                tradition=row.get("tradition"), license_status=row["license_status"],
+                provenance_status="published",
+            )
+            for row in rows
+        ]
+
+
+def _as_repository(connection_or_repository) -> IllustrationCandidateRepository:
+    """Backward-compatible dispatch: every public entry point in this
+    module (`find_candidates`, `retrieve_illustrations`, etc.) accepted
+    a raw `sqlite3.Connection` as its first positional argument before
+    the 2026-09 runtime cutover -- every existing caller and every
+    existing test in `tests/test_retrieval.py` still does. Rather than
+    change that call shape (and every call site), this dispatches on
+    duck-typed shape: an object that already implements `fetch_eligible_
+    units` (a repository) is used as-is; anything else is assumed to be
+    a DB-API connection and wrapped in `LocalSqliteIllustrationRepository`,
+    exactly reproducing this module's pre-cutover behavior."""
+    if hasattr(connection_or_repository, "fetch_eligible_units"):
+        return connection_or_repository
+    return LocalSqliteIllustrationRepository(connection_or_repository)
+
+
 def _fetch_and_score_candidates(
     connection, *, intent: RetrievalIntent, mode: RetrievalMode
 ) -> list[tuple[RetrievalCandidate, float]]:
@@ -400,55 +564,19 @@ def _fetch_and_score_candidates(
     Shared by `find_candidates` (which applies threshold+limit) and the
     diagnostics pipeline (`retrieve_illustrations_with_diagnostics`,
     which needs the raw pool size and top scores even when nothing
-    clears the threshold)."""
+    clears the threshold).
+
+    `connection` accepts EITHER a raw `sqlite3.Connection` (wrapped in
+    `LocalSqliteIllustrationRepository`) OR an already-constructed
+    `IllustrationCandidateRepository` (e.g. `SupabaseIllustrationRepository`)
+    -- see `_as_repository`. `local_relevance_score` itself never knows
+    or cares which backend produced a `RetrievalCandidate`."""
     if mode not in ALLOWED_RETRIEVAL_MODES:
         raise ValueError(f"mode must be one of {sorted(ALLOWED_RETRIEVAL_MODES)}, got {mode!r}")
 
-    publishable_list = ", ".join(f"'{s}'" for s in sorted(PUBLISHABLE_LICENSE_STATUSES))
-
-    if mode == "production":
-        query = """
-            SELECT p.id, p.title_hu, p.modern_hu_text, p.summary_hu, p.moral_hu,
-                   s.title, s.code, s.tradition, s.license_status
-            FROM published_illustration_units p
-            JOIN stories st ON st.id = p.story_id
-            JOIN sources s ON s.id = st.source_id
-            ORDER BY p.id
-        """
-        provenance_status = "published"
-    else:
-        query = f"""
-            SELECT u.id, u.title_hu, u.modern_hu_text, u.summary_hu, u.moral_hu,
-                   s.title, s.code, s.tradition, s.license_status
-            FROM illustration_units u
-            JOIN stories st ON st.id = u.story_id
-            JOIN sources s ON s.id = st.source_id
-            WHERE u.qa_status = 'passed'
-              AND s.license_status IN ({publishable_list})
-            ORDER BY u.id
-        """
-        provenance_status = "development_qa_passed"
-
-    rows = connection.execute(query).fetchall()
-
-    scored: list[tuple[RetrievalCandidate, float]] = []
-    for row in rows:
-        (
-            unit_id, title_hu, modern_hu_text, summary_hu, moral_hu,
-            source_title, source_code, tradition, license_status,
-        ) = row
-        if not _verify_checksum(connection, unit_id):
-            continue
-        topics, tone, functions = _fetch_taxonomy(connection, unit_id)
-        candidate = RetrievalCandidate(
-            unit_id=unit_id, title_hu=title_hu, modern_hu_text=modern_hu_text,
-            summary_hu=summary_hu, moral_hu=moral_hu, topics=topics, tone=tone,
-            homiletic_functions=functions, source_title=source_title, source_code=source_code,
-            tradition=tradition, license_status=license_status, provenance_status=provenance_status,
-        )
-        score = local_relevance_score(candidate, intent)
-        scored.append((candidate, score))
-
+    repository = _as_repository(connection)
+    candidates = repository.fetch_eligible_units(mode=mode)
+    scored = [(c, local_relevance_score(c, intent)) for c in candidates]
     scored.sort(key=lambda pair: -pair[1])
     return scored
 
@@ -723,7 +851,68 @@ def _source_attribution(candidate: RetrievalCandidate) -> str:
     return " · ".join(parts)
 
 
+def _log_diagnostics(
+    *, mode: RetrievalMode, passage_reference: str, diagnostics: RetrievalDiagnostics
+) -> None:
+    """Audit finding (illustration retrieval observability gap): before
+    this, a `reason != REASON_OK` outcome in PRODUCTION was invisible
+    outside the dev-only Streamlit diagnostics expander (see
+    `illustration_retrieval_ui._render_dev_diagnostics`) -- a real user
+    hitting 0 results left no trace anywhere a developer could later
+    inspect. This closes that gap with one structured, content-free log
+    line per search, for every mode.
+
+    Deliberately logs the SAME fields `RetrievalDiagnostics` already
+    exposes to the dev UI -- counts and a reason code -- plus `mode` and
+    `passage_reference` (a Bible citation, not user PII). NEVER logs
+    `intent.keywords_hu`/`concepts_hu` (free text an LLM derived from the
+    passage) or any candidate/story content -- same "structured counts
+    only, no raw text" boundary `RetrievalDiagnostics` itself already
+    enforces (see its docstring and `test_diagnostics_dataclass_has_no_
+    raw_text_field`)."""
+    logger.info(
+        "illustration_retrieval mode=%s reference=%s reason=%s pool=%d "
+        "stage_a_candidates=%d stage_b_parsed=%d stage_b_accepted=%d final=%d",
+        mode,
+        passage_reference,
+        diagnostics.reason,
+        diagnostics.stage_a_pool_size,
+        diagnostics.stage_a_candidate_count,
+        diagnostics.stage_b_parsed_count,
+        diagnostics.stage_b_accepted_count,
+        diagnostics.final_count,
+    )
+
+
 def _run_retrieval_pipeline(
+    connection,
+    *,
+    mode: RetrievalMode,
+    passage_reference: str,
+    llm_generate: Callable[[str], str],
+    passage_text: str = "",
+    theme: str = "",
+    occasion: str = "",
+    candidate_limit: int = DEFAULT_CANDIDATE_LIMIT,
+    top_n: int = DEFAULT_TOP_N,
+    min_local_relevance: float = MIN_LOCAL_RELEVANCE_SCORE,
+    min_rank_score: float = MIN_RANK_SCORE,
+) -> tuple[list[IllustrationRetrievalResult], RetrievalDiagnostics]:
+    """Thin logging wrapper around `_run_retrieval_pipeline_impl` -- a
+    single funnel point so every caller (`retrieve_illustrations` and
+    `retrieve_illustrations_with_diagnostics` alike) gets one `_log_
+    diagnostics` call per search, regardless of which of the impl's
+    several early-return branches fired."""
+    results, diagnostics = _run_retrieval_pipeline_impl(
+        connection, mode=mode, passage_reference=passage_reference, llm_generate=llm_generate,
+        passage_text=passage_text, theme=theme, occasion=occasion, candidate_limit=candidate_limit,
+        top_n=top_n, min_local_relevance=min_local_relevance, min_rank_score=min_rank_score,
+    )
+    _log_diagnostics(mode=mode, passage_reference=passage_reference, diagnostics=diagnostics)
+    return results, diagnostics
+
+
+def _run_retrieval_pipeline_impl(
     connection,
     *,
     mode: RetrievalMode,
@@ -763,7 +952,14 @@ def _run_retrieval_pipeline(
             stage_b_accepted_count=0, final_count=0,
         )
 
-    scored_pool = _fetch_and_score_candidates(connection, intent=intent, mode=mode)
+    try:
+        scored_pool = _fetch_and_score_candidates(connection, intent=intent, mode=mode)
+    except Exception:  # noqa: BLE001 -- fail-closed: a backend/network fetch failure must never propagate as an unhandled exception, and must never be indistinguishable from "genuinely found nothing"
+        return [], RetrievalDiagnostics(
+            reason=REASON_CANDIDATE_FETCH_ERROR, intent=intent, stage_a_pool_size=0,
+            stage_a_candidate_count=0, stage_a_top_scores=(), stage_b_parsed_count=0,
+            stage_b_accepted_count=0, final_count=0,
+        )
     candidates = [c for c, s in scored_pool if s >= min_local_relevance][:candidate_limit]
     top_scores = tuple((c.unit_id, s) for c, s in scored_pool[:_DIAGNOSTIC_TOP_SCORES_LIMIT])
 
@@ -891,17 +1087,21 @@ __all__ = [
     "DEFAULT_TOP_N",
     "MIN_LOCAL_RELEVANCE_SCORE",
     "MIN_RANK_SCORE",
+    "REASON_CANDIDATE_FETCH_ERROR",
     "REASON_NO_INTENT",
     "REASON_NO_LOCAL_CANDIDATES",
     "REASON_OK",
     "REASON_PLANNER_ERROR",
     "REASON_RANKER_REJECTED_ALL",
     "REASON_RANKING_ERROR",
+    "IllustrationCandidateRepository",
     "IllustrationRetrievalResult",
+    "LocalSqliteIllustrationRepository",
     "RankedIllustration",
     "RetrievalCandidate",
     "RetrievalDiagnostics",
     "RetrievalIntent",
+    "SupabaseIllustrationRepository",
     "build_query_planner_prompt",
     "build_ranking_prompt",
     "find_candidates",

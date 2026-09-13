@@ -780,6 +780,115 @@ def test_pilot_taxonomy_categories_are_pairwise_disjoint() -> None:
     assert PILOT_TONES.isdisjoint(PILOT_HOMILETIC_FUNCTIONS)
 
 
+# ---------------------------------------------------------------------------
+# Audit fix (2026-09-13): replace_review_tags() had NO human_reviewed_at
+# check at all -- a taxonomy edit is a content edit (it drives retrieval
+# matching exactly like title_hu/modern_hu_text do), but unlike every other
+# content field it was reachable, unprotected, on an already-approved/
+# published unit. These regression tests pin the fix: needs_review stays
+# freely editable, approved/published/any-human-reviewed unit rejects the
+# call outright (no partial write), and the only way back in is the same
+# explicit send_back_for_rework() demotion every other content field
+# already requires.
+# ---------------------------------------------------------------------------
+
+
+def test_replace_review_tags_allowed_when_needs_review() -> None:
+    conn = _fresh_connection()
+    source_id = _make_full_source(conn)
+    story_id = _make_numbered_story(conn, source_id, 1)
+    unit_id = _make_needs_review_unit(conn, story_id)  # eszesseg/humoros/szemlelteto_pelda
+    conn.commit()
+    assert get_unit(conn, unit_id).status == "needs_review"
+
+    replace_review_tags(conn, unit_id, topics=["alazat"], tone="komoly", homiletic_functions=["ellenpelda"])
+    conn.commit()
+    item = get_review_item(conn, unit_id)
+    conn.close()
+
+    assert item.topics == ("alazat",)
+    assert item.tone == "komoly"
+
+
+def test_replace_review_tags_rejected_when_approved() -> None:
+    conn = _fresh_connection()
+    source_id = _make_full_source(conn)
+    story_id = _make_numbered_story(conn, source_id, 1)
+    unit_id = _make_needs_review_unit(conn, story_id)
+    approve_unit(conn, unit_id)
+    conn.commit()
+    assert get_unit(conn, unit_id).status == "approved"
+
+    with pytest.raises(IllustrationUnitReviewProtectionError):
+        replace_review_tags(conn, unit_id, topics=["alazat"], tone="komoly", homiletic_functions=["ellenpelda"])
+    item = get_review_item(conn, unit_id)
+    conn.close()
+
+    # Nothing changed -- still the original needs_review-era tags.
+    assert item.topics == ("eszesseg",)
+    assert item.tone == "humoros"
+    assert item.status == "approved"
+
+
+def test_replace_review_tags_rejected_when_published() -> None:
+    conn = _fresh_connection()
+    source_id = _make_full_source(conn)
+    story_id = _make_numbered_story(conn, source_id, 1)
+    unit_id = _make_needs_review_unit(conn, story_id)
+    approve_unit(conn, unit_id)
+    publish_unit(conn, unit_id)
+    conn.commit()
+    assert get_unit(conn, unit_id).status == "published"
+
+    with pytest.raises(IllustrationUnitReviewProtectionError):
+        replace_review_tags(conn, unit_id, topics=["alazat"], tone="komoly", homiletic_functions=["ellenpelda"])
+    item = get_review_item(conn, unit_id)
+    conn.close()
+
+    assert item.topics == ("eszesseg",)
+    assert item.status == "published"
+
+
+def test_replace_review_tags_rejected_whenever_human_reviewed_at_is_set() -> None:
+    """The gate is on human_reviewed_at, not on a hardcoded status list --
+    matches the exact invariant update_illustration_unit_fields()/the SQL
+    trigger already use for every other content field."""
+    conn = _fresh_connection()
+    source_id = _make_full_source(conn)
+    story_id = _make_numbered_story(conn, source_id, 1)
+    unit_id = _make_needs_review_unit(conn, story_id)
+    approve_unit(conn, unit_id)
+    conn.commit()
+    assert get_unit(conn, unit_id).human_reviewed_at is not None
+
+    with pytest.raises(IllustrationUnitReviewProtectionError):
+        replace_review_tags(conn, unit_id, topics=["alazat"], tone="komoly", homiletic_functions=["ellenpelda"])
+    conn.close()
+
+
+def test_replace_review_tags_allowed_again_after_send_back_for_rework() -> None:
+    """The prescribed recovery path -- explicit demotion first -- actually
+    works, restoring editability without needing a second bypass."""
+    conn = _fresh_connection()
+    source_id = _make_full_source(conn)
+    story_id = _make_numbered_story(conn, source_id, 1)
+    unit_id = _make_needs_review_unit(conn, story_id)
+    approve_unit(conn, unit_id)
+    conn.commit()
+
+    send_back_for_rework(conn, unit_id)
+    conn.commit()
+    assert get_unit(conn, unit_id).status == "needs_review"
+    assert get_unit(conn, unit_id).human_reviewed_at is None
+
+    replace_review_tags(conn, unit_id, topics=["alazat"], tone="komoly", homiletic_functions=["ellenpelda"])
+    conn.commit()
+    item = get_review_item(conn, unit_id)
+    conn.close()
+
+    assert item.topics == ("alazat",)
+
+
 # --- approve/publish semantics ----------------------------------------------
 
 

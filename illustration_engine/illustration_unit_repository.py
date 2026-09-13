@@ -27,6 +27,7 @@ from illustration_engine.illustration_sqlite import (
     PILOT_HOMILETIC_FUNCTIONS,
     PILOT_TONES,
     PILOT_TOPICS,
+    IllustrationUnitReviewProtectionError,
     insert_illustration_unit,
     update_illustration_unit_fields,
 )
@@ -591,7 +592,31 @@ def replace_review_tags(
     ALL-OR-NOTHING validation: every slug is checked against the
     controlled vocabulary BEFORE any DB write happens — an invalid slug
     anywhere in the request raises `ValueError` with zero partial
-    modification, never a half-replaced tag set."""
+    modification, never a half-replaced tag set.
+
+    REVIEW PROTECTION (audit fix, 2026-09-13): taxonomy is content too —
+    a unit's topics/tone/homiletic_functions directly drive retrieval
+    matching, exactly like title_hu/modern_hu_text do. Before this fix,
+    this function had NO `human_reviewed_at` check at all, unlike
+    `update_illustration_unit_fields()` (guarded by both the Python-side
+    `_UNIT_CONTENT_FIELDS` check and the SQL `trg_units_protect_human_
+    reviewed_content` trigger) — an already-approved/published unit's
+    tags could be silently rewritten with no demotion, no cleared
+    timestamp, no trace. Fails closed now: any unit with
+    `human_reviewed_at IS NOT NULL` (approved or published) raises
+    `IllustrationUnitReviewProtectionError` and writes NOTHING — the
+    caller must call `send_back_for_rework()` first, exactly the same
+    explicit-demotion-before-edit contract `update_illustration_unit_
+    fields()` already enforces for every other content field."""
+    unit = get_unit(connection, unit_id)
+    if unit is None:
+        raise ValueError(f"illustration unit not found: id={unit_id}")
+    if unit.human_reviewed_at is not None:
+        raise IllustrationUnitReviewProtectionError(
+            f"illustration unit id={unit_id} was human-reviewed at {unit.human_reviewed_at!r} — "
+            "refusing to silently change its taxonomy tags. Call send_back_for_rework() first."
+        )
+
     invalid: list[str] = []
     if not topics or not (1 <= len(topics) <= 3):
         invalid.append("topics must be a list of 1-3 items")
