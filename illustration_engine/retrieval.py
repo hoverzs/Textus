@@ -81,6 +81,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -91,6 +92,8 @@ from illustration_engine.illustration_sqlite import (
     PILOT_TOPICS,
 )
 from illustration_engine.source_registry import PUBLISHABLE_LICENSE_STATUSES
+
+logger = logging.getLogger(__name__)
 
 RetrievalMode = str  # "production" | "development"
 ALLOWED_RETRIEVAL_MODES = frozenset({"production", "development"})
@@ -723,7 +726,68 @@ def _source_attribution(candidate: RetrievalCandidate) -> str:
     return " · ".join(parts)
 
 
+def _log_diagnostics(
+    *, mode: RetrievalMode, passage_reference: str, diagnostics: RetrievalDiagnostics
+) -> None:
+    """Audit finding (illustration retrieval observability gap): before
+    this, a `reason != REASON_OK` outcome in PRODUCTION was invisible
+    outside the dev-only Streamlit diagnostics expander (see
+    `illustration_retrieval_ui._render_dev_diagnostics`) -- a real user
+    hitting 0 results left no trace anywhere a developer could later
+    inspect. This closes that gap with one structured, content-free log
+    line per search, for every mode.
+
+    Deliberately logs the SAME fields `RetrievalDiagnostics` already
+    exposes to the dev UI -- counts and a reason code -- plus `mode` and
+    `passage_reference` (a Bible citation, not user PII). NEVER logs
+    `intent.keywords_hu`/`concepts_hu` (free text an LLM derived from the
+    passage) or any candidate/story content -- same "structured counts
+    only, no raw text" boundary `RetrievalDiagnostics` itself already
+    enforces (see its docstring and `test_diagnostics_dataclass_has_no_
+    raw_text_field`)."""
+    logger.info(
+        "illustration_retrieval mode=%s reference=%s reason=%s pool=%d "
+        "stage_a_candidates=%d stage_b_parsed=%d stage_b_accepted=%d final=%d",
+        mode,
+        passage_reference,
+        diagnostics.reason,
+        diagnostics.stage_a_pool_size,
+        diagnostics.stage_a_candidate_count,
+        diagnostics.stage_b_parsed_count,
+        diagnostics.stage_b_accepted_count,
+        diagnostics.final_count,
+    )
+
+
 def _run_retrieval_pipeline(
+    connection,
+    *,
+    mode: RetrievalMode,
+    passage_reference: str,
+    llm_generate: Callable[[str], str],
+    passage_text: str = "",
+    theme: str = "",
+    occasion: str = "",
+    candidate_limit: int = DEFAULT_CANDIDATE_LIMIT,
+    top_n: int = DEFAULT_TOP_N,
+    min_local_relevance: float = MIN_LOCAL_RELEVANCE_SCORE,
+    min_rank_score: float = MIN_RANK_SCORE,
+) -> tuple[list[IllustrationRetrievalResult], RetrievalDiagnostics]:
+    """Thin logging wrapper around `_run_retrieval_pipeline_impl` -- a
+    single funnel point so every caller (`retrieve_illustrations` and
+    `retrieve_illustrations_with_diagnostics` alike) gets one `_log_
+    diagnostics` call per search, regardless of which of the impl's
+    several early-return branches fired."""
+    results, diagnostics = _run_retrieval_pipeline_impl(
+        connection, mode=mode, passage_reference=passage_reference, llm_generate=llm_generate,
+        passage_text=passage_text, theme=theme, occasion=occasion, candidate_limit=candidate_limit,
+        top_n=top_n, min_local_relevance=min_local_relevance, min_rank_score=min_rank_score,
+    )
+    _log_diagnostics(mode=mode, passage_reference=passage_reference, diagnostics=diagnostics)
+    return results, diagnostics
+
+
+def _run_retrieval_pipeline_impl(
     connection,
     *,
     mode: RetrievalMode,

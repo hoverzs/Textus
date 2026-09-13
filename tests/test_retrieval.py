@@ -967,3 +967,124 @@ def test_retrieve_illustrations_plain_still_returns_only_results_list() -> None:
     conn.close()
     assert isinstance(results, list)
     assert len(results) == 1
+
+
+# ---------------------------------------------------------------------------
+# Audit finding: production searches had NO trace anywhere once a search
+# returned 0 results -- `RetrievalDiagnostics` existed but was only ever
+# rendered in the dev-only Streamlit expander (see
+# `illustration_retrieval_ui._render_dev_diagnostics`), never logged. These
+# tests cover the fix: one structured `illustration_retrieval` log line per
+# search, for every mode and every `REASON_*` outcome, content-free.
+# ---------------------------------------------------------------------------
+
+
+def test_retrieval_logs_structured_diagnostics_on_success(caplog) -> None:
+    conn = _fresh_connection()
+    source_id = _make_source(conn)
+    story_id = _make_story(conn, source_id)
+    unit_id = _make_published_unit(conn, story_id, title_hu="Irgalmas apa", summary_hu="Egy irgalmas apa története.")
+    conn.commit()
+
+    llm = _llm_dispatch(
+        {"keywords_hu": ["irgalmas"]},
+        {"results": [{"unit_id": unit_id, "score": 0.9, "reason": "x"}]},
+    )
+    with caplog.at_level("INFO", logger="illustration_engine.retrieval"):
+        retrieve_illustrations(conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm)
+    conn.close()
+
+    records = [r for r in caplog.records if "illustration_retrieval" in r.message]
+    assert len(records) == 1
+    assert "mode=production" in records[0].message
+    assert "reference=Lk 15,11-24" in records[0].message
+    assert f"reason={REASON_OK}" in records[0].message
+    assert "final=1" in records[0].message
+
+
+def test_retrieval_logs_exactly_once_via_plain_and_diagnostics_entry_points(caplog) -> None:
+    """Both public entry points share the same underlying pipeline call --
+    neither must log twice, and both must log."""
+    conn = _fresh_connection()
+    source_id = _make_source(conn)
+    story_id = _make_story(conn, source_id)
+    _make_published_unit(conn, story_id, title_hu="Teljesen más témájú anekdota", summary_hu=_VALID_SUMMARY)
+    conn.commit()
+
+    llm = _llm_dispatch({"keywords_hu": ["teljesen_ismeretlen_szokombinacio_xyz"]}, {"results": []})
+    with caplog.at_level("INFO", logger="illustration_engine.retrieval"):
+        retrieve_illustrations(conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm)
+    plain_records = [r for r in caplog.records if "illustration_retrieval" in r.message]
+    assert len(plain_records) == 1
+
+    caplog.clear()
+    with caplog.at_level("INFO", logger="illustration_engine.retrieval"):
+        retrieve_illustrations_with_diagnostics(
+            conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm,
+        )
+    conn.close()
+    diag_records = [r for r in caplog.records if "illustration_retrieval" in r.message]
+    assert len(diag_records) == 1
+
+
+def test_retrieval_log_line_reflects_no_local_candidates_reason(caplog) -> None:
+    conn = _fresh_connection()
+    source_id = _make_source(conn)
+    story_id = _make_story(conn, source_id)
+    _make_published_unit(conn, story_id, title_hu="Teljesen más témájú anekdota", summary_hu=_VALID_SUMMARY)
+    conn.commit()
+
+    llm = _llm_dispatch({"keywords_hu": ["teljesen_ismeretlen_szokombinacio_xyz"]}, {"results": []})
+    with caplog.at_level("INFO", logger="illustration_engine.retrieval"):
+        retrieve_illustrations(conn, mode="production", passage_reference="Zsolt 23", llm_generate=llm)
+    conn.close()
+
+    records = [r for r in caplog.records if "illustration_retrieval" in r.message]
+    assert len(records) == 1
+    assert f"reason={REASON_NO_LOCAL_CANDIDATES}" in records[0].message
+    assert "pool=1" in records[0].message
+    assert "final=0" in records[0].message
+
+
+def test_retrieval_log_line_reflects_planner_error_reason(caplog) -> None:
+    conn = _fresh_connection()
+
+    def broken_llm(prompt: str) -> str:
+        raise RuntimeError("network down")
+
+    with caplog.at_level("INFO", logger="illustration_engine.retrieval"):
+        retrieve_illustrations(conn, mode="production", passage_reference="Jn 3,16", llm_generate=broken_llm)
+    conn.close()
+
+    records = [r for r in caplog.records if "illustration_retrieval" in r.message]
+    assert len(records) == 1
+    assert f"reason={REASON_PLANNER_ERROR}" in records[0].message
+
+
+def test_retrieval_log_line_never_contains_free_text_keywords_or_story_content(caplog) -> None:
+    """Same content-free boundary `RetrievalDiagnostics` itself enforces
+    (see `test_diagnostics_dataclass_has_no_raw_text_field`) must hold for
+    the log line too -- a distinctive keyword/story string must never
+    leak into the log even though it drove the (rejected) match."""
+    conn = _fresh_connection()
+    source_id = _make_source(conn)
+    story_id = _make_story(conn, source_id)
+    _make_published_unit(
+        conn, story_id, title_hu="Irgalmas apa és a tékozló fiú konkrét egyedi cím",
+        modern_hu_text="Ez a sztori szövege, aminek soha nem szabad logba kerülnie.",
+        summary_hu=_VALID_SUMMARY,
+    )
+    conn.commit()
+
+    llm = _llm_dispatch(
+        {"keywords_hu": ["egyedi_kulcsszo_amit_soha_nem_szabad_logolni"]},
+        {"results": []},
+    )
+    with caplog.at_level("INFO", logger="illustration_engine.retrieval"):
+        retrieve_illustrations(conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm)
+    conn.close()
+
+    combined = "\n".join(r.message for r in caplog.records)
+    assert "egyedi_kulcsszo_amit_soha_nem_szabad_logolni" not in combined
+    assert "tékozló fiú konkrét egyedi cím" not in combined
+    assert "soha nem szabad logba kerülnie" not in combined
