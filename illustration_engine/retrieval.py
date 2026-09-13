@@ -249,6 +249,15 @@ class RankedIllustration:
     reason: str
     score: float
     match_tier: str = "WEAK"
+    #: Stage B's explicit admission gate (2026-09-13, round 2) -- a
+    #: candidate only reaches the final results if `keep` is True.
+    #: Fail-closed default is False: an explicit JSON `"keep": true` is
+    #: required, missing/non-bool/False all mean "drop". `match_tier ==
+    #: "WEAK"` additionally HARD-forces `keep = False` regardless of what
+    #: the model wrote for `keep` -- a tier alone (especially
+    #: DIRECT_ANALOGY) must never be trusted to imply admission; see
+    #: `parse_ranking_response`.
+    keep: bool = False
 
 
 @dataclass(frozen=True)
@@ -833,6 +842,49 @@ elejére), mint egy gyengébb kategóriájú jelöltet, még akkor is, ha a \
 puszta relevance score-juk közel esik egymáshoz -- a kategória \
 elsőbbséget élvez a score-ral szemben.
 
+MINDEN visszaadott jelölthöz add meg, hogy ténylegesen MEGTARTHATÓ-e \
+(ez a "keep" mező, true vagy false). "keep": true KIZÁRÓLAG akkor, ha \
+a jelölt és a bibliai textus között konkrét, homiletikailag használható \
+kapcsolat mutatható ki -- ehhez LEGALÁBB EGY az alábbiak közül \
+ténylegesen fennáll:
+- ugyanaz vagy nagyon hasonló konfliktus;
+- ugyanaz a magatartási dinamika;
+- hasonló döntés és annak következménye;
+- hasonló fordulat vagy felismerés;
+- olyan konkrét kép, amely valóban megvilágítja a textus központi \
+  feszültségét.
+NEM elég "keep": true-hoz:
+- közös általános erkölcsi szó (pl. mindkettő "irgalomról" szól, de \
+  másképp);
+- távoli asszociáció;
+- ugyanahhoz a nagy témához tartozás önmagában;
+- egy teológiai fogalom (pl. megigazulás) moralizáló, leegyszerűsített \
+  átfordítása egy erénytörténetre;
+- olyan kapcsolat, amit hosszú magyarázat nélkül a hallgató nem értene \
+  meg.
+KÜLÖNÖSEN SZIGORÚAN alkalmazd ezeket a kritériumokat, ha a textus maga \
+NEM elbeszélés, hanem tanító/érvelő szövegrész (pl. egy tanítás \
+kifejtése) vagy felsorolás/nemzetségtábla: ilyenkor egy jelölt attól \
+még, hogy UGYANARRÓL AZ ELVONT FOGALOMRÓL (pl. kegyelem, irgalom, \
+igazságosság) szól, mint a textus egyik mondata, NEM kap "keep": \
+true-t -- csak akkor, ha a jelölt konkrét cselekménye/helyzete valóban \
+tükrözi a textus fő logikai szerkezetét (pl. ugyanazt a döntés-\
+következmény vagy ok-okozat mintázatot), nem csupán ugyanazt az \
+elvont szót emlegeti.
+Ha a fenti kritériumok egyikét sem teljesíti egy jelölt, "keep": \
+false -- EZ NEM HIBA, hanem a helyes válasz. Neked EXPLICIT JOGOD van \
+azt mondani, hogy "Ehhez a textushoz a rendelkezésre álló jelöltek \
+között nincs elég erős illusztráció" -- ha egyetlen jelölt sem felel \
+meg, minden jelölt "keep" értéke legyen false, ez teljesen legitim és \
+elvárt kimenet, a NULLA találat is helyes válasz lehet.
+A "match_tier" önmagában SOHA nem dönti el a "keep" értékét -- \
+különösen a "DIRECT_ANALOGY" címke NEM garantálja automatikusan a \
+"keep": true értéket, a fenti konkrét kritériumokat FÜGGETLENÜL, külön \
+kell megvizsgálnod minden jelöltnél. Iránymutatásként: "WEAK" jelölt \
+esetén szinte mindig "keep": false a helyes válasz; "ADJACENT_THEME" \
+jelölt csak KIVÉTELESEN, valóban prédikációsan használható esetben \
+kaphat "keep": true-t.
+
 FELADAT:
 - válaszd ki LEGFELJEBB {MAX_TOP_N} jelöltet, amelyek ténylegesen, \
   tartalmilag kapcsolódnak a fenti kontextushoz (textus, téma, alkalom) \
@@ -842,6 +894,9 @@ FELADAT:
   konkrét és indokolható, ne csak témarokonság alapján;
 - add meg a fent leírt "match_tier" besorolást is minden visszaadott \
   jelölthöz;
+- add meg a fent leírt "keep" (true/false) döntést is minden \
+  visszaadott jelölthöz -- a végső listában csak "keep": true jelöltek \
+  jelennek meg a felhasználónak;
 - a "reason" mező szövege közvetlenül megjelenik majd a felhasználónak \
   "Kapcsolódás az igéhez: ..." formában, ezért legyen KONKRÉT és \
   LEGFELJEBB 2 rövid mondat, a textus/jelölt tartalmára hivatkozó \
@@ -863,6 +918,7 @@ KIMENET -- KIZÁRÓLAG ezt a JSON alakot add vissza, más szöveg nélkül:
   "results": [
     {{"unit_id": <a jelöltek közül választott egész szám>, "score": <0.0-1.0>, \
 "match_tier": "DIRECT_ANALOGY|THEMATIC_SUPPORT|ADJACENT_THEME|WEAK", \
+"keep": true|false, \
 "reason": "legfeljebb 2 mondatos, konkrét magyarázat"}}
   ]
 }}"""
@@ -895,7 +951,15 @@ def parse_ranking_response(raw: str, *, valid_ids: set[int]) -> list[RankedIllus
         reason = str(item.get("reason", "")).strip()
         raw_tier = item.get("match_tier")
         match_tier = raw_tier if isinstance(raw_tier, str) and raw_tier in MATCH_TIER_ORDER else "WEAK"
-        ranked.append(RankedIllustration(unit_id=unit_id, reason=reason, score=score, match_tier=match_tier))
+        # Fail-closed admission gate: only an explicit JSON `"keep": true`
+        # counts -- missing/non-bool/false all mean "drop". A WEAK tier
+        # additionally HARD-forces keep=False regardless of what the
+        # model wrote for `keep`, so a mislabeled/defaulted-WEAK entry can
+        # never sneak through via a stray `"keep": true`.
+        keep = item.get("keep") is True and match_tier != "WEAK"
+        ranked.append(
+            RankedIllustration(unit_id=unit_id, reason=reason, score=score, match_tier=match_tier, keep=keep)
+        )
     return ranked
 
 
@@ -1039,7 +1103,7 @@ def _run_retrieval_pipeline_impl(
         )
 
     parsed = parse_ranking_response(raw_response, valid_ids={c.unit_id for c in candidates})
-    accepted = [r for r in parsed if r.score >= min_rank_score]
+    accepted = [r for r in parsed if r.score >= min_rank_score and r.keep]
 
     if not accepted:
         return [], RetrievalDiagnostics(

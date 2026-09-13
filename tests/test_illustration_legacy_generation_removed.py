@@ -196,7 +196,7 @@ def test_db_hit_shows_only_db_sourced_story_never_llm_authored_text():
 
     fake_llm = _dispatch_llm(
         {"keywords_hu": ["tékozló", "fiú"]},
-        {"results": [{"unit_id": unit_id, "score": 0.9, "reason": llm_invented_story}]},
+        {"results": [{"unit_id": unit_id, "score": 0.9, "reason": llm_invented_story, "match_tier": "DIRECT_ANALOGY", "keep": True}]},
     )
 
     results = retrieve_illustrations(

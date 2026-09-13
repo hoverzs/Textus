@@ -594,6 +594,65 @@ def test_ranker_non_string_match_tier_fails_closed_to_weak() -> None:
     assert ranked[0].match_tier == "WEAK"
 
 
+# ---------------------------------------------------------------------------
+# Stage B: the "keep" admission gate (round 2, 2026-09-13) -- a tier
+# alone (however strong) must never be trusted to imply admission; only
+# an explicit JSON `"keep": true` does, and WEAK hard-overrides it.
+# ---------------------------------------------------------------------------
+
+
+def test_ranker_parses_explicit_keep_true_on_non_weak_tier() -> None:
+    ranked = parse_ranking_response(
+        json.dumps({"results": [{"unit_id": 1, "score": 0.9, "reason": "x", "match_tier": "DIRECT_ANALOGY", "keep": True}]}),
+        valid_ids={1},
+    )
+    assert ranked[0].keep is True
+
+
+def test_ranker_keep_missing_fails_closed_to_false() -> None:
+    ranked = parse_ranking_response(
+        json.dumps({"results": [{"unit_id": 1, "score": 0.9, "reason": "x", "match_tier": "DIRECT_ANALOGY"}]}),
+        valid_ids={1},
+    )
+    assert ranked[0].keep is False
+
+
+def test_ranker_keep_non_bool_fails_closed_to_false() -> None:
+    ranked = parse_ranking_response(
+        json.dumps({"results": [{"unit_id": 1, "score": 0.9, "reason": "x", "match_tier": "DIRECT_ANALOGY", "keep": "true"}]}),
+        valid_ids={1},
+    )
+    assert ranked[0].keep is False
+
+
+def test_ranker_keep_false_is_respected() -> None:
+    ranked = parse_ranking_response(
+        json.dumps({"results": [{"unit_id": 1, "score": 0.9, "reason": "x", "match_tier": "DIRECT_ANALOGY", "keep": False}]}),
+        valid_ids={1},
+    )
+    assert ranked[0].keep is False
+
+
+def test_ranker_weak_tier_hard_overrides_keep_true() -> None:
+    """The core defense-in-depth rule: even if the model explicitly
+    writes `"keep": true` for a candidate it also labeled WEAK, the
+    parser must still force keep=False -- a WEAK label must never be
+    surfaced, regardless of what else the model claims."""
+    ranked = parse_ranking_response(
+        json.dumps({"results": [{"unit_id": 1, "score": 0.9, "reason": "x", "match_tier": "WEAK", "keep": True}]}),
+        valid_ids={1},
+    )
+    assert ranked[0].keep is False
+
+
+def test_ranker_adjacent_theme_can_have_keep_true() -> None:
+    ranked = parse_ranking_response(
+        json.dumps({"results": [{"unit_id": 1, "score": 0.7, "reason": "x", "match_tier": "ADJACENT_THEME", "keep": True}]}),
+        valid_ids={1},
+    )
+    assert ranked[0].keep is True
+
+
 def test_ranking_prompt_forbids_new_story_generation() -> None:
     candidate = RetrievalCandidate(
         unit_id=1, title_hu="T", modern_hu_text="M", summary_hu="S", moral_hu=None,
@@ -650,6 +709,27 @@ def test_ranking_prompt_forbids_topic_label_restating_and_false_identity() -> No
     assert "Kapcsolódás az igéhez" in prompt
 
 
+def test_ranking_prompt_explains_keep_gate_with_criteria_and_zero_result_permission() -> None:
+    candidate = RetrievalCandidate(
+        unit_id=1, title_hu="T", modern_hu_text="M", summary_hu="S", moral_hu=None,
+        topics=(), tone=None, homiletic_functions=(), source_title="Src", source_code="SRC",
+        tradition=None, license_status="public_domain_confirmed", provenance_status="published",
+    )
+    prompt = build_ranking_prompt(passage_reference="Lk 15,11-24", passage_text="", theme="", occasion="", candidates=[candidate])
+    assert '"keep"' in prompt
+    # positive criteria (at least one must hold for keep=true)
+    assert "magatartási dinamika" in prompt
+    assert "fordulat vagy felismerés" in prompt
+    # explicit anti-patterns (not enough for keep=true)
+    assert "közös általános erkölcsi szó" in prompt
+    assert "moralizáló" in prompt
+    # explicit permission for a legitimate empty answer
+    assert "nincs elég erős illusztráció" in prompt
+    assert "NULLA találat" in prompt
+    # tier must never substitute for the independent keep judgment
+    assert "NEM garantálja automatikusan" in prompt
+
+
 # ---------------------------------------------------------------------------
 # Full pipeline
 # ---------------------------------------------------------------------------
@@ -670,7 +750,7 @@ def test_full_pipeline_returns_result_with_verbatim_db_text() -> None:
 
     llm = _llm_dispatch(
         {"keywords_hu": ["irgalmas", "hazatérés"]},
-        {"results": [{"unit_id": unit_id, "score": 0.95, "reason": "Nagyon releváns."}]},
+        {"results": [{"unit_id": unit_id, "score": 0.95, "reason": "Nagyon releváns.", "match_tier": "DIRECT_ANALOGY", "keep": True}]},
     )
     results = retrieve_illustrations(
         conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm,
@@ -697,7 +777,7 @@ def test_relation_hu_survives_into_final_result_reusing_reason() -> None:
 
     llm = _llm_dispatch(
         {"keywords_hu": ["irgalmas", "hazatérés"]},
-        {"results": [{"unit_id": unit_id, "score": 0.95, "reason": "Konkrét kapcsolódás.", "match_tier": "DIRECT_ANALOGY"}]},
+        {"results": [{"unit_id": unit_id, "score": 0.95, "reason": "Konkrét kapcsolódás.", "match_tier": "DIRECT_ANALOGY", "keep": True}]},
     )
     results = retrieve_illustrations(conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm)
     conn.close()
@@ -708,7 +788,11 @@ def test_relation_hu_survives_into_final_result_reusing_reason() -> None:
     assert results[0].match_tier == "DIRECT_ANALOGY"
 
 
-def test_missing_match_tier_in_final_result_defaults_to_weak_not_a_crash() -> None:
+def test_missing_match_tier_and_keep_fails_closed_to_empty_not_a_crash() -> None:
+    """A response with neither `match_tier` nor `keep` at all: match_tier
+    defaults to WEAK (round 1's fail-closed default), and WEAK then
+    HARD-forces keep=False (round 2) -- so the candidate is dropped
+    entirely, the pipeline returns an empty (not a crashing) result."""
     conn = _fresh_connection()
     source_id = _make_source(conn)
     story_id = _make_story(conn, source_id)
@@ -717,20 +801,43 @@ def test_missing_match_tier_in_final_result_defaults_to_weak_not_a_crash() -> No
 
     llm = _llm_dispatch(
         {"keywords_hu": ["irgalmas"]},
-        {"results": [{"unit_id": unit_id, "score": 0.9, "reason": "x"}]},  # no match_tier key at all
+        {"results": [{"unit_id": unit_id, "score": 0.9, "reason": "x"}]},  # no match_tier, no keep key at all
+    )
+    results, diag = retrieve_illustrations_with_diagnostics(
+        conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm,
+    )
+    conn.close()
+
+    assert results == []
+    assert diag.reason == REASON_RANKER_REJECTED_ALL
+
+
+def test_missing_match_tier_forces_weak_which_hard_overrides_explicit_keep_true() -> None:
+    """Defense in depth: a missing `match_tier` defaults to WEAK, and
+    that defaulted WEAK must still hard-force keep=False even when the
+    model's JSON separately claims `"keep": true` -- a malformed/omitted
+    tier can never accidentally grant admission via a stray keep."""
+    conn = _fresh_connection()
+    source_id = _make_source(conn)
+    story_id = _make_story(conn, source_id)
+    unit_id = _make_published_unit(conn, story_id, title_hu="Irgalmas apa", summary_hu="Egy irgalmas apa története.")
+    conn.commit()
+
+    llm = _llm_dispatch(
+        {"keywords_hu": ["irgalmas"]},
+        {"results": [{"unit_id": unit_id, "score": 0.9, "reason": "x", "keep": True}]},  # no match_tier key
     )
     results = retrieve_illustrations(conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm)
     conn.close()
 
-    assert len(results) == 1
-    assert results[0].match_tier == "WEAK"
-    assert results[0].relation_hu == "x"
+    assert results == []
 
 
-def test_direct_analogy_ranked_above_higher_scoring_weak_match() -> None:
-    """The core Phase 14 ranking-quality goal: a DIRECT_ANALOGY candidate
-    must be ordered first even when a WEAK candidate has a higher raw
-    score -- tier beats score."""
+def test_weak_tier_never_survives_even_with_higher_score_than_a_kept_direct_analogy() -> None:
+    """The core round-2 goal: a WEAK-tier candidate must NEVER reach the
+    final results -- not even when it has a higher raw score than a
+    genuinely kept DIRECT_ANALOGY candidate. Only the kept candidate
+    survives."""
     conn = _fresh_connection()
     source_id = _make_source(conn)
     story_id_weak = _make_story(conn, source_id, external_ref="weak")
@@ -742,8 +849,8 @@ def test_direct_analogy_ranked_above_higher_scoring_weak_match() -> None:
     llm = _llm_dispatch(
         {"keywords_hu": ["irgalmas"]},
         {"results": [
-            {"unit_id": weak_id, "score": 0.95, "reason": "Gyenge.", "match_tier": "WEAK"},
-            {"unit_id": strong_id, "score": 0.65, "reason": "Erős.", "match_tier": "DIRECT_ANALOGY"},
+            {"unit_id": weak_id, "score": 0.95, "reason": "Gyenge.", "match_tier": "WEAK", "keep": True},
+            {"unit_id": strong_id, "score": 0.65, "reason": "Erős.", "match_tier": "DIRECT_ANALOGY", "keep": True},
         ]},
     )
     results = retrieve_illustrations(
@@ -751,7 +858,7 @@ def test_direct_analogy_ranked_above_higher_scoring_weak_match() -> None:
     )
     conn.close()
 
-    assert [r.unit_id for r in results] == [strong_id, weak_id]
+    assert [r.unit_id for r in results] == [strong_id]
 
 
 def test_tier_ties_broken_by_score() -> None:
@@ -766,8 +873,8 @@ def test_tier_ties_broken_by_score() -> None:
     llm = _llm_dispatch(
         {"keywords_hu": ["irgalmas"]},
         {"results": [
-            {"unit_id": lower_id, "score": 0.7, "reason": "x", "match_tier": "THEMATIC_SUPPORT"},
-            {"unit_id": higher_id, "score": 0.9, "reason": "y", "match_tier": "THEMATIC_SUPPORT"},
+            {"unit_id": lower_id, "score": 0.7, "reason": "x", "match_tier": "THEMATIC_SUPPORT", "keep": True},
+            {"unit_id": higher_id, "score": 0.9, "reason": "y", "match_tier": "THEMATIC_SUPPORT", "keep": True},
         ]},
     )
     results = retrieve_illustrations(
@@ -776,6 +883,79 @@ def test_tier_ties_broken_by_score() -> None:
     conn.close()
 
     assert [r.unit_id for r in results] == [higher_id, lower_id]
+
+
+def test_keep_false_candidate_dropped_even_with_direct_analogy_tier_and_high_score() -> None:
+    """DIRECT_ANALOGY + a high score must NOT be enough on their own --
+    the model can still explicitly withhold admission via keep=False,
+    and that must be honored."""
+    conn = _fresh_connection()
+    source_id = _make_source(conn)
+    story_id = _make_story(conn, source_id)
+    unit_id = _make_published_unit(conn, story_id, title_hu="Irgalmas apa", summary_hu="Egy irgalmas apa története.")
+    conn.commit()
+
+    llm = _llm_dispatch(
+        {"keywords_hu": ["irgalmas"]},
+        {"results": [{"unit_id": unit_id, "score": 0.95, "reason": "x", "match_tier": "DIRECT_ANALOGY", "keep": False}]},
+    )
+    results, diag = retrieve_illustrations_with_diagnostics(
+        conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm,
+    )
+    conn.close()
+
+    assert results == []
+    assert diag.reason == REASON_RANKER_REJECTED_ALL
+
+
+def test_adjacent_theme_keep_true_survives_exceptionally() -> None:
+    conn = _fresh_connection()
+    source_id = _make_source(conn)
+    story_id = _make_story(conn, source_id)
+    unit_id = _make_published_unit(conn, story_id, title_hu="Irgalmas rokon téma", summary_hu="Egy irgalmas apa története.")
+    conn.commit()
+
+    llm = _llm_dispatch(
+        {"keywords_hu": ["irgalmas"]},
+        {"results": [{"unit_id": unit_id, "score": 0.7, "reason": "x", "match_tier": "ADJACENT_THEME", "keep": True}]},
+    )
+    results = retrieve_illustrations(conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm)
+    conn.close()
+
+    assert len(results) == 1
+    assert results[0].unit_id == unit_id
+
+
+def test_all_candidates_rejected_is_a_legitimate_empty_result_end_to_end() -> None:
+    """The explicit "0 results is legitimate" outcome the round-2 spec
+    requires: several plausible-looking candidates, all keep=False (a
+    stand-in for the Róm 3,21-26 / Mt 1,1-17 negative-control case) --
+    the pipeline must return an empty list with REASON_RANKER_REJECTED_ALL,
+    never a forced/best-effort result."""
+    conn = _fresh_connection()
+    source_id = _make_source(conn)
+    unit_ids = []
+    for i in range(3):
+        story_id = _make_story(conn, source_id, external_ref=f"nc{i}")
+        unit_ids.append(_make_published_unit(conn, story_id, title_hu=f"Jelölt {i}", summary_hu=_VALID_SUMMARY))
+    conn.commit()
+
+    llm = _llm_dispatch(
+        {"keywords_hu": ["igazsagossag"]},
+        {"results": [
+            {"unit_id": uid, "score": 0.8, "reason": "Csak távoli asszociáció.", "match_tier": "ADJACENT_THEME", "keep": False}
+            for uid in unit_ids
+        ]},
+    )
+    results, diag = retrieve_illustrations_with_diagnostics(
+        conn, mode="production", passage_reference="Róm 3,21-26", llm_generate=llm, min_local_relevance=0.0,
+    )
+    conn.close()
+
+    assert results == []
+    assert diag.reason == REASON_RANKER_REJECTED_ALL
+    assert diag.stage_b_parsed_count == 3
+    assert diag.stage_b_accepted_count == 0
 
 
 def test_no_candidates_above_threshold_never_calls_ranker() -> None:
@@ -845,7 +1025,7 @@ def test_low_rank_score_filtered_out_of_final_results() -> None:
 
     llm = _llm_dispatch(
         {"keywords_hu": ["irgalmas"]},
-        {"results": [{"unit_id": unit_id, "score": 0.1, "reason": "Gyenge kapcsolat."}]},
+        {"results": [{"unit_id": unit_id, "score": 0.1, "reason": "Gyenge kapcsolat.", "match_tier": "DIRECT_ANALOGY", "keep": True}]},
     )
     results = retrieve_illustrations(conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm)
     conn.close()
@@ -861,7 +1041,7 @@ def test_rank_score_at_or_above_minimum_is_kept() -> None:
 
     llm = _llm_dispatch(
         {"keywords_hu": ["irgalmas"]},
-        {"results": [{"unit_id": unit_id, "score": MIN_RANK_SCORE, "reason": "Elég erős kapcsolat."}]},
+        {"results": [{"unit_id": unit_id, "score": MIN_RANK_SCORE, "reason": "Elég erős kapcsolat.", "match_tier": "DIRECT_ANALOGY", "keep": True}]},
     )
     results = retrieve_illustrations(conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm)
     conn.close()
@@ -892,7 +1072,7 @@ def test_top_n_limits_result_count() -> None:
 
     llm = _llm_dispatch(
         {"keywords_hu": ["irgalmas"]},
-        {"results": [{"unit_id": uid, "score": 0.9, "reason": "x"} for uid in unit_ids]},
+        {"results": [{"unit_id": uid, "score": 0.9, "reason": "x", "match_tier": "DIRECT_ANALOGY", "keep": True} for uid in unit_ids]},
     )
     results = retrieve_illustrations(
         conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm, top_n=3,
@@ -909,7 +1089,7 @@ def test_development_mode_result_marks_provenance_status() -> None:
     unit_id = _make_unit(conn, story_id, status="needs_review", qa_status="passed", title_hu="Irgalmas apa", summary_hu="Egy irgalmas apa története.")
     conn.commit()
 
-    llm = _llm_dispatch({"keywords_hu": ["irgalmas"]}, {"results": [{"unit_id": unit_id, "score": 0.9, "reason": "x"}]})
+    llm = _llm_dispatch({"keywords_hu": ["irgalmas"]}, {"results": [{"unit_id": unit_id, "score": 0.9, "reason": "x", "match_tier": "DIRECT_ANALOGY", "keep": True}]})
     results = retrieve_illustrations(conn, mode="development", passage_reference="Lk 15,11-24", llm_generate=llm)
     conn.close()
 
@@ -986,7 +1166,7 @@ def test_diagnostics_reason_ok_when_results_found() -> None:
 
     llm = _llm_dispatch(
         {"keywords_hu": ["irgalmas"]},
-        {"results": [{"unit_id": unit_id, "score": 0.9, "reason": "x"}]},
+        {"results": [{"unit_id": unit_id, "score": 0.9, "reason": "x", "match_tier": "DIRECT_ANALOGY", "keep": True}]},
     )
     results, diag = retrieve_illustrations_with_diagnostics(
         conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm,
@@ -1079,7 +1259,7 @@ def test_diagnostics_reason_ranker_rejected_all_when_nothing_clears_rank_thresho
 
     llm = _llm_dispatch(
         {"keywords_hu": ["irgalmas"]},
-        {"results": [{"unit_id": unit_id, "score": 0.1, "reason": "Gyenge kapcsolat."}]},
+        {"results": [{"unit_id": unit_id, "score": 0.1, "reason": "Gyenge kapcsolat.", "match_tier": "DIRECT_ANALOGY", "keep": True}]},
     )
     results, diag = retrieve_illustrations_with_diagnostics(
         conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm,
@@ -1114,7 +1294,7 @@ def test_retrieve_illustrations_plain_still_returns_only_results_list() -> None:
 
     llm = _llm_dispatch(
         {"keywords_hu": ["irgalmas"]},
-        {"results": [{"unit_id": unit_id, "score": 0.9, "reason": "x"}]},
+        {"results": [{"unit_id": unit_id, "score": 0.9, "reason": "x", "match_tier": "DIRECT_ANALOGY", "keep": True}]},
     )
     results = retrieve_illustrations(conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm)
     conn.close()
@@ -1141,7 +1321,7 @@ def test_retrieval_logs_structured_diagnostics_on_success(caplog) -> None:
 
     llm = _llm_dispatch(
         {"keywords_hu": ["irgalmas"]},
-        {"results": [{"unit_id": unit_id, "score": 0.9, "reason": "x"}]},
+        {"results": [{"unit_id": unit_id, "score": 0.9, "reason": "x", "match_tier": "DIRECT_ANALOGY", "keep": True}]},
     )
     with caplog.at_level("INFO", logger="illustration_engine.retrieval"):
         retrieve_illustrations(conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm)
@@ -1378,7 +1558,7 @@ def test_full_pipeline_end_to_end_with_supabase_repository() -> None:
 
     llm = _llm_dispatch(
         {"keywords_hu": ["irgalmas", "hazatérés"]},
-        {"results": [{"unit_id": 7, "score": 0.95, "reason": "Nagyon releváns."}]},
+        {"results": [{"unit_id": 7, "score": 0.95, "reason": "Nagyon releváns.", "match_tier": "DIRECT_ANALOGY", "keep": True}]},
     )
     results = retrieve_illustrations(repo, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm)
 
