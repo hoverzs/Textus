@@ -19,16 +19,19 @@ from illustration_engine.illustration_sqlite import (
 from illustration_engine.retrieval import (
     MIN_LOCAL_RELEVANCE_SCORE,
     MIN_RANK_SCORE,
+    REASON_CANDIDATE_FETCH_ERROR,
     REASON_NO_INTENT,
     REASON_NO_LOCAL_CANDIDATES,
     REASON_OK,
     REASON_PLANNER_ERROR,
     REASON_RANKER_REJECTED_ALL,
     REASON_RANKING_ERROR,
+    LocalSqliteIllustrationRepository,
     RankedIllustration,
     RetrievalCandidate,
     RetrievalDiagnostics,
     RetrievalIntent,
+    SupabaseIllustrationRepository,
     build_query_planner_prompt,
     build_ranking_prompt,
     find_candidates,
@@ -1088,3 +1091,216 @@ def test_retrieval_log_line_never_contains_free_text_keywords_or_story_content(c
     assert "egyedi_kulcsszo_amit_soha_nem_szabad_logolni" not in combined
     assert "tékozló fiú konkrét egyedi cím" not in combined
     assert "soha nem szabad logba kerülnie" not in combined
+
+
+# ---------------------------------------------------------------------------
+# 2026-09 runtime retrieval cutover: SupabaseIllustrationRepository +
+# LocalSqliteIllustrationRepository, and the connection/repository dispatch
+# every public entry point (find_candidates, retrieve_illustrations, ...)
+# now goes through. Same fake-Postgrest-client pattern as tests/
+# test_hebrew_analysis_repository_supabase.py -- no real network access.
+# ---------------------------------------------------------------------------
+
+
+class _FakeRpcResponse:
+    def __init__(self, data: list[dict]) -> None:
+        self.data = data
+
+
+class _FakeRpcCall:
+    def __init__(self, recorder: list, name: str, params: dict, response_data: list[dict]) -> None:
+        recorder.append((name, params))
+        self._response_data = response_data
+
+    def execute(self) -> _FakeRpcResponse:
+        return _FakeRpcResponse(self._response_data)
+
+
+class _FakeSupabaseClient:
+    def __init__(self, rpc_response_data: list[dict]) -> None:
+        self.rpc_calls: list[tuple[str, dict]] = []
+        self._rpc_response_data = rpc_response_data
+
+    def rpc(self, name: str, params: dict) -> _FakeRpcCall:
+        return _FakeRpcCall(self.rpc_calls, name, params, self._rpc_response_data)
+
+
+def _rpc_row(**overrides) -> dict:
+    base = {
+        "unit_id": 1, "title_hu": "Irgalmas apa", "modern_hu_text": "Szöveg.",
+        "summary_hu": "Egy irgalmas apa története.", "moral_hu": None,
+        "topics": ["irgalom"], "tone": "komoly", "homiletic_functions": ["szemlelteto_pelda"],
+        "source_title": "Test Source", "source_code": "SRC", "tradition": "test tradition",
+        "license_status": "public_domain_confirmed",
+    }
+    base.update(overrides)
+    return base
+
+
+def test_supabase_repository_fetch_eligible_units_maps_rpc_rows() -> None:
+    client = _FakeSupabaseClient([_rpc_row()])
+    repo = SupabaseIllustrationRepository(client=client)
+
+    candidates = repo.fetch_eligible_units(mode="production")
+
+    assert len(candidates) == 1
+    c = candidates[0]
+    assert c.unit_id == 1
+    assert c.title_hu == "Irgalmas apa"
+    assert c.topics == ("irgalom",)
+    assert c.homiletic_functions == ("szemlelteto_pelda",)
+    assert c.provenance_status == "published"
+
+
+def test_supabase_repository_issues_exactly_one_rpc_call_no_n_plus_1() -> None:
+    """The core no-N+1 guarantee: regardless of how many candidates the
+    RPC returns, fetch_eligible_units must call the RPC exactly once."""
+    client = _FakeSupabaseClient([_rpc_row(unit_id=i) for i in range(1, 51)])
+    repo = SupabaseIllustrationRepository(client=client)
+
+    candidates = repo.fetch_eligible_units(mode="production")
+
+    assert len(candidates) == 50
+    assert client.rpc_calls == [("get_published_illustration_candidates", {})]
+
+
+def test_supabase_repository_empty_result_is_empty_list_not_error() -> None:
+    client = _FakeSupabaseClient([])
+    repo = SupabaseIllustrationRepository(client=client)
+
+    candidates = repo.fetch_eligible_units(mode="production")
+
+    assert candidates == []
+
+
+def test_supabase_repository_development_mode_not_implemented() -> None:
+    """No Supabase-side dev-mode RPC exists yet -- must fail loudly and
+    explicitly, never silently fall back to production-mode data or an
+    empty list that could be misread as 'no candidates'."""
+    client = _FakeSupabaseClient([])
+    repo = SupabaseIllustrationRepository(client=client)
+
+    with pytest.raises(NotImplementedError):
+        repo.fetch_eligible_units(mode="development")
+
+
+def test_as_repository_dispatch_wraps_raw_connection() -> None:
+    """find_candidates/retrieve_illustrations still accept a raw
+    sqlite3.Connection directly (backward compatibility with every
+    existing call site and every test above this point in this file)."""
+    conn = _fresh_connection()
+    source_id = _make_source(conn)
+    story_id = _make_story(conn, source_id)
+    unit_id = _make_published_unit(conn, story_id, title_hu="Publikált")
+    conn.commit()
+
+    candidates = find_candidates(conn, intent=_ANY_INTENT, mode="production", limit=10, min_relevance=0.0)
+    conn.close()
+
+    assert [c.unit_id for c in candidates] == [unit_id]
+
+
+def test_find_candidates_accepts_supabase_repository_directly() -> None:
+    """The SAME find_candidates() entry point, given a
+    SupabaseIllustrationRepository instead of a sqlite3.Connection,
+    applies the EXACT SAME threshold/scoring logic -- no code path
+    difference beyond which object produced the candidate list."""
+    client = _FakeSupabaseClient([_rpc_row(unit_id=42, title_hu="Irgalmas apa és a tékozló fiú")])
+    repo = SupabaseIllustrationRepository(client=client)
+
+    intent = RetrievalIntent(keywords_hu=("irgalmas",))
+    candidates = find_candidates(repo, intent=intent, mode="production", limit=10)
+
+    assert [c.unit_id for c in candidates] == [42]
+
+
+def test_full_pipeline_end_to_end_with_supabase_repository() -> None:
+    """Stage 0 (planner) / Stage A (local_relevance_score, threshold) /
+    Stage B (ranker prompt/parse) are ALL exercised, completely
+    unmodified, with a SupabaseIllustrationRepository standing in for
+    the SQLite connection every other end-to-end test in this file
+    uses. This is the direct regression test for 'Stage 0/A/B logic
+    unchanged' under the runtime retrieval cutover."""
+    client = _FakeSupabaseClient([
+        _rpc_row(unit_id=7, title_hu="Irgalmas apa", summary_hu="Egy irgalmas apa története a hazatérésről.")
+    ])
+    repo = SupabaseIllustrationRepository(client=client)
+
+    llm = _llm_dispatch(
+        {"keywords_hu": ["irgalmas", "hazatérés"]},
+        {"results": [{"unit_id": 7, "score": 0.95, "reason": "Nagyon releváns."}]},
+    )
+    results = retrieve_illustrations(repo, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm)
+
+    assert len(results) == 1
+    assert results[0].unit_id == 7
+    assert results[0].modern_hu_text == "Szöveg."  # verbatim from the RPC row, never from the ranker
+    assert client.rpc_calls == [("get_published_illustration_candidates", {})]  # one RPC call total
+
+
+def test_supabase_repository_never_used_for_development_mode_via_public_entry_point() -> None:
+    client = _FakeSupabaseClient([])
+    repo = SupabaseIllustrationRepository(client=client)
+
+    with pytest.raises(NotImplementedError):
+        find_candidates(repo, intent=_ANY_INTENT, mode="development", limit=10)
+
+
+def test_local_sqlite_repository_class_matches_prior_inline_behavior() -> None:
+    """LocalSqliteIllustrationRepository, used explicitly rather than via
+    the connection-dispatch shortcut, produces the identical result --
+    pins that extracting it out of _fetch_and_score_candidates changed
+    nothing behaviorally."""
+    conn = _fresh_connection()
+    source_id = _make_source(conn)
+    story_id = _make_story(conn, source_id)
+    unit_id = _make_published_unit(conn, story_id, title_hu="Publikált")
+    conn.commit()
+
+    repo = LocalSqliteIllustrationRepository(conn)
+    candidates = repo.fetch_eligible_units(mode="production")
+    conn.close()
+
+    assert [c.unit_id for c in candidates] == [unit_id]
+    assert candidates[0].provenance_status == "published"
+
+
+def test_candidate_fetch_error_fails_closed_never_propagates_exception() -> None:
+    """The core regression test for the runtime retrieval cutover's
+    fail-closed gap fix: a repository whose fetch_eligible_units raises
+    (e.g. a real Supabase RPC/network failure) must NEVER propagate an
+    exception up through retrieve_illustrations_with_diagnostics -- and
+    must be reported as a DISTINCT reason from REASON_NO_LOCAL_CANDIDATES
+    (a genuinely empty, successfully-fetched pool)."""
+
+    class _BrokenRepository:
+        def fetch_eligible_units(self, *, mode):
+            raise RuntimeError("simulated Supabase network failure")
+
+    llm = _llm_dispatch({"keywords_hu": ["irgalmas"]}, {"results": []})
+    results, diag = retrieve_illustrations_with_diagnostics(
+        _BrokenRepository(), mode="production", passage_reference="Lk 15,11-24", llm_generate=llm,
+    )
+
+    assert results == []
+    assert diag.reason == REASON_CANDIDATE_FETCH_ERROR
+    assert diag.reason != REASON_NO_LOCAL_CANDIDATES
+
+
+def test_candidate_fetch_error_via_supabase_repository_rpc_failure() -> None:
+    """End-to-end version of the above, specifically through
+    SupabaseIllustrationRepository -- a failing RPC call must surface as
+    REASON_CANDIDATE_FETCH_ERROR, not crash the caller."""
+
+    class _FailingRpcClient:
+        def rpc(self, name, params):
+            raise ConnectionError("simulated network outage")
+
+    repo = SupabaseIllustrationRepository(client=_FailingRpcClient())
+    llm = _llm_dispatch({"keywords_hu": ["irgalmas"]}, {"results": []})
+    results, diag = retrieve_illustrations_with_diagnostics(
+        repo, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm,
+    )
+
+    assert results == []
+    assert diag.reason == REASON_CANDIDATE_FETCH_ERROR

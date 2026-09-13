@@ -71,10 +71,15 @@ from typing import Callable
 
 import streamlit as st
 
+from illustration_engine.backend_config import (
+    IllustrationBackendConfigurationError,
+    resolve_illustration_backend,
+)
 from illustration_engine.illustration_sqlite import DEFAULT_DATABASE_PATH, migrate_schema
 from illustration_engine.retrieval import (
     IllustrationRetrievalResult,
     RetrievalDiagnostics,
+    SupabaseIllustrationRepository,
     retrieve_illustrations_with_diagnostics,
 )
 from illustration_review_ui import is_local_loopback_request
@@ -92,15 +97,35 @@ _REASON_LABELS_HU = {
     "ranker_rejected_all": "A rangsoroló lefutott, de egyik jelöltet sem tartotta elég relevánsnak",
     "planner_error": "A tervező LLM-hívás hibát dobott (pl. hálózat, cooldown, API-kulcs)",
     "ranking_error": "A rangsoroló LLM-hívás hibát dobott (pl. hálózat, cooldown, API-kulcs)",
+    "candidate_fetch_error": "Az illusztráció-adatbázis elérése hibát dobott (pl. hálózat, backend)",
 }
 
 _DEV_MODE_BANNER = "⚠️ Belső QA corpus — még nem publikált tételek."
 _EMPTY_RESULT_MESSAGE = "A tudástárban most nem találtam megfelelő, ellenőrzött illusztrációt."
+# 2026-09 runtime retrieval cutover: DELIBERATELY a different message and a
+# different `tone` (see _resolve_repository_and_mode's call site) from
+# _EMPTY_RESULT_MESSAGE -- a misconfigured/unreachable backend must never
+# read to the user as "nincs találat" (a normal, expected outcome most of
+# the time by design). This is the direct fix for the exact 2026-09
+# provenance-audit incident that started this whole investigation: a
+# production deployment silently querying an empty database produced a
+# message indistinguishable from "genuinely found nothing."
+_BACKEND_ERROR_MESSAGE = (
+    "Az illusztráció-keresés jelenleg nem elérhető ezen a környezeten "
+    "(konfigurációs hiba). Ez NEM azt jelenti, hogy nincs megfelelő "
+    "illusztráció -- a keresés meg sem tudott indulni."
+)
+_CANDIDATE_FETCH_ERROR_MESSAGE = (
+    "Az illusztráció-adatbázis elérése most hibát adott (pl. hálózati "
+    "probléma). Ez NEM azt jelenti, hogy nincs megfelelő illusztráció -- "
+    "próbáld újra egy kicsit később."
+)
 
 
 @st.cache_resource(show_spinner=False)
 def _get_connection() -> sqlite3.Connection:
-    """Deliberately a SEPARATE connection/cache from
+    """Local SQLite path -- used only when `resolve_illustration_backend()`
+    returns `"local"`. Deliberately a SEPARATE connection/cache from
     `illustration_review_ui._get_connection()` -- two independent UI
     surfaces (internal reviewer tool vs. public retrieval feature) with
     no reason to share private internals, even though both point at the
@@ -113,8 +138,52 @@ def _get_connection() -> sqlite3.Connection:
     return connection
 
 
+@st.cache_resource(show_spinner=False)
+def _get_supabase_repository() -> SupabaseIllustrationRepository:
+    """Cached the same way `_get_connection()` already is -- one
+    `SupabaseIllustrationRepository` (and, inside it, one lazily-
+    resolved anon-keyed `supabase.Client`) per Streamlit process, not
+    reconstructed on every search."""
+    return SupabaseIllustrationRepository()
+
+
 def _current_mode() -> str:
     return "development" if is_local_loopback_request() else "production"
+
+
+def _is_candidate_fetch_error(diagnostics: RetrievalDiagnostics | None) -> bool:
+    """Pure, independently-testable extraction of the empty-vs-error
+    branch decision at the results-rendering call site -- a backend/
+    network failure during a search (RetrievalDiagnostics.reason ==
+    "candidate_fetch_error") must render as a distinct error state, never
+    merged into the "Nincs megfelelő találat" empty-result message."""
+    return diagnostics is not None and diagnostics.reason == "candidate_fetch_error"
+
+
+def _resolve_data_source():
+    """Resolves BOTH which backend to use (`TEXTUS_ILLUSTRATION_BACKEND`,
+    fail-closed in cloud -- see `illustration_engine.backend_config`) and
+    the effective retrieval `mode`.
+
+    Returns `(connection_or_repository, mode)`. Raises
+    `IllustrationBackendConfigurationError` if the backend is
+    misconfigured -- the caller MUST catch this SEPARATELY from any
+    retrieval-outcome branch (see `_BACKEND_ERROR_MESSAGE`'s docstring
+    note) and must never let it reach the "nincs találat" UI path.
+
+    `SupabaseIllustrationRepository` only supports `mode="production"`
+    (no Supabase-side development/QA-preview RPC exists yet) -- so when
+    the resolved backend is `"supabase"`, the effective mode is always
+    forced to `"production"` regardless of loopback-host detection. A
+    developer who explicitly opts into `TEXTUS_ILLUSTRATION_BACKEND=
+    supabase` locally sees exactly what a real anon user would see, by
+    design; the SQLite dev-mode QA-preview path is unaffected and
+    continues to work exactly as before whenever the backend is
+    `"local"` (the unset-in-non-cloud default)."""
+    backend = resolve_illustration_backend()
+    if backend == "supabase":
+        return _get_supabase_repository(), "production"
+    return _get_connection(), _current_mode()
 
 
 def _render_result_card(item: IllustrationRetrievalResult) -> None:
@@ -172,7 +241,17 @@ def render_illustration_search_action(*, generate_fn: Callable[..., str] | None 
         context="Textusműhely",
     )
 
-    mode = _current_mode()
+    try:
+        connection, mode = _resolve_data_source()
+    except IllustrationBackendConfigurationError:
+        # Deliberately its OWN branch, checked BEFORE the search button is
+        # even rendered -- a misconfigured backend must never be reachable
+        # via the same code path as "search ran, found nothing" (see
+        # _BACKEND_ERROR_MESSAGE's docstring note for why this distinction
+        # exists).
+        render_info_panel(title="Konfigurációs hiba", body=_BACKEND_ERROR_MESSAGE, tone="danger")
+        return
+
     if mode == "development":
         st.info(_DEV_MODE_BANNER)
 
@@ -187,7 +266,6 @@ def render_illustration_search_action(*, generate_fn: Callable[..., str] | None 
                     st.warning("Nincs elérhető AI-hívás ehhez a funkcióhoz.")
                 else:
                     with st.spinner("Illusztrációk keresése…"):
-                        connection = _get_connection()
                         passage_text = str(st.session_state.get("passage_text") or "")
                         occasion = str(st.session_state.get("occasion_label") or "").strip()
 
@@ -229,7 +307,13 @@ def render_illustration_search_action(*, generate_fn: Callable[..., str] | None 
 
         if st.session_state.get(_SEARCHED_KEY):
             results: list[IllustrationRetrievalResult] = st.session_state.get(_RESULTS_KEY) or []
-            if not results:
+            diag_for_empty_check: RetrievalDiagnostics | None = st.session_state.get(_DIAGNOSTICS_KEY)
+            if not results and _is_candidate_fetch_error(diag_for_empty_check):
+                # A backend/network failure DURING a search attempt -- distinct
+                # from a genuine 0-candidate outcome; never rendered as "nincs
+                # találat" (see _CANDIDATE_FETCH_ERROR_MESSAGE's docstring note).
+                render_info_panel(title="Átmeneti hiba", body=_CANDIDATE_FETCH_ERROR_MESSAGE, tone="danger")
+            elif not results:
                 render_info_panel(
                     title="Nincs megfelelő találat",
                     body=_EMPTY_RESULT_MESSAGE,
