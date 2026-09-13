@@ -17,6 +17,7 @@ from illustration_engine.illustration_sqlite import (
     update_unit_machine_qa,
 )
 from illustration_engine.retrieval import (
+    MATCH_TIER_ORDER,
     MIN_LOCAL_RELEVANCE_SCORE,
     MIN_RANK_SCORE,
     REASON_CANDIDATE_FETCH_ERROR,
@@ -563,6 +564,36 @@ def test_ranker_non_int_unit_id_dropped() -> None:
     assert ranked == []  # string "1" is not accepted as int 1 -- fail closed, no type coercion guessing
 
 
+def test_ranker_parses_valid_match_tier() -> None:
+    ranked = parse_ranking_response(
+        json.dumps({"results": [{"unit_id": 1, "score": 0.9, "reason": "x", "match_tier": "DIRECT_ANALOGY"}]}),
+        valid_ids={1},
+    )
+    assert ranked[0].match_tier == "DIRECT_ANALOGY"
+
+
+def test_ranker_missing_match_tier_fails_closed_to_weak() -> None:
+    ranked = parse_ranking_response(
+        json.dumps({"results": [{"unit_id": 1, "score": 0.9, "reason": "x"}]}), valid_ids={1},
+    )
+    assert ranked[0].match_tier == "WEAK"
+
+
+def test_ranker_invalid_match_tier_fails_closed_to_weak() -> None:
+    ranked = parse_ranking_response(
+        json.dumps({"results": [{"unit_id": 1, "score": 0.9, "reason": "x", "match_tier": "SUPER_STRONG_MATCH"}]}),
+        valid_ids={1},
+    )
+    assert ranked[0].match_tier == "WEAK"
+
+
+def test_ranker_non_string_match_tier_fails_closed_to_weak() -> None:
+    ranked = parse_ranking_response(
+        json.dumps({"results": [{"unit_id": 1, "score": 0.9, "reason": "x", "match_tier": 3}]}), valid_ids={1},
+    )
+    assert ranked[0].match_tier == "WEAK"
+
+
 def test_ranking_prompt_forbids_new_story_generation() -> None:
     candidate = RetrievalCandidate(
         unit_id=1, title_hu="T", modern_hu_text="M", summary_hu="S", moral_hu=None,
@@ -593,6 +624,30 @@ def test_ranking_prompt_requires_concrete_reason_not_generic() -> None:
     prompt = build_ranking_prompt(passage_reference="Lk 15,11-24", passage_text="", theme="", occasion="", candidates=[candidate])
     assert "kapcsolódik a textushoz" in prompt  # cited as the forbidden example
     assert "KONKRÉT" in prompt
+
+
+def test_ranking_prompt_explains_match_tiers_with_priority() -> None:
+    candidate = RetrievalCandidate(
+        unit_id=1, title_hu="T", modern_hu_text="M", summary_hu="S", moral_hu=None,
+        topics=(), tone=None, homiletic_functions=(), source_title="Src", source_code="SRC",
+        tradition=None, license_status="public_domain_confirmed", provenance_status="published",
+    )
+    prompt = build_ranking_prompt(passage_reference="Lk 15,11-24", passage_text="", theme="", occasion="", candidates=[candidate])
+    for tier in MATCH_TIER_ORDER:
+        assert tier in prompt
+    assert "match_tier" in prompt
+
+
+def test_ranking_prompt_forbids_topic_label_restating_and_false_identity() -> None:
+    candidate = RetrievalCandidate(
+        unit_id=1, title_hu="T", modern_hu_text="M", summary_hu="S", moral_hu=None,
+        topics=(), tone=None, homiletic_functions=(), source_title="Src", source_code="SRC",
+        tradition=None, license_status="public_domain_confirmed", provenance_status="published",
+    )
+    prompt = build_ranking_prompt(passage_reference="Lk 15,11-24", passage_text="", theme="", occasion="", candidates=[candidate])
+    assert "témacímkéket" in prompt
+    assert "ANALÓGIA" in prompt
+    assert "Kapcsolódás az igéhez" in prompt
 
 
 # ---------------------------------------------------------------------------
@@ -626,6 +681,101 @@ def test_full_pipeline_returns_result_with_verbatim_db_text() -> None:
     assert results[0].modern_hu_text == "Az eredeti, adatbázisban tárolt szöveg."
     assert results[0].unit_id == unit_id
     assert results[0].rank_reason == "Nagyon releváns."
+
+
+def test_relation_hu_survives_into_final_result_reusing_reason() -> None:
+    """`relation_hu` must carry the SAME text as `rank_reason` all the
+    way through the pipeline -- the ranker prompt was tightened rather
+    than a second field/second LLM call being added (Phase 14)."""
+    conn = _fresh_connection()
+    source_id = _make_source(conn)
+    story_id = _make_story(conn, source_id)
+    unit_id = _make_published_unit(
+        conn, story_id, title_hu="Irgalmas apa", summary_hu="Egy irgalmas apa története a hazatérésről.",
+    )
+    conn.commit()
+
+    llm = _llm_dispatch(
+        {"keywords_hu": ["irgalmas", "hazatérés"]},
+        {"results": [{"unit_id": unit_id, "score": 0.95, "reason": "Konkrét kapcsolódás.", "match_tier": "DIRECT_ANALOGY"}]},
+    )
+    results = retrieve_illustrations(conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm)
+    conn.close()
+
+    assert len(results) == 1
+    assert results[0].relation_hu == "Konkrét kapcsolódás."
+    assert results[0].relation_hu == results[0].rank_reason
+    assert results[0].match_tier == "DIRECT_ANALOGY"
+
+
+def test_missing_match_tier_in_final_result_defaults_to_weak_not_a_crash() -> None:
+    conn = _fresh_connection()
+    source_id = _make_source(conn)
+    story_id = _make_story(conn, source_id)
+    unit_id = _make_published_unit(conn, story_id, title_hu="Irgalmas apa", summary_hu="Egy irgalmas apa története.")
+    conn.commit()
+
+    llm = _llm_dispatch(
+        {"keywords_hu": ["irgalmas"]},
+        {"results": [{"unit_id": unit_id, "score": 0.9, "reason": "x"}]},  # no match_tier key at all
+    )
+    results = retrieve_illustrations(conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm)
+    conn.close()
+
+    assert len(results) == 1
+    assert results[0].match_tier == "WEAK"
+    assert results[0].relation_hu == "x"
+
+
+def test_direct_analogy_ranked_above_higher_scoring_weak_match() -> None:
+    """The core Phase 14 ranking-quality goal: a DIRECT_ANALOGY candidate
+    must be ordered first even when a WEAK candidate has a higher raw
+    score -- tier beats score."""
+    conn = _fresh_connection()
+    source_id = _make_source(conn)
+    story_id_weak = _make_story(conn, source_id, external_ref="weak")
+    story_id_strong = _make_story(conn, source_id, external_ref="strong")
+    weak_id = _make_published_unit(conn, story_id_weak, title_hu="Gyenge találat", summary_hu=_VALID_SUMMARY)
+    strong_id = _make_published_unit(conn, story_id_strong, title_hu="Erős analógia", summary_hu=_VALID_SUMMARY)
+    conn.commit()
+
+    llm = _llm_dispatch(
+        {"keywords_hu": ["irgalmas"]},
+        {"results": [
+            {"unit_id": weak_id, "score": 0.95, "reason": "Gyenge.", "match_tier": "WEAK"},
+            {"unit_id": strong_id, "score": 0.65, "reason": "Erős.", "match_tier": "DIRECT_ANALOGY"},
+        ]},
+    )
+    results = retrieve_illustrations(
+        conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm, min_local_relevance=0.0,
+    )
+    conn.close()
+
+    assert [r.unit_id for r in results] == [strong_id, weak_id]
+
+
+def test_tier_ties_broken_by_score() -> None:
+    conn = _fresh_connection()
+    source_id = _make_source(conn)
+    story_id_a = _make_story(conn, source_id, external_ref="a")
+    story_id_b = _make_story(conn, source_id, external_ref="b")
+    lower_id = _make_published_unit(conn, story_id_a, title_hu="Alacsonyabb", summary_hu=_VALID_SUMMARY)
+    higher_id = _make_published_unit(conn, story_id_b, title_hu="Magasabb", summary_hu=_VALID_SUMMARY)
+    conn.commit()
+
+    llm = _llm_dispatch(
+        {"keywords_hu": ["irgalmas"]},
+        {"results": [
+            {"unit_id": lower_id, "score": 0.7, "reason": "x", "match_tier": "THEMATIC_SUPPORT"},
+            {"unit_id": higher_id, "score": 0.9, "reason": "y", "match_tier": "THEMATIC_SUPPORT"},
+        ]},
+    )
+    results = retrieve_illustrations(
+        conn, mode="production", passage_reference="Lk 15,11-24", llm_generate=llm, min_local_relevance=0.0,
+    )
+    conn.close()
+
+    assert [r.unit_id for r in results] == [higher_id, lower_id]
 
 
 def test_no_candidates_above_threshold_never_calls_ranker() -> None:

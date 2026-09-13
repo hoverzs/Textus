@@ -228,11 +228,27 @@ class RetrievalCandidate:
     provenance_status: str  # "published" | "development_qa_passed"
 
 
+#: Stage B match-tier classification, ordered highest-priority first.
+#: A DIRECT_ANALOGY candidate is always ranked above a THEMATIC_SUPPORT
+#: one, which is always ranked above ADJACENT_THEME, etc, regardless of
+#: how close their raw relevance scores are -- see the tier-aware sort
+#: in `_run_retrieval_pipeline_impl`. "WEAK" is both a valid LLM-chosen
+#: tier AND the fail-closed default when `match_tier` is missing/invalid
+#: in the ranker's JSON response (never guess a higher tier).
+MATCH_TIER_ORDER: dict[str, int] = {
+    "DIRECT_ANALOGY": 0,
+    "THEMATIC_SUPPORT": 1,
+    "ADJACENT_THEME": 2,
+    "WEAK": 3,
+}
+
+
 @dataclass(frozen=True)
 class RankedIllustration:
     unit_id: int
     reason: str
     score: float
+    match_tier: str = "WEAK"
 
 
 @dataclass(frozen=True)
@@ -250,6 +266,15 @@ class IllustrationRetrievalResult:
     provenance_status: str
     rank_reason: str
     rank_score: float
+    match_tier: str = "WEAK"
+    #: The SAME text as `rank_reason` -- Stage B's ranker prompt was
+    #: tightened (2026-09-13) so that one field now serves both purposes
+    #: (an audit-trail reason AND UI-facing copy), rather than asking the
+    #: LLM for two overlapping explanations in one call. Exposed under
+    #: its own name so `illustration_retrieval_ui` can display it
+    #: ("Kapcsolódás az igéhez: ...") without the UI layer needing to
+    #: know it's literally `rank_reason`.
+    relation_hu: str = ""
 
 
 def _fold_diacritics(s: str) -> str:
@@ -790,6 +815,24 @@ JELÖLTEK (kizárólag ezek közül választhatsz, az azonosítójuk szögletes 
 zárójelben áll):
 {candidate_blocks}
 
+MINDEN visszaadott jelöltet sorolj be EGY, pontosan az alábbi négy \
+kategória közül a legjobban illőbe (ez a "match_tier" mező):
+- "DIRECT_ANALOGY": a jelölt cselekménye/szerkezete KÖZVETLENÜL \
+  megfelel a textus fő motívumának vagy konfliktusának -- pl. Lk \
+  10,25-37 (irgalmas samaritánus) esetén egy olyan történet, ahol \
+  valaki konkrét, kockázatot/áldozatot vállaló segítséget nyújt egy \
+  rászorulónak/idegennek, miközben mások elmennek mellette;
+- "THEMATIC_SUPPORT": a jelölt ugyanazt a fő üzenetet/tanulságot \
+  hordozza, de más cselekményszerkezettel vagy más helyzetben;
+- "ADJACENT_THEME": a jelölt csak rokon témát érint, a textus fő \
+  üzenetét nem közvetlenül, csak érintőlegesen támasztja alá;
+- "WEAK": a kapcsolat felszínes vagy erőltetett -- ilyen jelöltet \
+  inkább ne is adj vissza a results listában.
+A "DIRECT_ANALOGY" jelölteket MINDIG magasabbra rangsorold (a lista \
+elejére), mint egy gyengébb kategóriájú jelöltet, még akkor is, ha a \
+puszta relevance score-juk közel esik egymáshoz -- a kategória \
+elsőbbséget élvez a score-ral szemben.
+
 FELADAT:
 - válaszd ki LEGFELJEBB {MAX_TOP_N} jelöltet, amelyek ténylegesen, \
   tartalmilag kapcsolódnak a fenti kontextushoz (textus, téma, alkalom) \
@@ -797,11 +840,20 @@ FELADAT:
 - minden visszaadott jelölthez adj 0.0-1.0 közötti relevance score-t \
   -- csak akkor adj 0.5-nél magasabb score-t, ha a kapcsolat valóban \
   konkrét és indokolható, ne csak témarokonság alapján;
-- a "reason" mező legyen KONKRÉT, a textus/jelölt tartalmára \
-  hivatkozó egy mondat -- SOHA ne írj általános, semmitmondó indoklást \
-  mint "kapcsolódik a textushoz" vagy "releváns téma". Helyette pl.: \
-  "Az apa feltétel nélküli visszafogadása miatt kapcsolódik a tékozló \
-  fiú történetének kegyelem-motívumához.";
+- add meg a fent leírt "match_tier" besorolást is minden visszaadott \
+  jelölthöz;
+- a "reason" mező szövege közvetlenül megjelenik majd a felhasználónak \
+  "Kapcsolódás az igéhez: ..." formában, ezért legyen KONKRÉT és \
+  LEGFELJEBB 2 rövid mondat, a textus/jelölt tartalmára hivatkozó \
+  magyarázat. SOHA ne írj általános, semmitmondó indoklást mint \
+  "kapcsolódik a textushoz" vagy "releváns téma". SOHA ne csak a \
+  témacímkéket (topics) sorold fel más szavakkal -- konkrét \
+  cselekményre/mozzanatra hivatkozz. SOHA ne állítsd vagy sugalld, hogy \
+  a jelölt ugyanaz a történet, mint a bibliai szöveg, vagy hogy abból \
+  szó szerint megtörtént esemény lenne -- ez egy ANALÓGIA/illusztráció, \
+  nem azonosság a bibliai szöveggel. Helyette pl.: "Az apa feltétel \
+  nélküli visszafogadása miatt kapcsolódik a tékozló fiú történetének \
+  kegyelem-motívumához.";
 - KIZÁRÓLAG a fenti [ID] azonosítók egyikét használhatod -- SOHA ne adj \
   vissza olyan ID-t, ami nem szerepel a listában, és SOHA ne írj le új \
   történetet vagy tartalmat.
@@ -810,7 +862,8 @@ KIMENET -- KIZÁRÓLAG ezt a JSON alakot add vissza, más szöveg nélkül:
 {{
   "results": [
     {{"unit_id": <a jelöltek közül választott egész szám>, "score": <0.0-1.0>, \
-"reason": "1 mondatos, konkrét magyarázat"}}
+"match_tier": "DIRECT_ANALOGY|THEMATIC_SUPPORT|ADJACENT_THEME|WEAK", \
+"reason": "legfeljebb 2 mondatos, konkrét magyarázat"}}
   ]
 }}"""
 
@@ -840,7 +893,9 @@ def parse_ranking_response(raw: str, *, valid_ids: set[int]) -> list[RankedIllus
             score = 0.0
         score = max(0.0, min(1.0, score))
         reason = str(item.get("reason", "")).strip()
-        ranked.append(RankedIllustration(unit_id=unit_id, reason=reason, score=score))
+        raw_tier = item.get("match_tier")
+        match_tier = raw_tier if isinstance(raw_tier, str) and raw_tier in MATCH_TIER_ORDER else "WEAK"
+        ranked.append(RankedIllustration(unit_id=unit_id, reason=reason, score=score, match_tier=match_tier))
     return ranked
 
 
@@ -995,7 +1050,10 @@ def _run_retrieval_pipeline_impl(
 
     candidates_by_id = {c.unit_id: c for c in candidates}
     results: list[IllustrationRetrievalResult] = []
-    for r in sorted(accepted, key=lambda x: -x.score)[:top_n]:
+    # Tier-aware ordering: a DIRECT_ANALOGY candidate always sorts before
+    # a THEMATIC_SUPPORT/ADJACENT_THEME/WEAK one, regardless of how close
+    # the raw scores are -- score is only the tiebreaker WITHIN a tier.
+    for r in sorted(accepted, key=lambda x: (MATCH_TIER_ORDER.get(x.match_tier, 3), -x.score))[:top_n]:
         c = candidates_by_id.get(r.unit_id)
         if c is None:
             continue
@@ -1006,6 +1064,7 @@ def _run_retrieval_pipeline_impl(
                 homiletic_functions=c.homiletic_functions, source_title=c.source_title,
                 source_attribution=_source_attribution(c), provenance_status=c.provenance_status,
                 rank_reason=r.reason, rank_score=r.score,
+                match_tier=r.match_tier, relation_hu=r.reason,
             )
         )
     diagnostics = RetrievalDiagnostics(
@@ -1085,6 +1144,7 @@ __all__ = [
     "ALLOWED_RETRIEVAL_MODES",
     "DEFAULT_CANDIDATE_LIMIT",
     "DEFAULT_TOP_N",
+    "MATCH_TIER_ORDER",
     "MIN_LOCAL_RELEVANCE_SCORE",
     "MIN_RANK_SCORE",
     "REASON_CANDIDATE_FETCH_ERROR",

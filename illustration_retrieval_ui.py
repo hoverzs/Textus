@@ -190,6 +190,9 @@ def _render_result_card(item: IllustrationRetrievalResult) -> None:
     with st.container(border=True):
         st.markdown(f"**{item.title_hu}**")
         st.write(item.summary_hu)
+        relation = (item.relation_hu or "").strip()
+        if relation:
+            st.markdown(f"*Kapcsolódás az igéhez:* {relation}")
         with st.expander("Teljes történet elolvasása"):
             st.write(item.modern_hu_text)
             if item.moral_hu:
