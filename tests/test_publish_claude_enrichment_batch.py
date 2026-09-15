@@ -33,6 +33,7 @@ class _FakeTable:
         self._name = name
         self._filters: dict[str, object] = {}
         self._limit: int | None = None
+        self._range: tuple[int, int] | None = None
         self._pending_update: dict | None = None
 
     def select(self, _cols: str) -> "_FakeTable":
@@ -44,6 +45,10 @@ class _FakeTable:
 
     def limit(self, n: int) -> "_FakeTable":
         self._limit = n
+        return self
+
+    def range(self, start: int, end: int) -> "_FakeTable":
+        self._range = (start, end)
         return self
 
     def update(self, fields: dict) -> "_FakeTable":
@@ -62,6 +67,9 @@ class _FakeTable:
 
         if self._limit is not None:
             matched = matched[: self._limit]
+        if self._range is not None:
+            start, end = self._range
+            matched = matched[start : end + 1]
         return _FakeResponse(matched)
 
 

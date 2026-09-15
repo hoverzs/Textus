@@ -63,12 +63,26 @@ EXPECTED_ENRICHMENT_MODEL_PREFIX = "claude-manual-enrichment-"
 def find_candidate_units(client, *, enrichment_model_prefix: str) -> list[dict]:
     """Self-scoping: finds units by `enrichment_model` prefix rather than
     trusting a caller-supplied id list -- so this script can only ever
-    touch rows it can trace back to a recognized Claude-manual batch."""
-    rows = (
-        client.table("illustration_units")
-        .select("id,story_id,status,approval_method,human_reviewed_at,title_hu,modern_hu_text,summary_hu,enrichment_model")
-        .execute()
-    ).data or []
+    touch rows it can trace back to a recognized Claude-manual batch.
+
+    Paginates explicitly: an unbounded .select().execute() silently caps at
+    PostgREST's default row limit (1000), which production first exceeded
+    in the v8 batch -- without pagination, units with id beyond that cap
+    become invisible to this scan and are silently never published."""
+    page_size = 1000
+    rows: list[dict] = []
+    start = 0
+    while True:
+        page = (
+            client.table("illustration_units")
+            .select("id,story_id,status,approval_method,human_reviewed_at,title_hu,modern_hu_text,summary_hu,enrichment_model")
+            .range(start, start + page_size - 1)
+            .execute()
+        ).data or []
+        rows.extend(page)
+        if len(page) < page_size:
+            break
+        start += page_size
     return [r for r in rows if isinstance(r.get("enrichment_model"), str) and r["enrichment_model"].startswith(enrichment_model_prefix)]
 
 
