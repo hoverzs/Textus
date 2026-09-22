@@ -2,6 +2,7 @@
 import streamlit as st
 import requests
 import base64
+import difflib
 import json
 import io
 import os
@@ -291,8 +292,14 @@ OWN_KEY_MODEL_OPTIONS: dict[str, str] = {
 # speciális hívások). A finomító chat `tab_label="chat: {cím}"` — a resolver
 # levágja a `chat:` prefixet, így ugyanaz a kulcs érvényes.
 GEMINI_MODEL_BY_TAB_LABEL: dict[str, str] = {
+    # A/B benchmark (2026-09-22, 3 kör x 4 igeszakasz, azonos production
+    # prompttal/groundinggal): gemini-3-flash-preview konzisztensen
+    # gyorsabb, tömörebb és megbízhatóbban tartja be a promptban tiltott
+    # latin nyelvtani terminológia szabályt (A: 50%, B: 8% sértési arány
+    # 12-12 futáson). Csak az Exegézis fülre vonatkozik — a LOCKED_MODEL
+    # globális alapérték és a többi fül routingja változatlan.
+    "Exegézis": GEMINI_MODEL_FLASH_3,
     # --- gemini-2.5-flash (mély elemzés) ---
-    "Exegézis": LOCKED_MODEL,
     "Teológia": LOCKED_MODEL,
     "Eredeti szöveg": LOCKED_MODEL,
     "Eredeti szöveg tanulmányozása": LOCKED_MODEL,
@@ -6446,6 +6453,109 @@ def _strip_chatty_intro(text: str) -> str:
     return (leading_notice + text).strip()
 
 
+_DUP_GUARD_MIN_LEN = 400  # ennél rövidebb választ nem vizsgálunk (téves pozitív elkerülése)
+_DUP_GUARD_MIN_HALF_RATIO = 0.3  # mindkét fél legalább a teljes hossz 30%-a legyen
+_DUP_GUARD_SEARCH_FROM_RATIO = 0.25  # az első sor megismétlődését csak innentől keressük
+_DUP_GUARD_MIN_FIRST_LINE_LEN = 8  # túl rövid első sornál (pl. "##") nem próbálkozunk
+_DUP_GUARD_SIMILARITY_THRESHOLD = 0.92  # csak nagyon nagy bizonyosságnál vágunk
+
+
+def _normalize_for_dup_compare(text: str) -> str:
+    """Whitespace- és markdown-díszítés-érzéketlen, kis/nagybetű-
+    érzéketlen normalizálás a duplikáció-összevetéshez — ne a formázási
+    különbségek (extra szóköz, sortörés, `---` elválasztó, `#` fejléc-
+    jelölő jelenléte/hiánya a két példány között) döntsék el a
+    hasonlóságot, csak a tényleges szöveges tartalom."""
+    text = re.sub(r"[-=*_]{3,}", " ", text)
+    text = re.sub(r"#+", " ", text)
+    return re.sub(r"\s+", " ", text).strip().casefold()
+
+
+_RESTART_JUNK_GLUED_SUFFIX_RE = re.compile(r"[-=_*]{2,}\s*#[^\n]*\Z")
+
+
+def _rstrip_restart_junk(text: str) -> str:
+    """Az első példány VÉGÉRŐL eltávolítja a törött újrakezdés maradékait
+    (pl. elárvult `---` elválasztó vagy egy megismételt `# …` feladat-
+    fejléc), amit a modell a duplikált második válaszpéldány elé
+    szúrhatott be — akár saját sorban, akár (megfigyelt valódi hibaeset
+    alapján) sortörés nélkül az előző mondat végéhez tapasztva. Csak
+    üres, elválasztó-jellegű vagy fejléc-jellegű záró tartalmat távolít
+    el, valódi tartalmi mondatot sosem."""
+    text = text.rstrip()
+    # "…valódi tartalom.--- # Elárvult fejléc" — nincs sortörés a
+    # tartalom és a törött újrakezdés-jelölő között.
+    text = _RESTART_JUNK_GLUED_SUFFIX_RE.sub("", text).rstrip()
+
+    lines = text.split("\n")
+    removed = 0
+    while lines and removed < 6:
+        last = lines[-1].strip()
+        if not last:
+            lines.pop()
+            removed += 1
+            continue
+        if re.fullmatch(r"[-=*_]{3,}", last) or last.startswith("#"):
+            lines.pop()
+            removed += 1
+            continue
+        break
+    return "\n".join(lines).rstrip()
+
+
+def _strip_full_response_duplicate(text: str) -> str:
+    """Konzervatív guard: ha a válasz a SAJÁT teljes tartalmát (vagy egy
+    nagy, összefüggő blokkját) gyakorlatilag szó szerint megismétli, csak
+    az első példányt adjuk vissza.
+
+    Detekció: megkeressük, hogy a válasz ELSŐ sora (jellemzően az első
+    `## ` alcím) szó szerint újra előfordul-e a szöveg második felében.
+    Ha igen, összevetjük az addigi részt ("1. példány") a maradékkal
+    ("2. példány") — csak akkor vágunk, ha a két rész whitespace-
+    normalizált hasonlósága NAGYON magas (>= 0.92), ÉS mindkét rész a
+    teljes válasz legalább 30%-át kiteszi. Ez kizárja a normál retorikai
+    ismétléseket, azonos alcímeket és rövid visszautalásokat — azok
+    sosem érik el ezt a hasonlósági/méret-küszöböt.
+
+    Nem hív API-t, nem indít retry-t — pusztán a már megkapott szöveget
+    vágja. Bizonytalan esetben (nincs elég magas hasonlóság) a szöveg
+    VÁLTOZATLAN marad.
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    stripped = text.strip()
+    n = len(stripped)
+    if n < _DUP_GUARD_MIN_LEN:
+        return text
+
+    first_newline = stripped.find("\n")
+    first_line = (stripped if first_newline == -1 else stripped[:first_newline]).strip()
+    if len(first_line) < _DUP_GUARD_MIN_FIRST_LINE_LEN:
+        return text
+
+    min_half = int(n * _DUP_GUARD_MIN_HALF_RATIO)
+    search_from = int(n * _DUP_GUARD_SEARCH_FROM_RATIO)
+
+    idx = stripped.find(first_line, search_from)
+    while idx != -1:
+        part1 = stripped[:idx]
+        part2 = stripped[idx:]
+        if len(part1) >= min_half and len(part2) >= min_half:
+            ratio = difflib.SequenceMatcher(
+                None,
+                _normalize_for_dup_compare(part1),
+                _normalize_for_dup_compare(part2),
+            ).ratio()
+            if ratio >= _DUP_GUARD_SIMILARITY_THRESHOLD:
+                cleaned = _rstrip_restart_junk(part1)
+                if cleaned and len(cleaned) >= min_half:
+                    return cleaned
+        idx = stripped.find(first_line, idx + 1)
+
+    return text
+
+
 import time as _time
 import hashlib as _hashlib
 from datetime import datetime as _dt
@@ -7137,6 +7247,28 @@ def generate_text(
                     if isinstance(part, dict) and part.get("text")
                 )
                 text = _strip_chatty_intro(text)
+
+                # ── TELJES VÁLASZ-DUPLIKÁCIÓ GUARD ────────────────────
+                # Ritka, de előforduló modellhiba: a válasz a saját teljes
+                # tartalmát szó szerint megismétli. Csak nagyon nagy
+                # bizonyosságnál vágunk (ld. `_strip_full_response_
+                # duplicate` docstring) — nincs új API-hívás/retry.
+                _text_before_dup_guard_len = len(text)
+                text = _strip_full_response_duplicate(text)
+                if len(text) != _text_before_dup_guard_len:
+                    _debug_log_append({
+                        "ts": _now_str(), "tab": tab_label, "attempt": attempt + 1,
+                        "status": "DUPLICATE_TRIMMED", "model": model,
+                        "prompt_chars": prompt_chars,
+                        "response_chars": len(text),
+                        "latency_ms": latency_ms,
+                        "error_message": (
+                            f"full-response duplicate detected and trimmed "
+                            f"(before={_text_before_dup_guard_len} chars, "
+                            f"after={len(text)} chars)"
+                        ),
+                        "auth_ok": True,
+                    })
 
                 # ── MODELL-OLDALI LEVÁGÁS DETEKTÁLÁSA ─────────────────
                 # Nem állítunk app-szintű kimeneti plafont, de a modellnek
