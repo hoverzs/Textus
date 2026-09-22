@@ -1441,9 +1441,18 @@ class _FakeRpcCall:
     def __init__(self, recorder: list, name: str, params: dict, response_data: list[dict]) -> None:
         recorder.append((name, params))
         self._response_data = response_data
+        self._range: tuple[int, int] | None = None
+
+    def range(self, start: int, end: int) -> "_FakeRpcCall":
+        self._range = (start, end)
+        return self
 
     def execute(self) -> _FakeRpcResponse:
-        return _FakeRpcResponse(self._response_data)
+        data = self._response_data
+        if self._range is not None:
+            start, end = self._range
+            data = data[start : end + 1]
+        return _FakeRpcResponse(data)
 
 
 class _FakeSupabaseClient:
@@ -1492,6 +1501,25 @@ def test_supabase_repository_issues_exactly_one_rpc_call_no_n_plus_1() -> None:
 
     assert len(candidates) == 50
     assert client.rpc_calls == [("get_published_illustration_candidates", {})]
+
+
+def test_supabase_repository_paginates_past_postgrest_1000_row_cap() -> None:
+    """An unbounded `.rpc(...).execute()` silently truncates at
+    PostgREST's default 1000-row cap -- confirmed against the real
+    production RPC, which returned exactly 1000 of 1451 published units
+    before this fix, with ids scattered (not just a tail cutoff)
+    throughout the range, i.e. genuinely random candidates invisible to
+    every search. This is the direct regression test: a fake corpus of
+    1250 rows (> one page) must come back in full, via more than one
+    paginated `.rpc()` call."""
+    client = _FakeSupabaseClient([_rpc_row(unit_id=i) for i in range(1, 1251)])
+    repo = SupabaseIllustrationRepository(client=client)
+
+    candidates = repo.fetch_eligible_units(mode="production")
+
+    assert len(candidates) == 1250
+    assert {c.unit_id for c in candidates} == set(range(1, 1251))
+    assert len(client.rpc_calls) == 2  # 1000 + 250, not silently capped at one page
 
 
 def test_supabase_repository_empty_result_is_empty_list_not_error() -> None:
