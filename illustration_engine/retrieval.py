@@ -558,8 +558,24 @@ class SupabaseIllustrationRepository:
                 f"(got {mode!r}) -- there is no Supabase-side development-mode RPC yet."
             )
         client = self._resolve_client()
-        result = client.rpc("get_published_illustration_candidates", {}).execute()
-        rows = result.data or []
+        # An unbounded RPC call silently truncates at PostgREST's default
+        # 1000-row cap -- the same bug already found and fixed once in
+        # this corpus (see scripts/publish_claude_enrichment_batch.py's
+        # find_candidate_units). The corpus crossed 1000 published units,
+        # which meant up to ~30% of it was invisible to EVERY production
+        # search, silently -- not an error, just a quietly incomplete
+        # candidate pool. Paginate explicitly with .range().
+        rows: list[dict] = []
+        page_size = 1000
+        start = 0
+        while True:
+            page = client.rpc("get_published_illustration_candidates", {}).range(
+                start, start + page_size - 1
+            ).execute().data or []
+            rows.extend(page)
+            if len(page) < page_size:
+                break
+            start += page_size
         return [
             RetrievalCandidate(
                 unit_id=row["unit_id"], title_hu=row["title_hu"],
