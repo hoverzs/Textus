@@ -5508,8 +5508,16 @@ def _cloud_save_project(*, as_new: bool = False, autosave: bool = False) -> None
             result = update_project(cur_id, owner, title, passage, pdata, expected_revision=expected_revision)
             if not _apply_update_result(result, title=title, autosave=True):
                 return
-            _set_flash(f"Automatikus mentés: {title}", "info")
-            st.rerun()
+            # Csendes siker: a háttér-autosave (fragment `run_every`) NEM kér
+            # app-scope rerunt és nem hagy flash-t, mert az a teljes lapot
+            # "stale"/halványított állapotba vitte üresjáratban is. A
+            # revízió/fingerprint/dirty állapot itt már helyes; a státuszchip
+            # a következő természetes UI-frissítéskor követi.
+            # Az `_apply_update_result` által sorba állított pending címet
+            # eldobjuk: az autosave címe a `project_title_input`-ból jön (azonos
+            # érték), és a korábbi azonnali rerun fogyasztotta volna el — így
+            # nem írhatja felül a felhasználó azóta beírt címét.
+            st.session_state["_pending_project_title_input"] = None
             return
 
         if as_new or not cur_id:
