@@ -37,8 +37,9 @@ download-and-install primitive, modeled directly on
 ``ruf_bible_local_db.ensure_local_database``) — the SAME established
 pattern this codebase already uses for every other large, gitignored,
 locally-built-but-remotely-mirrored SQLite artifact: download from a
-PRIVATE Supabase Storage bucket, verify the raw bytes' SHA-256 (if
-configured) BEFORE writing anything, write to a ``.part`` temp file, run
+PRIVATE Supabase Storage bucket, stream it to a unique ``.part`` temp file
+while computing its SHA-256 (if configured; 2026-09: no longer buffered in
+RAM), run
 the FULL strict validation (schema + the exact pinned production
 counts/content_hash) on that temp file, and only THEN atomically
 ``.replace()`` it onto the real path — a corrupt, wrong-schema, or
@@ -61,9 +62,14 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import sqlite3
+import sys
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 from textus_kb.importers.commentary_sqlite import (
     DEFAULT_DATABASE_PATH,
@@ -97,6 +103,18 @@ EXPECTED_PASSAGE_LINK_COUNT = 54162
 COMMENTARY_STORAGE_BUCKET_ENV_VAR = "TEXTUS_COMMENTARY_DB_STORAGE_BUCKET"
 COMMENTARY_STORAGE_OBJECT_ENV_VAR = "TEXTUS_COMMENTARY_DB_STORAGE_OBJECT"
 COMMENTARY_DATABASE_SHA256_ENV_VAR = "TEXTUS_COMMENTARY_DB_SHA256"
+
+# 2026-09 production hotfix: the ~534 MB artifact is STREAMED to a temp file
+# (never held in RAM as one ``bytes`` object), and only one thread per process
+# may download/install at a time (Streamlit sessions and overlapping reruns are
+# threads of the same process) -- a waiting caller re-checks the local file
+# after acquiring the lock and reuses the freshly installed database.
+_INSTALL_LOCK = threading.Lock()
+_INSTALL_LOCK_WAIT_S = 600
+_DOWNLOAD_CHUNK_BYTES = 1024 * 1024
+_SIGNED_URL_TTL_S = 600
+_DIAG_MARK = "[COMMENTARY_DB]"
+_diag_state = {"reported_available": False}
 
 
 @dataclass(frozen=True)
@@ -151,6 +169,7 @@ def ensure_status(
     env_override = bool(os.environ.get(COMMENTARY_DATABASE_PATH_ENV_VAR, "").strip())
     path = _resolve_database_path(database_path)
     status = get_status(database_path=database_path)
+    _diag_local_status(path, status)
     if status.available:
         return status
 
@@ -166,6 +185,7 @@ def ensure_status(
         storage_object_path=storage_object_path,
         expected_database_sha256=_resolve_expected_sha256(expected_database_sha256),
         fallback_reason=status.reason,
+        local_recheck=lambda: get_status(database_path=database_path),
     )
 
 
@@ -218,6 +238,9 @@ def ensure_commentary_database(
         storage_object_path=storage_object_path,
         expected_database_sha256=expected_sha256,
         fallback_reason=status.reason,
+        local_recheck=lambda: _validate_downloaded_database(
+            path, expected_database_sha256=expected_sha256
+        ),
     )
 
 
@@ -228,17 +251,26 @@ def _download_and_install(
     storage_object_path: str | None,
     expected_database_sha256: str,
     fallback_reason: str = "",
+    local_recheck: Callable[[], CommentaryRuntimeStatus] | None = None,
 ) -> CommentaryRuntimeStatus:
     """Shared download/verify/atomic-install primitive behind both
     ``ensure_status`` and ``ensure_commentary_database`` — the ONLY place
     that touches Supabase Storage or writes the local file. Never raises:
     any network/auth/storage/disk failure degrades to a fail-closed
     status, and a corrupt/wrong-hash/wrong-invariant download is
-    discarded (the ``.part`` temp file is removed) without ever touching
-    the existing (or missing) local file at ``path``."""
+    discarded (the unique ``.part`` temp file is removed) without ever
+    touching the existing (or missing) local file at ``path``.
+
+    2026-09 hotfix: the object is streamed in 1 MiB chunks straight into the
+    temp file while its SHA-256 is computed incrementally (the old
+    ``bytes`` download held the whole ~534 MB artifact in memory, once per
+    concurrent caller). One install at a time per process (``_INSTALL_LOCK``);
+    a caller that waited re-runs ``local_recheck`` first and returns the
+    database another thread has just installed, without downloading again."""
     bucket_id = storage_bucket_id or _configured_storage_bucket_id()
     object_path = storage_object_path or _configured_storage_object_path()
     if not bucket_id or not object_path:
+        _diag(f"download skipped: storage not configured (local status={fallback_reason or '?'})")
         return CommentaryRuntimeStatus(
             available=False,
             reason="storage_not_configured",
@@ -246,39 +278,89 @@ def _download_and_install(
             detail=fallback_reason,
         )
 
+    waited = time.monotonic()
+    if not _INSTALL_LOCK.acquire(timeout=_INSTALL_LOCK_WAIT_S):
+        _diag(f"install lock busy for {_INSTALL_LOCK_WAIT_S}s -> not downloading in parallel")
+        return CommentaryRuntimeStatus(
+            available=False,
+            reason="download_in_progress",
+            database_path=str(path),
+            detail=fallback_reason,
+        )
     try:
-        from supabase_client import get_supabase_client
-
-        client = get_supabase_client()
-        data = client.storage.from_(bucket_id).download(object_path)
-    except Exception as exc:  # noqa: BLE001 - runtime bootstrap must fail closed
-        return CommentaryRuntimeStatus(
-            available=False,
-            reason="download_failed",
-            database_path=str(path),
-            detail=str(exc),
+        waited_s = time.monotonic() - waited
+        if local_recheck is not None:
+            rechecked = local_recheck()
+            if rechecked.available:
+                _diag(f"reusing database installed by another caller (waited {waited_s:.1f}s)")
+                return rechecked
+        return _download_and_install_locked(
+            path,
+            bucket_id=bucket_id,
+            object_path=object_path,
+            expected_database_sha256=expected_database_sha256,
         )
-    if not data:
-        return CommentaryRuntimeStatus(
-            available=False,
-            reason="download_empty",
-            database_path=str(path),
-        )
+    finally:
+        _INSTALL_LOCK.release()
 
-    if expected_database_sha256 and _sha256_bytes(data) != expected_database_sha256:
-        return CommentaryRuntimeStatus(
-            available=False,
-            reason="database_checksum_mismatch",
-            database_path=str(path),
-        )
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(path.suffix + ".part")
+def _download_and_install_locked(
+    path: Path,
+    *,
+    bucket_id: str,
+    object_path: str,
+    expected_database_sha256: str,
+) -> CommentaryRuntimeStatus:
     try:
-        tmp_path.write_bytes(data)
+        path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        _diag(f"install failed: cannot create {path.parent} ({type(exc).__name__})")
+        return CommentaryRuntimeStatus(
+            available=False, reason="write_failed", database_path=str(path), detail=str(exc)
+        )
+    tmp_path = path.with_name(f"{path.name}.{os.getpid()}.{threading.get_ident()}.part")
+    started = time.monotonic()
+    _diag(
+        f"download start -> {tmp_path.name} (dir writable={os.access(path.parent, os.W_OK)}, "
+        f"sha256 pinned={bool(expected_database_sha256)}, rss={_rss_mb()})"
+    )
+    try:
+        try:
+            from supabase_client import get_supabase_client
+
+            bucket = get_supabase_client().storage.from_(bucket_id)
+            size, digest = _fetch_object_to_file(bucket, object_path, tmp_path)
+        except Exception as exc:  # noqa: BLE001 - runtime bootstrap must fail closed
+            _diag(f"download failed after {time.monotonic() - started:.1f}s: {_safe_error(exc)}")
+            return CommentaryRuntimeStatus(
+                available=False,
+                reason="download_failed",
+                database_path=str(path),
+                detail=_safe_error(exc),
+            )
+        _diag(
+            f"download end: {size / 1048576:.1f} MB in {time.monotonic() - started:.1f}s "
+            f"(rss={_rss_mb()})"
+        )
+        if not size:
+            return CommentaryRuntimeStatus(
+                available=False,
+                reason="download_empty",
+                database_path=str(path),
+            )
+
+        if expected_database_sha256 and digest != expected_database_sha256:
+            _diag("validation: sha256 MISMATCH -> discarded")
+            return CommentaryRuntimeStatus(
+                available=False,
+                reason="database_checksum_mismatch",
+                database_path=str(path),
+            )
+
         downloaded_status = _validate_downloaded_database(
             tmp_path, expected_database_sha256=expected_database_sha256
         )
+        _diag(f"validation: {downloaded_status.reason} {downloaded_status.detail}".rstrip())
         if not downloaded_status.available:
             return CommentaryRuntimeStatus(
                 available=False,
@@ -288,6 +370,7 @@ def _download_and_install(
             )
         tmp_path.replace(path)
     except OSError as exc:
+        _diag(f"install failed: {type(exc).__name__}")
         return CommentaryRuntimeStatus(
             available=False,
             reason="write_failed",
@@ -301,7 +384,94 @@ def _download_and_install(
             except OSError:
                 pass
 
-    return _validate_database(path)
+    final = _validate_database(path)
+    _diag(f"install done: sqlite open/schema -> {final.reason} (size={_file_mb(path)})")
+    return final
+
+
+def _fetch_object_to_file(bucket, object_path: str, dest: Path) -> tuple[int, str]:  # noqa: ANN001
+    """Write the storage object to ``dest`` in chunks; return (bytes, sha256 hex).
+
+    Production path: a short-lived signed URL (public storage3 API, same
+    SELECT permission as ``download``) fetched with a streaming ``httpx``
+    GET, so memory stays at one chunk. A bucket object without
+    ``create_signed_url`` (injected test doubles) keeps the old ``download``
+    bytes API; it is still written to disk in chunks."""
+    digest = hashlib.sha256()
+    total = 0
+    signer = getattr(bucket, "create_signed_url", None)
+    with dest.open("wb") as handle:
+        if signer is None:
+            data = bucket.download(object_path) or b""
+            view = memoryview(data)
+            for offset in range(0, len(view), _DOWNLOAD_CHUNK_BYTES):
+                chunk = view[offset : offset + _DOWNLOAD_CHUNK_BYTES]
+                handle.write(chunk)
+                digest.update(chunk)
+            total = len(data)
+        else:
+            import httpx
+
+            signed = signer(object_path, _SIGNED_URL_TTL_S) or {}
+            url = signed.get("signedURL") or signed.get("signedUrl")
+            if not url:
+                raise RuntimeError("storage did not return a signed URL")
+            timeout = httpx.Timeout(connect=30.0, read=120.0, write=30.0, pool=30.0)
+            with httpx.stream("GET", url, timeout=timeout, follow_redirects=True) as response:
+                response.raise_for_status()
+                for chunk in response.iter_bytes(_DOWNLOAD_CHUNK_BYTES):
+                    handle.write(chunk)
+                    digest.update(chunk)
+                    total += len(chunk)
+        handle.flush()
+        os.fsync(handle.fileno())
+    return total, digest.hexdigest()
+
+
+def _safe_error(exc: BaseException) -> str:
+    """Error text without the signed URL / token (httpx puts URLs in messages)."""
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    if status is not None:
+        return f"{type(exc).__name__}: HTTP {status}"
+    text = re.sub(r"https?://\S+", "<url>", str(exc))
+    return f"{type(exc).__name__}: {text}"[:300]
+
+
+def _diag(message: str) -> None:
+    """One flushed stderr line for the Streamlit Cloud log (no secrets/URLs)."""
+    try:
+        print(f"{_DIAG_MARK} {message}", file=sys.stderr, flush=True)
+    except Exception:  # noqa: BLE001 - diagnostics must never break the app
+        pass
+
+
+def _diag_local_status(path: Path, status: CommentaryRuntimeStatus) -> None:
+    if status.available:
+        if _diag_state["reported_available"]:
+            return  # once per process -- ensure_status runs on every tab render
+        _diag_state["reported_available"] = True
+    _diag(
+        f"local status: {status.reason} path={path} exists={path.is_file()} "
+        f"size={_file_mb(path)}"
+    )
+
+
+def _file_mb(path: Path) -> str:
+    try:
+        return f"{path.stat().st_size / 1048576:.1f}MB"
+    except OSError:
+        return "-"
+
+
+def _rss_mb() -> str:
+    try:
+        with open("/proc/self/status", encoding="ascii", errors="ignore") as fh:
+            for line in fh:
+                if line.startswith("VmRSS:"):
+                    return f"{int(line.split()[1]) // 1024}MB"
+    except Exception:  # noqa: BLE001
+        pass
+    return "?"
 
 
 def _resolve_database_path(database_path: str | Path | None) -> Path:
