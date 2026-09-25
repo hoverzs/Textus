@@ -79,6 +79,7 @@ from writing_desk_ui import (
 )
 from writing_desk_dev_seed import maybe_apply_writing_desk_dev_seed
 from workshop_nav_ui import (
+    QUICK_TOOLS_TAB_LABELS,
     render_app_toolbar,
     render_quick_tools_tabs,
     render_workspace_switcher,
@@ -179,6 +180,11 @@ st.set_page_config(
     page_icon="Textus_logo_transparent.png",
     layout="wide"
 )
+
+# TEMPORARY production diagnostics (passage-selected crash) — see passage_trace.py
+import passage_trace  # noqa: E402
+
+passage_trace.run_start(st.session_state)
 
 # Google Analytics 4 — hibája soha ne állítsa le az appot
 try:
@@ -8028,6 +8034,7 @@ _UI_MODE_LABELS = {
 }
 
 
+@passage_trace.traced("biblical_map_prototype")
 def render_current_biblical_map_prototype() -> None:
     passage_reference = (
         (st.session_state.get("last_igehely") or "").strip()
@@ -8761,7 +8768,7 @@ render_page_intro(
 )
 
 # Egyetlen auth-független komponens (nem JS/parent.document; nincs login-ág).
-tabs = render_quick_tools_tabs()
+tabs = passage_trace.trace_tabs(render_quick_tools_tabs(), QUICK_TOOLS_TAB_LABELS)
 
 
 # =========================================================
@@ -9246,3 +9253,4 @@ with tabs[9]:
 # =========================================================
 
 render_footer_and_feedback()
+passage_trace.run_end()

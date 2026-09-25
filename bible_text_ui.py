@@ -32,6 +32,7 @@ from ruf_bible_service import (
     parse_bible_reference,
 )
 from ui_components import render_work_section
+from passage_trace import traced as _traced_stage  # TEMPORARY passage-crash diagnostics
 
 # Durable session / project keys
 DURABLE_PASSAGE_TEXT = "passage_text"
@@ -783,6 +784,7 @@ def _render_manual_paste_fallback() -> None:
             _render_editor_fields()
 
 
+@_traced_stage("bible_text_editor")
 def render_bible_text_editor(
     *,
     hebrew_contextual_analysis_generate_fn: Callable[..., str] | None = None,

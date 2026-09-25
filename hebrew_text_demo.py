@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from passage_trace import traced as _traced_stage  # TEMPORARY passage-crash diagnostics
+
 import os
 import html
 import re
@@ -951,6 +953,7 @@ def render_hebrew_original_language_panel(
         )
 
 
+@_traced_stage("hebrew_original_language_reference")
 def render_hebrew_original_language_reference(
     reference: str,
     *,

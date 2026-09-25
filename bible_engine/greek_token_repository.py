@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from passage_trace import traced as _traced_stage  # TEMPORARY passage-crash diagnostics
+
 import logging
 import os
 import sqlite3
@@ -52,6 +54,7 @@ def resolve_tagnt_database_path() -> Path | None:
     return DEFAULT_TAGNT_DATABASE_PATH
 
 
+@_traced_stage("greek_inspect_tagnt_sqlite")
 def inspect_tagnt_database_path(database_path: str | Path | None = None) -> TagntDatabaseDiagnostics:
     path = Path(database_path) if database_path is not None else resolve_tagnt_database_path()
     if path is None:
@@ -98,6 +101,7 @@ def load_greek_verse_tokens(
     return list(verses[0].tokens)
 
 
+@_traced_stage("greek_load_passage_tokens")
 def load_greek_passage_tokens(
     reference: str,
     database_path: str | Path | None = None,

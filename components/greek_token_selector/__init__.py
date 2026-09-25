@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from passage_trace import traced as _traced_stage  # TEMPORARY passage-crash diagnostics
+
 from pathlib import Path
 from collections.abc import Callable
 from typing import Any
@@ -31,6 +33,7 @@ def greek_token_selector(
     return normalize_component_selection(_word_index_from_selection_key(result), tokens)
 
 
+@_traced_stage("greek_token_selector_component_v2")
 def greek_token_selector_value(
     tokens: list[GreekToken],
     selected_token_key: str | None,
@@ -55,6 +58,7 @@ def greek_token_selector_value(
     return normalize_component_selection_key(selected, tokens)
 
 
+@_traced_stage("greek_component_v2_register")
 def _component():
     return st.components.v2.component(
         "greek_token_selector",

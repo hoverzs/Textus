@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from passage_trace import traced as _traced_stage  # TEMPORARY passage-crash diagnostics
+
 import html
 import re
 from collections.abc import Callable
@@ -142,6 +144,7 @@ def _render_greek_block_heading(
         st.caption(reference_label.strip())
 
 
+@_traced_stage("greek_analysis_block")
 def render_greek_analysis_block(
     reference: str,
     key_prefix: str,
@@ -316,6 +319,7 @@ def load_john_3_16_tokens() -> list[GreekToken]:
     return get_verse_tokens(JHN_3_16_FIXTURE_PATH, book="Jhn", chapter=3, verse=16)
 
 
+@_traced_stage("greek_load_hungarian_lexicon")
 def load_demo_hungarian_lexicon() -> dict[str, HungarianLexiconEntry] | None:
     path = LEXICON_HU_PATH
     mtime_ns = path.stat().st_mtime_ns if path.exists() else None
@@ -410,6 +414,7 @@ def component_state_word_index(component_state: object, tokens: list[GreekToken]
     return apply_token_selection(tokens, None, candidate)
 
 
+@_traced_stage("greek_render_loaded_passage_analysis")
 def _render_loaded_greek_passage_analysis(
     verse_groups: list[GreekVerseTokens],
     lexicon_entries: dict[str, HungarianLexiconEntry] | None,

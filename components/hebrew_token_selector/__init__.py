@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from passage_trace import traced as _traced_stage  # TEMPORARY passage-crash diagnostics
+
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -13,6 +15,7 @@ _COMPONENT_DIR = Path(__file__).parent
 _FRONTEND_DIR = _COMPONENT_DIR / "frontend"
 
 
+@_traced_stage("hebrew_token_selector_component_v2")
 def hebrew_token_selector(
     tokens: list[HebrewToken],
     selected_token_key: str | None,
@@ -85,6 +88,7 @@ def _word_index_from_selection_key(value: str | None) -> int | None:
         return None
 
 
+@_traced_stage("hebrew_component_v2_register")
 def _component():
     return st.components.v2.component(
         "hebrew_token_selector",
