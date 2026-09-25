@@ -67,11 +67,14 @@ def _call_cloud_save(state: dict, *, as_new: bool = False, autosave: bool = Fals
          patch.object(ps, "build_project_data_from_state", return_value={}):
         st_mock.session_state = state
         app_mod._cloud_save_project(as_new=as_new, autosave=autosave)
+    return st_mock
 
 
 # --- A: successful autosave -------------------------------------------------
 
-def test_a_successful_autosave_updates_revision_and_flashes_info():
+def test_a_successful_autosave_updates_revision_silently():
+    """Checkpoint 2: a successful background autosave is SILENT — no info
+    flash and (see the rerun tests below) no app-scope rerun."""
     state = _session_state(current_project_revision=3)
     fake_result = ps.UpdateProjectResult(outcome=ps.SaveOutcome.OK, row={"id": "proj-1", "revision": 4})
     with patch.object(ps, "update_project", return_value=fake_result) as update_mock:
@@ -80,7 +83,91 @@ def test_a_successful_autosave_updates_revision_and_flashes_info():
     assert state["current_project_revision"] == 4
     assert state["_project_save_state"] == "saved"
     assert state["_project_save_error_streak"] == 0
-    assert state["_flash_message"]["type"] == "info"
+    assert state["_flash_message"] is None
+
+
+# --- A2: successful autosave never requests a rerun (ghosting fix) ---------
+
+_OK4 = lambda: ps.UpdateProjectResult(outcome=ps.SaveOutcome.OK, row={"id": "proj-1", "revision": 4})  # noqa: E731
+
+
+def test_a2_successful_autosave_does_not_request_any_rerun():
+    state = _session_state(current_project_revision=3)
+    with patch.object(ps, "update_project", return_value=_OK4()):
+        st_mock = _call_cloud_save(state, autosave=True)
+    st_mock.rerun.assert_not_called()
+
+
+def test_a2_manual_save_success_still_reruns():
+    """Deliberately preserved: only the AUTOSAVE success path lost its rerun."""
+    state = _session_state(current_project_revision=3)
+    with patch.object(ps, "update_project", return_value=_OK4()):
+        st_mock = _call_cloud_save(state, autosave=False)
+    st_mock.rerun.assert_called_once_with()
+    assert state["_flash_message"] is not None  # manual save still flashes "Mentve"
+
+
+def test_a2_autosave_updates_fingerprint_and_clears_dirty():
+    import app as app_mod
+    from workspace_data import project_content_fingerprint
+
+    state = _session_state(current_project_revision=3, last_igehely="Jn 3,16")
+    with patch.object(app_mod, "st") as st_mock, patch.object(app_mod, "_sync_inputs_to_last"):
+        st_mock.session_state = state
+        assert app_mod._is_project_dirty() is True  # nothing saved yet
+    with patch.object(ps, "update_project", return_value=_OK4()):
+        _call_cloud_save(state, autosave=True)
+    assert state["project_saved_fingerprint"] == project_content_fingerprint(state)
+    assert state["_project_last_save_ts"] > 0
+    with patch.object(app_mod, "st") as st_mock, patch.object(app_mod, "_sync_inputs_to_last"):
+        st_mock.session_state = state
+        assert app_mod._is_project_dirty() is False
+
+
+def test_a2_autosave_does_not_leave_a_stale_pending_title():
+    """The old immediate rerun consumed _pending_project_title_input; without
+    it the pending value must not linger and clobber a title typed later."""
+    state = _session_state(current_project_revision=3)
+    with patch.object(ps, "update_project", return_value=_OK4()):
+        _call_cloud_save(state, autosave=True)
+    assert state["_pending_project_title_input"] is None
+    assert state["current_project_title"] == "Régi cím"
+
+
+def test_a2_maybe_autosave_full_cycle_is_silent_and_not_repeated():
+    """_maybe_autosave_project (the fragment's body): dirty + interval elapsed
+    -> exactly one update, no rerun; immediately after, nothing is dirty so
+    the next tick is a no-op."""
+    import app as app_mod
+
+    state = _session_state(current_project_revision=3)
+    with patch.object(ps, "update_project", return_value=_OK4()) as update_mock,          patch.object(app_mod, "st") as st_mock,          patch.object(app_mod, "track_event"),          patch.object(app_mod, "_owner_sub", return_value="user-1"),          patch.object(app_mod, "_sync_inputs_to_last"),          patch.object(ps, "build_project_data_from_state", return_value={}):
+        st_mock.session_state = state
+        app_mod._maybe_autosave_project()
+        assert update_mock.call_count == 1
+        state["_project_last_save_ts"] = 0.0  # interval elapsed again
+        app_mod._maybe_autosave_project()
+        assert update_mock.call_count == 1  # clean -> nothing to save
+        st_mock.rerun.assert_not_called()
+    assert state["current_project_revision"] == 4
+
+
+def test_a2_autosave_conflict_and_failure_paths_do_not_rerun():
+    """Conflict / failure behaviour is unchanged (state + flash, no rerun)."""
+    conflict = ps.UpdateProjectResult(outcome=ps.SaveOutcome.CONFLICT, row=None, current_revision=9)
+    state = _session_state(current_project_revision=3)
+    with patch.object(ps, "update_project", return_value=conflict):
+        st_mock = _call_cloud_save(state, autosave=True)
+    st_mock.rerun.assert_not_called()
+    assert state["_project_save_state"] == "conflict"
+    assert state["current_project_revision"] == 3
+
+    state = _session_state(current_project_revision=3)
+    with patch.object(ps, "update_project", side_effect=RuntimeError("boom")):
+        st_mock = _call_cloud_save(state, autosave=True)
+    st_mock.rerun.assert_not_called()
+    assert state["_project_save_state"] == "save_failed"
+    assert state["_project_save_error_streak"] == 1
 
 
 # --- B: autosave transient failure -> recovery ------------------------------
