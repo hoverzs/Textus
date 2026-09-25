@@ -76,7 +76,7 @@ def test_no_quick_outline_ui_remnants_in_app_py():
 # ---------------------------------------------------------------------------
 
 _EXPECTED_MARKERS: dict[int, str] = {
-    0: "render_igehely_panel()",
+    0: "render_igehely_panel(",
     1: "render_original_text_panel()",
     # Commentary UI phase (2026-09-03): új, retrieval-only "Kommentárok"
     # fül az Eredeti szöveg és az Exegézis között -- ld.

@@ -793,8 +793,13 @@ def render_bible_text_editor(
     greek_contextual_analysis_generate_fn: Callable[..., str] | None = None,
     greek_contextual_analysis_model_id: str = "gemini-2.5-flash",
     greek_contextual_analysis_generate_kwargs: dict[str, object] | None = None,
+    show_original_language: bool = True,
 ) -> None:
     """Szerkeszthető Bibliai szöveg blokk (Textusműhely / Igehely szakasz).
+
+    ``show_original_language=False`` — az Igehely fül inaktív: a nehéz görög/héber
+    elemzés blokk kimarad (az Eredeti szöveg fül ugyanazt rendereli; így egy
+    teljes futásban legfeljebb egyszer fut). Alapértelmezés: True (változatlan).
 
     ``hebrew_contextual_analysis_generate_fn`` — without it,
     ``render_greek_analysis_block``'s Hebrew path renders no Phase 2E
@@ -829,29 +834,31 @@ def render_bible_text_editor(
     if has_text:
         render_formatted_bible_text(display_text)
         _render_source_caption(st.session_state)
-        render_greek_analysis_block(
-            reference=_current_reference(st.session_state),
-            key_prefix="bible_text_ui",
-            hebrew_contextual_analysis_generate_fn=hebrew_contextual_analysis_generate_fn,
-            hebrew_contextual_analysis_model_id=hebrew_contextual_analysis_model_id,
-            hebrew_contextual_analysis_generate_kwargs=hebrew_contextual_analysis_generate_kwargs,
-            greek_contextual_analysis_generate_fn=greek_contextual_analysis_generate_fn,
-            greek_contextual_analysis_model_id=greek_contextual_analysis_model_id,
-            greek_contextual_analysis_generate_kwargs=greek_contextual_analysis_generate_kwargs,
-        )
+        if show_original_language:
+            render_greek_analysis_block(
+                reference=_current_reference(st.session_state),
+                key_prefix="bible_text_ui",
+                hebrew_contextual_analysis_generate_fn=hebrew_contextual_analysis_generate_fn,
+                hebrew_contextual_analysis_model_id=hebrew_contextual_analysis_model_id,
+                hebrew_contextual_analysis_generate_kwargs=hebrew_contextual_analysis_generate_kwargs,
+                greek_contextual_analysis_generate_fn=greek_contextual_analysis_generate_fn,
+                greek_contextual_analysis_model_id=greek_contextual_analysis_model_id,
+                greek_contextual_analysis_generate_kwargs=greek_contextual_analysis_generate_kwargs,
+            )
         _render_manual_paste_fallback()
     else:
         _render_source_caption(st.session_state)
-        render_greek_analysis_block(
-            reference=_current_reference(st.session_state),
-            key_prefix="bible_text_ui",
-            hebrew_contextual_analysis_generate_fn=hebrew_contextual_analysis_generate_fn,
-            hebrew_contextual_analysis_model_id=hebrew_contextual_analysis_model_id,
-            hebrew_contextual_analysis_generate_kwargs=hebrew_contextual_analysis_generate_kwargs,
-            greek_contextual_analysis_generate_fn=greek_contextual_analysis_generate_fn,
-            greek_contextual_analysis_model_id=greek_contextual_analysis_model_id,
-            greek_contextual_analysis_generate_kwargs=greek_contextual_analysis_generate_kwargs,
-        )
+        if show_original_language:
+            render_greek_analysis_block(
+                reference=_current_reference(st.session_state),
+                key_prefix="bible_text_ui",
+                hebrew_contextual_analysis_generate_fn=hebrew_contextual_analysis_generate_fn,
+                hebrew_contextual_analysis_model_id=hebrew_contextual_analysis_model_id,
+                hebrew_contextual_analysis_generate_kwargs=hebrew_contextual_analysis_generate_kwargs,
+                greek_contextual_analysis_generate_fn=greek_contextual_analysis_generate_fn,
+                greek_contextual_analysis_model_id=greek_contextual_analysis_model_id,
+                greek_contextual_analysis_generate_kwargs=greek_contextual_analysis_generate_kwargs,
+            )
         _render_manual_paste_fallback()
 
 

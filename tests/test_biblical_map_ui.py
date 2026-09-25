@@ -584,7 +584,7 @@ def test_map_call_is_in_igehely_panel_after_overview_button() -> None:
     helper_end = source.index("def render_igehely_panel(", helper_start)
     helper_source = source[helper_start:helper_end]
 
-    panel_start = source.index("def render_igehely_panel() -> None:")
+    panel_start = source.index("def render_igehely_panel(")
     panel_end = source.index("def render_original_text_panel() -> None:", panel_start)
     panel_source = source[panel_start:panel_end]
 

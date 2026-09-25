@@ -8044,8 +8044,13 @@ def render_current_biblical_map_prototype() -> None:
     render_biblical_map_prototype(passage_reference=passage_reference)
 
 
-def render_igehely_panel() -> None:
-    """Igehely megadása (közvetlen bevitel / keresés / konkordancia) + Áttekintés (bibliai háttér)."""
+def render_igehely_panel(analysis_visible: bool = True) -> None:
+    """Igehely megadása (közvetlen bevitel / keresés / konkordancia) + Áttekintés (bibliai háttér).
+
+    ``analysis_visible=False`` — az Igehely fül nem nyitott: a bemeneti mező mindig
+    kirajzolódik (a textus ebből szinkronizálódik), de a nehéz, passzív részek
+    (görög/héber elemzés, bibliai térkép, keresés/konkordancia kibontók) kimaradnak.
+    """
     apply_bible_text_resync_if_needed(st.session_state)
     # Widget létrehozása előtt: igehely-keresésből érkező kiválasztás
     apply_pending_passage_search_before_widget()
@@ -8068,17 +8073,19 @@ def render_igehely_panel() -> None:
             from project_storage import get_user_projects as _ps_get_user_projects
 
             _ps_fetch = _ps_get_user_projects
-        render_passage_search_expander(
-            generate_fn=generate_text,
-            owner_sub=_ps_owner,
-            fetch_projects_fn=_ps_fetch,
-        )
+        if analysis_visible:
+            render_passage_search_expander(
+                generate_fn=generate_text,
+                owner_sub=_ps_owner,
+                fetch_projects_fn=_ps_fetch,
+            )
 
-        render_concordance_expander()
+            render_concordance_expander()
 
         render_bible_text_editor(
             hebrew_contextual_analysis_generate_fn=generate_hebrew_contextual_analysis_text,
             greek_contextual_analysis_generate_fn=generate_greek_contextual_analysis_text,
+            show_original_language=analysis_visible,
         )
 
     with work_surface("igehely_overview"):
@@ -8107,7 +8114,8 @@ def render_igehely_panel() -> None:
                 finally:
                     st.session_state["_overview_running"] = False
 
-        render_current_biblical_map_prototype()
+        if analysis_visible:
+            render_current_biblical_map_prototype()
 
         if st.session_state.get("overview"):
             st.markdown(
@@ -8749,6 +8757,20 @@ if st.session_state.get("ui_mode") == WRITING_DESK_MODE:
     st.stop()
 
 
+def _quick_tab_open(tab_containers, index: int) -> bool:
+    """Nyitott-e a Gyorseszközök adott füle? (`st.tabs(on_change="rerun")` → `.open`)
+
+    Fail-open: ha a fül állapota nem elérhető (`None`/hiba), a törzs a régi
+    módon lefut — így egy hiba soha nem rejt el tartalmat, csak a takarékosságot
+    veszti el.
+    """
+    try:
+        state = tab_containers[index].open
+    except Exception:
+        return True
+    return True if state is None else bool(state)
+
+
 # =========================================================
 # TABOK (Gyorseszközök mód) — egy közös render, vendég = bejelentkezett
 # =========================================================
@@ -8771,12 +8793,13 @@ render_page_intro(
 tabs = passage_trace.trace_tabs(render_quick_tools_tabs(), QUICK_TOOLS_TAB_LABELS)
 
 
+
 # =========================================================
 # IGEHELY (Gyorseszközök — ugyanaz a panel, mint a Textusműhelyben)
 # =========================================================
 
 with tabs[0]:
-    render_igehely_panel()
+    render_igehely_panel(analysis_visible=_quick_tab_open(tabs, 0))
 
 
 # =========================================================
@@ -8787,7 +8810,10 @@ with tabs[0]:
 # =========================================================
 
 with tabs[2]:
-    render_commentary_panel(generate_fn=generate_text, resolve_model_fn=resolve_gemini_model_for_tab)
+    # Csak nyitott fülnél: a panel törzse a teljes kommentár-adatbázis letöltését /
+    # ellenőrzését indítja (Cloud: GB-nyi memóriacsúcs) — inaktívan NEM futhat.
+    if _quick_tab_open(tabs, 2):
+        render_commentary_panel(generate_fn=generate_text, resolve_model_fn=resolve_gemini_model_for_tab)
 
 
 # =========================================================
@@ -8848,7 +8874,9 @@ with tabs[7]:
 # =========================================================
 
 with tabs[1]:
-    render_original_text_panel()
+    # Csak nyitott fülnél: az Igehely fül ugyanezt a görög/héber elemzést rendereli.
+    if _quick_tab_open(tabs, 1):
+        render_original_text_panel()
 
 
 # =========================================================

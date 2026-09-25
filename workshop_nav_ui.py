@@ -698,7 +698,11 @@ def render_quick_tools_tabs(
     if not tab_labels:
         tab_labels = list(QUICK_TOOLS_TAB_LABELS)
     with st.container(key=QUICK_TOOLS_GRID_KEY):
-        return st.tabs(tab_labels, key=QUICK_TOOLS_ACTIVE_TAB_KEY)
+        # `on_change="rerun"`: a szerver tudja, melyik fül nyitott (`.open`), így az
+        # inaktív, nehéz fülek törzse nem fut le minden teljes rerunnál (2026-09
+        # memória-hotfix: a Cloud 3 GB-os korlátja). Fülváltás = egy olcsó rerun,
+        # amely csak az aktív fül törzsét futtatja.
+        return st.tabs(tab_labels, key=QUICK_TOOLS_ACTIVE_TAB_KEY, on_change="rerun")
 
 
 def render_project_toolbar_anchor() -> None:
