@@ -1,6 +1,6 @@
 # TEXTUS — Homiletikai műhely (Streamlit)
 # ≥1.59: st.tabs DOM baseweb → react-aria; Gyorseszközök CSS dual-selector (ui_theme).
-streamlit>=1.42.0
+streamlit==1.64.0
 Authlib>=1.3.2
 supabase
 requests>=2.31.0
