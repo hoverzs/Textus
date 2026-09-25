@@ -99,10 +99,7 @@ _EXPECTED_MARKERS: dict[int, str] = {
     # retrieval UI.
     6: "render_illustration_search_action(generate_fn=generate_text)",
     7: 'key="actualization"',
-    # Checkpoint 3 pilot: a tab törzse a kulcsolt `_render_songs_panel`
-    # fragmentbe költözött (a `st.header("Énekajánló")` ott él — ld.
-    # tests/test_quick_tools_fragment_pilot.py); a tab továbbra is ezt nyitja.
-    8: "_render_songs_panel()",
+    8: 'st.header("Énekajánló")',
     9: '"Igehirdetési sorozat tervező"',
     10: "render_text_main_idea_section(",
     11: 'st.header("📖 Útmutatás")',
