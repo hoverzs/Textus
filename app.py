@@ -4885,6 +4885,22 @@ regenerate_section = generate_section
 # =========================================================
 
 
+def _rerun_current_fragment() -> None:
+    """Fragment-scope rerun — NEM app-scope, soha nem eszkalál teljes rerunra.
+
+    A `st.rerun(scope="fragment")` csak fragment-rerun közben érvényes; teljes
+    app-futás alatt (pl. az első render, vagy tesztek) `StreamlitAPIException`-t
+    dob. Ilyenkor nincs teendő: a hívó a tartalmat a jelenlegi futásban már
+    kirajzolta, csak a gomb-felirat frissül a következő természetes rerunkor.
+    """
+    from streamlit.errors import StreamlitAPIException
+
+    try:
+        st.rerun(scope="fragment")
+    except StreamlitAPIException:
+        pass
+
+
 def render_section_tab(
     key: str,
     header: str,
@@ -4895,6 +4911,8 @@ def render_section_tab(
     action_label: str = None,
     regen_label: str = None,
     approvable: bool = False,
+    isolate_fragment: bool = False,
+    _in_fragment: bool = False,
 ):
     """Egységes szekció-tab renderelő.
 
@@ -4914,7 +4932,34 @@ def render_section_tab(
         számára. (A vázlatmotor ezekre a forrásokra csak a friss
         igehelyhez tartozást ellenőrzi, jóváhagyást nem — ld.
         `sermon_outline_engine._CANONICAL_TEXTUS_SOURCE_KEYS`.)
+      - `isolate_fragment`: ha True, a teljes tab-törzs egy saját kulcsolt
+        `st.fragment`-ben (`qt_section_<key>`) fut: a generálás-gomb, az AI-hívás
+        és az eredmény csak ezt a fragmentet rerunolja, a fejléc / a
+        Gyorseszközök-választó / a többi tab NEM kerül újrarenderelésre, és a
+        generálás végén sincs app-scope `st.rerun()`. (Pilot — egyelőre csak a
+        Teológia használja.)
+      - `_in_fragment`: belső jelző; a fragment-burkoló állítja.
     """
+    if isolate_fragment and not _in_fragment:
+
+        @st.fragment(key=f"qt_section_{key}")
+        def _isolated_section() -> None:
+            render_section_tab(
+                key,
+                header,
+                basket_label,
+                chat_title=chat_title,
+                empty_msg=empty_msg,
+                extra_box_class=extra_box_class,
+                action_label=action_label,
+                regen_label=regen_label,
+                approvable=approvable,
+                _in_fragment=True,
+            )
+
+        _isolated_section()
+        return
+
     render_work_section(
         title=header,
         body="Egy feladatra fókuszálva: generálás, finomítás, majd a megtartandó megjegyzés.",
@@ -4958,7 +5003,12 @@ def render_section_tab(
                     )
                 finally:
                     st.session_state[running_flag] = False
-                st.rerun()
+                if _in_fragment:
+                    # Csak a saját fragment frissül (gomb-felirat: has_result
+                    # a kattintás közben változott) — nincs app-scope rerun.
+                    _rerun_current_fragment()
+                else:
+                    st.rerun()
 
         if has_result:
             box_classes = f"result-box {extra_box_class}".strip()
@@ -8815,6 +8865,7 @@ with tabs[5]:
         empty_msg="Még nincs teológiai elemzés. Kattints a „Teológiai összefüggések feltárása” gombra.",
         action_label="Teológiai összefüggések feltárása",
         approvable=True,
+        isolate_fragment=True,  # Checkpoint 3 pilot: kulcsolt fragment (qt_section_theology)
     )
 
 with tabs[6]:
@@ -8848,7 +8899,16 @@ with tabs[1]:
 # ÉNEKAJÁNLÓ
 # =========================================================
 
-with tabs[8]:
+@st.fragment(key="qt_songs")
+def _render_songs_panel() -> None:
+    """Énekajánló — kulcsolt fragment (Checkpoint 3 pilot).
+
+    A widgetek, az AI-hívás és az eredmény kirajzolása mind ebben a fragmentben
+    fut: egy interakció / generálás CSAK ezt rerunolja, a fejléc, a
+    Gyorseszközök-választó és a többi tab nem kerül újrarenderelésre. A
+    generálás után NINCS `st.rerun()` — az eredmény és a finomító-chat a gomb
+    alatt, ugyanebben a futásban rajzolódik ki.
+    """
     st.header("Énekajánló")
     st.caption("Református liturgiai énekajánlás az igeszakaszhoz és az alkalomhoz")
 
@@ -8936,7 +8996,6 @@ with tabs[8]:
                     st.session_state["_songs_repository_status"] = result.status
             finally:
                 st.session_state["_songs_running"] = False
-            st.rerun()
 
     if st.session_state.get("songs"):
         st.markdown(
@@ -8961,6 +9020,10 @@ with tabs[8]:
         )
     else:
         refinement_chat("Énekajánló", "songs", "songs_chat")
+
+
+with tabs[8]:
+    _render_songs_panel()
 
 
 
