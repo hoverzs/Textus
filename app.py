@@ -166,11 +166,6 @@ APP_VERSION = "3.0"
 APP_NAME = "TEXTUS"
 APP_SUBTITLE = "Homiletikai műhely"
 APP_TAGLINE = "A szövegtől a szószékig"
-APP_SCRIPTURE = (
-    "„A teljes Írás Istentől ihletett és hasznos a tanításra, a fedésre, "
-    "a megjobbításra és az igazságban való nevelésre.”"
-)
-APP_SCRIPTURE_REF = "— 2Timóteus 3,16"
 APP_DOMAIN = "textus.ro"
 APP_STREAMLIT_URL = "https://emmaus.streamlit.app"
 FEEDBACK_TO_EMAIL = "hoverzsolt@gmail.com"
@@ -562,7 +557,7 @@ _WS_DONE_CSS = "\n".join(
 
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Lora:ital,wght@0,500;1,500;1,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Lora:ital,wght@0,500;1,500;1,600&display=swap');
 @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css');
 
 :root {{
@@ -735,13 +730,13 @@ section.main {{
 .header-card {{
     margin-top: 0.25rem;
     margin-bottom: 1.35rem;
-    padding: 18px 28px 16px !important;
+    padding: 16px 26px !important;
     border-radius: 22px !important;
     box-sizing: border-box;
 }}
 
 .main-card.header-card {{
-    padding: 18px 28px 16px !important;
+    padding: 16px 26px !important;
     margin-bottom: 1.35rem !important;
     border-radius: 22px !important;
     box-sizing: border-box !important;
@@ -750,9 +745,9 @@ section.main {{
 @media (min-width: 1025px) {{
     .header-card,
     .main-card.header-card {{
-        min-height: 220px !important;
-        max-height: 240px !important;
-        padding: 20px 28px 18px !important;
+        min-height: 190px !important;
+        max-height: none !important;
+        padding: 16px 26px !important;
     }}
 }}
 
@@ -863,7 +858,7 @@ div.header-logo img.textus-logo-image.main-logo,
     flex-direction: column;
     gap: 0.22rem;
     min-width: 0;
-    max-width: 740px;
+    max-width: 46rem;
 }}
 
 .brand-lockup {{
@@ -875,21 +870,117 @@ div.header-logo img.textus-logo-image.main-logo,
     line-height: 1;
 }}
 
+.header-meta {{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.3rem 0.5rem;
+    margin-top: 0.18rem;
+}}
+
 .header-caption {{
-    margin-top: 0.12rem;
-    display: block;
-    width: auto;
-    padding: 0;
-    border: none;
-    background: none;
-    border-radius: 0;
+    margin: 0;
     font-family: "Inter", "Segoe UI", system-ui, sans-serif;
     font-size: 0.84rem;
-    font-weight: 500;
+    font-weight: 600;
     letter-spacing: 0.04em;
-    text-transform: none;
     color: #5a6f8c;
     text-shadow: none;
+}}
+
+.header-meta-separator {{
+    width: 4px;
+    height: 4px;
+    flex: 0 0 4px;
+    border-radius: 999px;
+    background: rgba(151, 116, 65, 0.74);
+    transform: translateY(-0.08rem);
+}}
+
+.header-tagline {{
+    margin: 0;
+    font-family: "Cormorant Garamond", "Palatino Linotype", Georgia, serif;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.025em;
+    color: #5a4630;
+    line-height: 1.3;
+    text-shadow: none;
+}}
+
+.header-support {{
+    min-width: 0;
+    margin-top: 0.7rem;
+    padding: 0.8rem 0 0;
+    border: none;
+    border-top: 1px solid rgba(151, 116, 65, 0.28);
+    background: none;
+    box-shadow: none;
+    color: #4f463b;
+}}
+
+.header-support-heading {{
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0 0 0.3rem;
+    font-family: "Cormorant Garamond", "Palatino Linotype", Georgia, serif;
+    font-size: 1.18rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #2f5177;
+}}
+
+.header-card img.header-support-icon {{
+    flex: 0 0 auto;
+    width: auto !important;
+    height: 1.9rem !important;
+    max-width: none !important;
+}}
+
+.header-card .header-support-text {{
+    margin: 0 0 0.6rem;
+    font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+    font-size: 0.82rem !important;
+    line-height: 1.5 !important;
+    font-weight: 700 !important;
+    color: #5f574b;
+}}
+
+.header-support-link {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    padding: 0.56rem 0.96rem;
+    border: 1px solid rgba(42, 76, 116, 0.82);
+    border-radius: 999px;
+    background: linear-gradient(180deg, #557cab, #3b628e);
+    color: #fffdf8 !important;
+    font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-decoration: none !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        0 4px 9px rgba(41, 67, 99, 0.18);
+    transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}}
+
+.header-support-link:hover {{
+    border-color: #2f5177;
+    background: linear-gradient(180deg, #466f9f, #315879);
+    color: #fffdf8 !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 6px 13px rgba(41, 67, 99, 0.24);
+    transform: translateY(-1px);
+}}
+
+.header-support-link:focus-visible {{
+    outline: 2px solid rgba(52, 78, 109, 0.62);
+    outline-offset: 3px;
 }}
 
 @media (max-width: 720px) {{
@@ -937,13 +1028,16 @@ div.header-logo img.textus-logo-image.main-logo,
         margin-left: auto;
         margin-right: auto;
     }}
+    .header-meta {{
+        justify-content: center;
+    }}
 }}
 
 .main-title {{
-    font-family: "Cormorant Garamond", "Playfair Display", "Palatino Linotype", "Book Antiqua", Georgia, serif;
-    font-size: clamp(2.15rem, 3.2vw, 2.75rem);
-    font-weight: 700;
-    letter-spacing: 0.12em;
+    font-family: "Cinzel", "Cormorant Garamond", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    font-size: clamp(2.05rem, 3vw, 2.6rem);
+    font-weight: 800;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: #2b2116;
     line-height: 1;
@@ -1017,44 +1111,6 @@ div.header-logo img.textus-logo-image.main-logo,
     border-radius: 999px;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
     text-shadow: none;
-}}
-
-.header-tagline {{
-    font-family: "Cormorant Garamond", "Palatino Linotype", Georgia, serif;
-    font-size: 1.1rem;
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    color: #5a4630;
-    line-height: 1.3;
-    margin-top: 0.08rem;
-    text-shadow: none;
-}}
-
-.header-card .subtitle {{
-    font-family: "Lora", "Cormorant Garamond", Georgia, serif;
-    font-size: 0.92rem;
-    color: #6a5844;
-    font-style: italic;
-    line-height: 1.38;
-    max-width: 46rem;
-    margin-top: 0.35rem;
-    padding-left: 0.7rem;
-    border-left: 2px solid rgba(141, 113, 79, 0.28);
-    text-shadow: none;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}}
-
-.header-card .scripture-ref {{
-    font-family: "Inter", "Segoe UI", sans-serif;
-    font-size: 0.78rem;
-    font-weight: 500;
-    letter-spacing: 0.03em;
-    color: #7a6a56;
-    margin-top: 0.18rem;
-    padding-left: 0.7rem;
 }}
 
 h1, h2, h3, h4, h5, h6 {{
@@ -3076,6 +3132,10 @@ div[data-testid="stForm"] {{
         width: 96px !important;
     }}
 
+    .header-support {{
+        text-align: left;
+    }}
+
     .textus-logo-badge {{
         width: 90px !important;
         height: 90px !important;
@@ -3178,29 +3238,43 @@ div[data-testid="stForm"] {{
         font-size: 1.05rem !important;
     }}
 
-    .header-card .subtitle {{
-        font-size: 0.84rem !important;
-        line-height: 1.35 !important;
-        max-width: 100% !important;
-        text-align: left;
-        -webkit-line-clamp: 3;
-    }}
-
-    .header-card .scripture-ref {{
-        text-align: left;
-        font-size: 0.72rem !important;
-    }}
-
     .header-caption {{
-        margin-left: auto;
-        margin-right: auto;
         font-size: 0.76rem !important;
         letter-spacing: 0.03em !important;
-        padding: 0 !important;
+    }}
+
+    .header-meta {{
+        justify-content: center;
+        column-gap: 0.42rem;
+    }}
+
+    .header-meta-separator {{
+        display: none;
     }}
 
     .header-tagline {{
-        font-size: 1rem !important;
+        font-size: 0.96rem !important;
+    }}
+
+    .header-support {{
+        width: 100%;
+        padding-top: 0.7rem;
+    }}
+
+    .header-support-heading {{
+        justify-content: center;
+        font-size: 1.08rem;
+    }}
+
+    .header-card .header-support-text {{
+        font-size: 0.78rem !important;
+        line-height: 1.45 !important;
+        text-align: left;
+    }}
+
+    .header-support-link {{
+        width: 100%;
+        box-sizing: border-box;
     }}
 
     /* Kártyák — kompaktabb belső tér */
@@ -7982,6 +8056,16 @@ else:
         "</div>"
     )
 
+support_icon_file = find_file(["Textus_support_icon.webp"])
+if support_icon_file:
+    support_icon_html = (
+        '<img class="header-support-icon" '
+        f'src="data:image/webp;base64,{file_to_base64(support_icon_file)}" '
+        'alt="" aria-hidden="true" decoding="async" />'
+    )
+else:
+    support_icon_html = ""
+
 st.markdown(
     f"""
 <div class="main-card header-card">
@@ -7992,10 +8076,19 @@ st.markdown(
                 <span class="main-title">{APP_NAME}</span>
                 <span class="version-inline">{APP_VERSION}</span>
             </div>
-            <div class="header-caption">{APP_SUBTITLE}</div>
-            <div class="header-tagline">{APP_TAGLINE}</div>
-            <div class="subtitle">{APP_SCRIPTURE}</div>
-            <div class="scripture-ref">{APP_SCRIPTURE_REF}</div>
+            <div class="header-meta">
+                <span class="header-caption">{APP_SUBTITLE}</span>
+                <span class="header-meta-separator" aria-hidden="true"></span>
+                <span class="header-tagline">{APP_TAGLINE}</span>
+            </div>
+            <section class="header-support" aria-label="A Textus támogatása">
+                <div class="header-support-heading">
+                    {support_icon_html}
+                    <span>A Textus támogatása</span>
+                </div>
+                <p class="header-support-text">A Textus ingyenesen használható, fenntartását és fejlesztését saját forrásból fedezem. Ha hasznosnak találod, önkéntes hozzájárulásoddal segítheted a folytatást.</p>
+                <a class="header-support-link" href="https://ko-fi.com/textus" target="_blank" rel="noopener noreferrer">Támogatom a Textust</a>
+            </section>
         </div>
     </div>
 </div>

@@ -331,9 +331,9 @@ div.header-logo img.textus-logo-image.main-logo,
 }
 
 .main-title {
-    font-family: "Cormorant Garamond", "Playfair Display", "Palatino Linotype", "Book Antiqua", Georgia, serif !important;
-    font-size: clamp(2.15rem, 3.2vw, 2.75rem) !important;
-    letter-spacing: 0.12em !important;
+    font-family: "Cinzel", "Cormorant Garamond", "Palatino Linotype", "Book Antiqua", Georgia, serif !important;
+    font-size: clamp(2.05rem, 3vw, 2.6rem) !important;
+    letter-spacing: 0.14em !important;
     line-height: 1 !important;
     margin: 0 !important;
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) !important;
