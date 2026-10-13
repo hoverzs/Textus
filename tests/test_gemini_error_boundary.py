@@ -295,3 +295,50 @@ def test_failed_call_is_not_marked_as_fresh_usable_source_for_the_outline_engine
         and entry["current_passage"]
     )
     assert not usable_failure, "a hibaszöveg friss, felhasználható exegézis-forrásként szerepel"
+
+
+# --------------------------------------------------------------------------
+# A felismerő segédfüggvény: érvényes tartalmat nem minősít hibának
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        GOOD_ANSWER,
+        "## Műfaj és szerkezet\n\nA szakasz narratív.",
+        # MAX_TOKENS miatt csonkolt, de érdemi válasz: a jegyzet a VÉGÉN áll.
+        "## Exegézis\n\nÉrdemi szöveg.\n\n---\n\n> ⚠️ **A válasz a modell kimeneti korlátjánál megszakadt.**",
+    ],
+)
+def test_helper_does_not_flag_valid_content(text):
+    import app as app_mod
+
+    assert app_mod.is_generation_error_text(text) is False
+
+
+@pytest.mark.parametrize("text", [None, "", "   \n", 42])
+def test_helper_flags_empty_or_non_text(text):
+    import app as app_mod
+
+    assert app_mod.is_generation_error_text(text) is True
+
+
+def test_failed_generation_keeps_error_out_of_content_but_available_for_display(monkeypatch):
+    h = _harness(monkeypatch, prior=PRIOR_GOOD, mode="http_500")
+
+    assert h.generate_exegesis() is False
+
+    assert h.state["exegesis"] == PRIOR_GOOD
+    assert h.state["exegesis_last_error"].strip()
+    assert "exegesis_approved_context_hash" not in h.state
+
+
+def test_successful_generation_clears_previous_error(monkeypatch):
+    h = _harness(monkeypatch, prior="", mode=None)
+    h.state["exegesis_last_error"] = "régi hiba"
+
+    assert h.generate_exegesis() is True
+
+    assert "exegesis_last_error" not in h.state
+    assert GOOD_ANSWER in h.state["exegesis"]

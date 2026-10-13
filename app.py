@@ -4701,6 +4701,10 @@ _LANGUAGE_GROUNDING_WARNING_KEYS = (
 def _reset_language_grounding_warnings() -> None:
     for warning_key in _LANGUAGE_GROUNDING_WARNING_KEYS:
         st.session_state[warning_key] = []
+    # S-01: a szekciók legutóbbi generálási hibája (`{key}_last_error`) sem
+    # szivároghat át egy másik projekt / üres munkaterület alá.
+    for section_key in SECTION_PROMPTS:
+        st.session_state.pop(f"{section_key}_last_error", None)
 
 
 _EXEGESIS_SUPPORT_EXEMPT_HEADINGS = {"prédikációs haszon"}
@@ -4788,13 +4792,32 @@ def _run_kb_shadow_for_section(
     )
 
 
+_GENERATION_ERROR_FALLBACK = "A generálás nem sikerült. Próbáld újra később."
+# A `generate_text` minden hibaága ("⚠️ **…**", "⏳ **…**" nyitással) ilyen
+# szöveget ad vissza: hiányzó kulcs, várakozás, időtúllépés, kapcsolati hiba,
+# üres/blokkolt válasz, modell-, kvóta- és HTTP-hiba. Egy sikeres, de MAX_TOKENS
+# miatt csonkolt válaszhoz a `> ⚠️ …` jegyzet a szöveg VÉGÉRE kerül, azt nem érinti.
+_GENERATION_ERROR_PATTERN = re.compile(r"^[\s﻿]*(?:⚠️?|⏳)\s*\*\*")
+
+
+def is_generation_error_text(text) -> bool:
+    """True, ha a `generate_text` eredménye NEM használható tartalom: üres,
+    nem szöveg, vagy a `generate_text` hiba-/várakozó üzenete (S-01)."""
+    if not isinstance(text, str) or not text.strip():
+        return True
+    return bool(_GENERATION_ERROR_PATTERN.match(text))
+
+
 def generate_section(key: str) -> bool:
     """Egy adott szekciót lefuttat (első generálás VAGY újrageneráláshoz).
 
     Olvassa az élő input mezőket (igehely_input stb.), szinkronizálja
     `last_*`-okba, majd indít EGYETLEN Gemini hívást. Visszatérési érték:
       - True   → eredmény bekerült a `st.session_state[key]`-be
-      - False  → blokkoló validáció (pl. nincs igehely vagy API kulcs)
+      - False  → blokkoló validáció (pl. nincs igehely vagy API kulcs), VAGY
+                 sikertelen/várakozó/üres Gemini-eredmény: ilyenkor a mező és
+                 a figyelmeztetései változatlanok, a hiba a `{key}_last_error`
+                 kulcsba kerül (ez kizárólag megjelenítésre való)
     """
     _sync_inputs_to_last()
 
@@ -4838,7 +4861,16 @@ def generate_section(key: str) -> bool:
             generate_text_fn=generate_text,
             shadow_runner_fn=_run_kb_shadow_for_section,
         )
-        st.session_state[key] = run.production_output
+        output = run.production_output
+        failed = is_generation_error_text(output)
+        if failed:
+            # S-01: a sikertelen/várakozó hívás szövege NEM tartalom. A mező
+            # és a hozzá tartozó figyelmeztetések változatlanok maradnak, a
+            # hiba csak a külön, megjelenítési célú kulcsba kerül.
+            st.session_state[f"{key}_last_error"] = (output or "").strip() or _GENERATION_ERROR_FALLBACK
+        else:
+            st.session_state.pop(f"{key}_last_error", None)
+            st.session_state[key] = output
         if run.grounded_event is not None and not run.grounded_event.get("grounded_disabled"):
             st.session_state.setdefault(KB_GROUNDED_SESSION_KEY, []).append(dict(run.grounded_event))
         artifact = run.shadow_event
@@ -4852,7 +4884,7 @@ def generate_section(key: str) -> bool:
                     "status": str(artifact.get("status") or "error").upper(),
                     "model": "shadow",
                     "prompt_chars": len(prompt),
-                    "response_chars": len(st.session_state[key]),
+                    "response_chars": len(output or ""),
                     "latency_ms": int(artifact.get("retrieval_duration_ms", 0))
                     + int(artifact.get("context_build_duration_ms", 0)),
                     "shadow_module": str(artifact.get("module") or ""),
@@ -4866,6 +4898,8 @@ def generate_section(key: str) -> bool:
                     "provider_prompt_kind": run.provider_prompt_kind,
                 }
             )
+        if failed:
+            return False
         if key == "exegesis":
             st.session_state[f"{key}_support_warnings"] = (
                 validate_exegesis_has_support(st.session_state[key])
@@ -4946,22 +4980,25 @@ def render_section_tab(
             ):
                 st.session_state[running_flag] = True
                 try:
-                    generate_section(key)
-                    if approvable:
-                        st.session_state[f"{key}_status"] = "draft"
-                    # Korrekciós fázis 3.1: az ujjlenyomat GENERÁLÁSKOR
-                    # bélyegződik be, nem csak jóváhagyáskor — ez teszi
-                    # lehetővé, hogy a vázlatmotor a tartalmat approval
-                    # nélkül is felismerje "az aktuális textushoz tartozó,
-                    # friss" forrásként (ld. sermon_outline_engine.
-                    # _canonical_source_is_usable).
-                    from sermon_outline_engine import (
-                        compute_current_passage_context_hash,
-                    )
+                    # S-01: sikertelen generálásnál (False) nincs státusz- és
+                    # frissességi-bélyegváltás: a meglévő tartalom és annak
+                    # jelölései érintetlenek, a hibát lent jelenítjük meg.
+                    if generate_section(key):
+                        if approvable:
+                            st.session_state[f"{key}_status"] = "draft"
+                        # Korrekciós fázis 3.1: az ujjlenyomat GENERÁLÁSKOR
+                        # bélyegződik be, nem csak jóváhagyáskor — ez teszi
+                        # lehetővé, hogy a vázlatmotor a tartalmat approval
+                        # nélkül is felismerje "az aktuális textushoz tartozó,
+                        # friss" forrásként (ld. sermon_outline_engine.
+                        # _canonical_source_is_usable).
+                        from sermon_outline_engine import (
+                            compute_current_passage_context_hash,
+                        )
 
-                    st.session_state[f"{key}_approved_context_hash"] = (
-                        compute_current_passage_context_hash(st.session_state)
-                    )
+                        st.session_state[f"{key}_approved_context_hash"] = (
+                            compute_current_passage_context_hash(st.session_state)
+                        )
                 finally:
                     st.session_state[running_flag] = False
                 st.rerun()
@@ -4977,6 +5014,13 @@ def render_section_tab(
                 title="Még nincs tartalom",
                 body=empty_msg or "Kattints a generálás gombra.",
                 tone="neutral",
+            )
+
+        last_error = st.session_state.get(f"{key}_last_error")
+        if last_error:
+            st.warning(
+                "A legutóbbi generálás nem sikerült, a korábbi tartalom változatlan.\n\n"
+                + str(last_error)
             )
 
         support_warnings = st.session_state.get(f"{key}_support_warnings")
@@ -8111,6 +8155,8 @@ def render_igehely_panel(analysis_visible: bool = True) -> None:
                 try:
                     if generate_section("overview"):
                         st.success("Bibliai háttér elkészült.")
+                    elif st.session_state.get("overview_last_error"):
+                        st.warning(str(st.session_state["overview_last_error"]))
                 finally:
                     st.session_state["_overview_running"] = False
 
@@ -8127,6 +8173,8 @@ def render_igehely_panel(analysis_visible: bool = True) -> None:
                 if st.button("Bibliai háttér újragenerálása", key="overview_regen"):
                     if generate_section("overview"):
                         st.rerun()
+                    elif st.session_state.get("overview_last_error"):
+                        st.warning(str(st.session_state["overview_last_error"]))
 
 
 def render_original_text_panel() -> None:
