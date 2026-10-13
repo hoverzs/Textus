@@ -17,6 +17,8 @@ def test_support_block_is_inside_the_existing_header() -> None:
         "segítheted a folytatást."
     ) in header_markup
     assert "Támogatom a Textust" in header_markup
+    assert 'data-lucide="heart-handshake"' in header_markup
+    assert 'class="lucide lucide-heart-handshake"' in header_markup
 
 
 def test_support_link_opens_ko_fi_safely_in_a_new_tab() -> None:
@@ -33,3 +35,13 @@ def test_support_layout_has_desktop_and_responsive_rules() -> None:
     assert ".header-card .header-support-text" in APP_SOURCE
     assert "width: min(100%, 46rem);" in APP_SOURCE
     assert "width: 100%;" in APP_SOURCE
+    assert "background: linear-gradient(180deg, #557cab, #3b628e);" in APP_SOURCE
+    assert "border-radius: 16px;" in APP_SOURCE
+
+
+def test_header_keeps_only_brand_and_compact_meta_line() -> None:
+    assert "APP_SCRIPTURE" not in APP_SOURCE
+    assert "2Timóteus 3,16" not in APP_SOURCE
+    assert '<div class="header-meta">' in APP_SOURCE
+    assert '<span class="header-meta-separator" aria-hidden="true"></span>' in APP_SOURCE
+    assert ".header-meta-separator {{\n        display: none;" in APP_SOURCE

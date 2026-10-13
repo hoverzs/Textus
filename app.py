@@ -166,11 +166,6 @@ APP_VERSION = "3.0"
 APP_NAME = "TEXTUS"
 APP_SUBTITLE = "Homiletikai műhely"
 APP_TAGLINE = "A szövegtől a szószékig"
-APP_SCRIPTURE = (
-    "„A teljes Írás Istentől ihletett és hasznos a tanításra, a fedésre, "
-    "a megjobbításra és az igazságban való nevelésre.”"
-)
-APP_SCRIPTURE_REF = "— 2Timóteus 3,16"
 APP_DOMAIN = "textus.ro"
 APP_STREAMLIT_URL = "https://emmaus.streamlit.app"
 FEEDBACK_TO_EMAIL = "hoverzsolt@gmail.com"
@@ -735,13 +730,13 @@ section.main {{
 .header-card {{
     margin-top: 0.25rem;
     margin-bottom: 1.35rem;
-    padding: 18px 28px 16px !important;
+    padding: 16px 26px !important;
     border-radius: 22px !important;
     box-sizing: border-box;
 }}
 
 .main-card.header-card {{
-    padding: 18px 28px 16px !important;
+    padding: 16px 26px !important;
     margin-bottom: 1.35rem !important;
     border-radius: 22px !important;
     box-sizing: border-box !important;
@@ -750,9 +745,9 @@ section.main {{
 @media (min-width: 1025px) {{
     .header-card,
     .main-card.header-card {{
-        min-height: 220px !important;
-        max-height: 240px !important;
-        padding: 20px 28px 18px !important;
+        min-height: 190px !important;
+        max-height: none !important;
+        padding: 16px 26px !important;
     }}
 }}
 
@@ -875,56 +870,96 @@ div.header-logo img.textus-logo-image.main-logo,
     line-height: 1;
 }}
 
+.header-meta {{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.3rem 0.5rem;
+    margin-top: 0.18rem;
+}}
+
 .header-caption {{
-    margin-top: 0.12rem;
-    display: block;
-    width: auto;
-    padding: 0;
-    border: none;
-    background: none;
-    border-radius: 0;
+    margin: 0;
     font-family: "Inter", "Segoe UI", system-ui, sans-serif;
     font-size: 0.84rem;
-    font-weight: 500;
+    font-weight: 600;
     letter-spacing: 0.04em;
-    text-transform: none;
     color: #5a6f8c;
+    text-shadow: none;
+}}
+
+.header-meta-separator {{
+    width: 4px;
+    height: 4px;
+    flex: 0 0 4px;
+    border-radius: 999px;
+    background: rgba(151, 116, 65, 0.74);
+    transform: translateY(-0.08rem);
+}}
+
+.header-tagline {{
+    margin: 0;
+    font-family: "Cormorant Garamond", "Palatino Linotype", Georgia, serif;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.025em;
+    color: #5a4630;
+    line-height: 1.3;
     text-shadow: none;
 }}
 
 .header-support {{
     min-width: 0;
     align-self: center;
-    padding: 0.1rem 0 0.1rem 1.35rem;
-    border-left: 1px solid rgba(126, 103, 73, 0.28);
+    padding: 1rem 1.1rem 1.05rem;
+    border: 1px solid rgba(130, 106, 70, 0.32);
+    border-radius: 16px;
+    background:
+        linear-gradient(135deg, rgba(234, 241, 248, 0.82), rgba(249, 242, 226, 0.74));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.72),
+        0 7px 18px rgba(57, 47, 34, 0.07);
     color: #4f463b;
 }}
 
 .header-support-heading {{
     display: flex;
     align-items: center;
-    gap: 0.48rem;
-    margin: 0 0 0.38rem;
+    gap: 0.58rem;
+    margin: 0 0 0.48rem;
     font-family: "Cormorant Garamond", "Palatino Linotype", Georgia, serif;
-    font-size: 1.08rem;
+    font-size: 1.18rem;
     font-weight: 700;
     line-height: 1.2;
-    color: #344e6d;
+    color: #2f5177;
 }}
 
 .header-support-icon {{
-    color: #9a7440;
-    font-family: Georgia, serif;
-    font-size: 1.05rem;
-    line-height: 1;
+    display: inline-flex;
+    flex: 0 0 2rem;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid rgba(148, 112, 56, 0.34);
+    border-radius: 10px;
+    background: rgba(251, 247, 238, 0.7);
+    color: #3b628e;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}}
+
+.header-support-icon svg {{
+    width: 1.2rem;
+    height: 1.2rem;
+    stroke-width: 1.85;
 }}
 
 .header-card .header-support-text {{
-    margin: 0 0 0.72rem;
+    margin: 0 0 0.88rem;
     font-family: "Inter", "Segoe UI", system-ui, sans-serif;
-    font-size: 0.78rem !important;
-    line-height: 1.48 !important;
-    color: #665b4d;
+    font-size: 0.82rem !important;
+    line-height: 1.5 !important;
+    color: #5f574b;
 }}
 
 .header-support-link {{
@@ -932,24 +967,30 @@ div.header-logo img.textus-logo-image.main-logo,
     align-items: center;
     justify-content: center;
     max-width: 100%;
-    padding: 0.48rem 0.82rem;
-    border: 1px solid rgba(133, 103, 61, 0.52);
+    padding: 0.56rem 0.96rem;
+    border: 1px solid rgba(42, 76, 116, 0.82);
     border-radius: 999px;
-    background: rgba(247, 240, 226, 0.58);
-    color: #344e6d !important;
+    background: linear-gradient(180deg, #557cab, #3b628e);
+    color: #fffdf8 !important;
     font-family: "Inter", "Segoe UI", system-ui, sans-serif;
-    font-size: 0.78rem;
-    font-weight: 650;
+    font-size: 0.8rem;
+    font-weight: 700;
     line-height: 1.2;
     text-decoration: none !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.68);
-    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        0 4px 9px rgba(41, 67, 99, 0.18);
+    transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }}
 
 .header-support-link:hover {{
-    border-color: rgba(119, 87, 43, 0.72);
-    background: rgba(239, 226, 201, 0.78);
-    color: #243f60 !important;
+    border-color: #2f5177;
+    background: linear-gradient(180deg, #466f9f, #315879);
+    color: #fffdf8 !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 6px 13px rgba(41, 67, 99, 0.24);
+    transform: translateY(-1px);
 }}
 
 .header-support-link:focus-visible {{
@@ -1001,6 +1042,9 @@ div.header-logo img.textus-logo-image.main-logo,
     .header-caption {{
         margin-left: auto;
         margin-right: auto;
+    }}
+    .header-meta {{
+        justify-content: center;
     }}
 }}
 
@@ -1082,44 +1126,6 @@ div.header-logo img.textus-logo-image.main-logo,
     border-radius: 999px;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
     text-shadow: none;
-}}
-
-.header-tagline {{
-    font-family: "Cormorant Garamond", "Palatino Linotype", Georgia, serif;
-    font-size: 1.1rem;
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    color: #5a4630;
-    line-height: 1.3;
-    margin-top: 0.08rem;
-    text-shadow: none;
-}}
-
-.header-card .subtitle {{
-    font-family: "Lora", "Cormorant Garamond", Georgia, serif;
-    font-size: 0.92rem;
-    color: #6a5844;
-    font-style: italic;
-    line-height: 1.38;
-    max-width: 46rem;
-    margin-top: 0.35rem;
-    padding-left: 0.7rem;
-    border-left: 2px solid rgba(141, 113, 79, 0.28);
-    text-shadow: none;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}}
-
-.header-card .scripture-ref {{
-    font-family: "Inter", "Segoe UI", sans-serif;
-    font-size: 0.78rem;
-    font-weight: 500;
-    letter-spacing: 0.03em;
-    color: #7a6a56;
-    margin-top: 0.18rem;
-    padding-left: 0.7rem;
 }}
 
 h1, h2, h3, h4, h5, h6 {{
@@ -3144,9 +3150,7 @@ div[data-testid="stForm"] {{
     .header-support {{
         width: min(100%, 46rem);
         box-sizing: border-box;
-        padding: 0.9rem 0.25rem 0;
-        border-left: 0;
-        border-top: 1px solid rgba(126, 103, 73, 0.24);
+        padding: 1rem 1.1rem;
         text-align: left;
     }}
 
@@ -3252,43 +3256,36 @@ div[data-testid="stForm"] {{
         font-size: 1.05rem !important;
     }}
 
-    .header-card .subtitle {{
-        font-size: 0.84rem !important;
-        line-height: 1.35 !important;
-        max-width: 100% !important;
-        text-align: left;
-        -webkit-line-clamp: 3;
-    }}
-
-    .header-card .scripture-ref {{
-        text-align: left;
-        font-size: 0.72rem !important;
-    }}
-
     .header-caption {{
-        margin-left: auto;
-        margin-right: auto;
         font-size: 0.76rem !important;
         letter-spacing: 0.03em !important;
-        padding: 0 !important;
+    }}
+
+    .header-meta {{
+        justify-content: center;
+        column-gap: 0.42rem;
+    }}
+
+    .header-meta-separator {{
+        display: none;
     }}
 
     .header-tagline {{
-        font-size: 1rem !important;
+        font-size: 0.96rem !important;
     }}
 
     .header-support {{
         width: 100%;
-        padding: 0.78rem 0 0;
+        padding: 0.92rem;
     }}
 
     .header-support-heading {{
         justify-content: center;
-        font-size: 1rem;
+        font-size: 1.08rem;
     }}
 
     .header-card .header-support-text {{
-        font-size: 0.76rem !important;
+        font-size: 0.78rem !important;
         line-height: 1.45 !important;
         text-align: left;
     }}
@@ -8087,14 +8084,17 @@ st.markdown(
                 <span class="main-title">{APP_NAME}</span>
                 <span class="version-inline">{APP_VERSION}</span>
             </div>
-            <div class="header-caption">{APP_SUBTITLE}</div>
-            <div class="header-tagline">{APP_TAGLINE}</div>
-            <div class="subtitle">{APP_SCRIPTURE}</div>
-            <div class="scripture-ref">{APP_SCRIPTURE_REF}</div>
+            <div class="header-meta">
+                <span class="header-caption">{APP_SUBTITLE}</span>
+                <span class="header-meta-separator" aria-hidden="true"></span>
+                <span class="header-tagline">{APP_TAGLINE}</span>
+            </div>
         </div>
         <aside class="header-support" aria-label="A Textus támogatása">
             <div class="header-support-heading">
-                <span class="header-support-icon" aria-hidden="true">♡</span>
+                <span class="header-support-icon" aria-hidden="true">
+                    <svg class="lucide lucide-heart-handshake" data-lucide="heart-handshake" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19.414 14.414C21 12.828 22 11.5 22 9.5a5.5 5.5 0 0 0-9.591-3.676.6.6 0 0 1-.818.001A5.5 5.5 0 0 0 2 9.5c0 2.3 1.5 4 3 5.5l5.535 5.362a2 2 0 0 0 2.879.052 2.12 2.12 0 0 0-.004-3 2.124 2.124 0 1 0 3-3 2.124 2.124 0 0 0 3.004 0 2 2 0 0 0 0-2.828l-1.881-1.882a2.41 2.41 0 0 0-3.409 0l-1.71 1.71a2 2 0 0 1-2.828 0 2 2 0 0 1 0-2.828l2.823-2.762" /></svg>
+                </span>
                 <span>A Textus támogatása</span>
             </div>
             <p class="header-support-text">A Textus ingyenesen használható, fenntartását és fejlesztését saját forrásból fedezem. Ha hasznosnak találod, önkéntes hozzájárulásoddal segítheted a folytatást.</p>
