@@ -557,7 +557,7 @@ _WS_DONE_CSS = "\n".join(
 
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Lora:ital,wght@0,500;1,500;1,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Lora:ital,wght@0,500;1,500;1,600&display=swap');
 @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css');
 
 :root {{
@@ -943,6 +943,7 @@ div.header-logo img.textus-logo-image.main-logo,
     font-family: "Inter", "Segoe UI", system-ui, sans-serif;
     font-size: 0.82rem !important;
     line-height: 1.5 !important;
+    font-weight: 700 !important;
     color: #5f574b;
 }}
 
@@ -1033,10 +1034,10 @@ div.header-logo img.textus-logo-image.main-logo,
 }}
 
 .main-title {{
-    font-family: "Cormorant Garamond", "Playfair Display", "Palatino Linotype", "Book Antiqua", Georgia, serif;
-    font-size: clamp(2.15rem, 3.2vw, 2.75rem);
-    font-weight: 700;
-    letter-spacing: 0.12em;
+    font-family: "Cinzel", "Cormorant Garamond", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    font-size: clamp(2.05rem, 3vw, 2.6rem);
+    font-weight: 800;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: #2b2116;
     line-height: 1;
