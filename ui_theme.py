@@ -299,7 +299,7 @@ div.header-logo img.textus-logo-image.main-logo,
 
 .main-card.header-card {
     /* tx-header-v2-marker */
-    padding: 18px 28px 16px !important;
+    padding: 22px 28px 30px !important;
     margin-bottom: 1.35rem !important;
     border-radius: 22px !important;
     box-sizing: border-box !important;
@@ -307,9 +307,9 @@ div.header-logo img.textus-logo-image.main-logo,
 
 @media (min-width: 1025px) {
     .main-card.header-card {
-        min-height: 220px !important;
-        max-height: 240px !important;
-        padding: 20px 28px 18px !important;
+        min-height: 190px !important;
+        max-height: none !important;
+        padding: 22px 28px 30px !important;
     }
 }
 
@@ -1053,7 +1053,7 @@ body:has(.st-key-passage_search_occasion_field [aria-expanded="true"])
         border-radius: 18px !important;
     }
     .main-card.header-card {
-        padding: 14px 14px 12px !important;
+        padding: 16px 14px 22px !important;
     }
     .main-title {
         font-size: 2rem !important;
