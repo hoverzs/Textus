@@ -759,7 +759,7 @@ section.main {{
     .header-grid.textus-header,
     div.header-grid.textus-header {{
         display: grid !important;
-        grid-template-columns: 148px minmax(360px, 1.2fr) minmax(280px, 0.8fr) !important;
+        grid-template-columns: 148px minmax(0, 1fr) !important;
         gap: 22px !important;
         align-items: center !important;
     }}
@@ -768,7 +768,7 @@ section.main {{
 .header-grid,
 .textus-header {{
     display: grid;
-    grid-template-columns: 148px minmax(360px, 1.2fr) minmax(280px, 0.8fr);
+    grid-template-columns: 148px minmax(0, 1fr);
     gap: 22px;
     align-items: center;
 }}
@@ -858,7 +858,7 @@ div.header-logo img.textus-logo-image.main-logo,
     flex-direction: column;
     gap: 0.22rem;
     min-width: 0;
-    max-width: 740px;
+    max-width: 46rem;
 }}
 
 .brand-lockup {{
@@ -910,23 +910,20 @@ div.header-logo img.textus-logo-image.main-logo,
 
 .header-support {{
     min-width: 0;
-    align-self: center;
-    padding: 1rem 1.1rem 1.05rem;
-    border: 1px solid rgba(130, 106, 70, 0.32);
-    border-radius: 16px;
-    background:
-        linear-gradient(135deg, rgba(234, 241, 248, 0.82), rgba(249, 242, 226, 0.74));
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.72),
-        0 7px 18px rgba(57, 47, 34, 0.07);
+    margin-top: 0.7rem;
+    padding: 0.8rem 0 0;
+    border: none;
+    border-top: 1px solid rgba(151, 116, 65, 0.28);
+    background: none;
+    box-shadow: none;
     color: #4f463b;
 }}
 
 .header-support-heading {{
     display: flex;
     align-items: center;
-    gap: 0.58rem;
-    margin: 0 0 0.48rem;
+    gap: 0.55rem;
+    margin: 0 0 0.3rem;
     font-family: "Cormorant Garamond", "Palatino Linotype", Georgia, serif;
     font-size: 1.18rem;
     font-weight: 700;
@@ -934,28 +931,15 @@ div.header-logo img.textus-logo-image.main-logo,
     color: #2f5177;
 }}
 
-.header-support-icon {{
-    display: inline-flex;
-    flex: 0 0 2rem;
-    align-items: center;
-    justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    border: 1px solid rgba(148, 112, 56, 0.34);
-    border-radius: 10px;
-    background: rgba(251, 247, 238, 0.7);
-    color: #3b628e;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
-}}
-
-.header-support-icon svg {{
-    width: 1.2rem;
-    height: 1.2rem;
-    stroke-width: 1.85;
+.header-card img.header-support-icon {{
+    flex: 0 0 auto;
+    width: auto !important;
+    height: 1.9rem !important;
+    max-width: none !important;
 }}
 
 .header-card .header-support-text {{
-    margin: 0 0 0.88rem;
+    margin: 0 0 0.6rem;
     font-family: "Inter", "Segoe UI", system-ui, sans-serif;
     font-size: 0.82rem !important;
     line-height: 1.5 !important;
@@ -3148,9 +3132,6 @@ div[data-testid="stForm"] {{
     }}
 
     .header-support {{
-        width: min(100%, 46rem);
-        box-sizing: border-box;
-        padding: 1rem 1.1rem;
         text-align: left;
     }}
 
@@ -3276,7 +3257,7 @@ div[data-testid="stForm"] {{
 
     .header-support {{
         width: 100%;
-        padding: 0.92rem;
+        padding-top: 0.7rem;
     }}
 
     .header-support-heading {{
@@ -8074,6 +8055,16 @@ else:
         "</div>"
     )
 
+support_icon_file = find_file(["Textus_support_icon.webp"])
+if support_icon_file:
+    support_icon_html = (
+        '<img class="header-support-icon" '
+        f'src="data:image/webp;base64,{file_to_base64(support_icon_file)}" '
+        'alt="" aria-hidden="true" decoding="async" />'
+    )
+else:
+    support_icon_html = ""
+
 st.markdown(
     f"""
 <div class="main-card header-card">
@@ -8089,17 +8080,15 @@ st.markdown(
                 <span class="header-meta-separator" aria-hidden="true"></span>
                 <span class="header-tagline">{APP_TAGLINE}</span>
             </div>
+            <section class="header-support" aria-label="A Textus támogatása">
+                <div class="header-support-heading">
+                    {support_icon_html}
+                    <span>A Textus támogatása</span>
+                </div>
+                <p class="header-support-text">A Textus ingyenesen használható, fenntartását és fejlesztését saját forrásból fedezem. Ha hasznosnak találod, önkéntes hozzájárulásoddal segítheted a folytatást.</p>
+                <a class="header-support-link" href="https://ko-fi.com/textus" target="_blank" rel="noopener noreferrer">Támogatom a Textust</a>
+            </section>
         </div>
-        <aside class="header-support" aria-label="A Textus támogatása">
-            <div class="header-support-heading">
-                <span class="header-support-icon" aria-hidden="true">
-                    <svg class="lucide lucide-heart-handshake" data-lucide="heart-handshake" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19.414 14.414C21 12.828 22 11.5 22 9.5a5.5 5.5 0 0 0-9.591-3.676.6.6 0 0 1-.818.001A5.5 5.5 0 0 0 2 9.5c0 2.3 1.5 4 3 5.5l5.535 5.362a2 2 0 0 0 2.879.052 2.12 2.12 0 0 0-.004-3 2.124 2.124 0 1 0 3-3 2.124 2.124 0 0 0 3.004 0 2 2 0 0 0 0-2.828l-1.881-1.882a2.41 2.41 0 0 0-3.409 0l-1.71 1.71a2 2 0 0 1-2.828 0 2 2 0 0 1 0-2.828l2.823-2.762" /></svg>
-                </span>
-                <span>A Textus támogatása</span>
-            </div>
-            <p class="header-support-text">A Textus ingyenesen használható, fenntartását és fejlesztését saját forrásból fedezem. Ha hasznosnak találod, önkéntes hozzájárulásoddal segítheted a folytatást.</p>
-            <a class="header-support-link" href="https://ko-fi.com/textus" target="_blank" rel="noopener noreferrer">Támogatom a Textust</a>
-        </aside>
     </div>
 </div>
 """,
