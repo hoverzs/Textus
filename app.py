@@ -945,6 +945,11 @@ div.header-logo img.textus-logo-image.main-logo,
     line-height: 1.5 !important;
     font-weight: 700 !important;
     color: #5f574b;
+    hyphens: none !important;
+    -webkit-hyphens: none !important;
+    word-break: normal;
+    overflow-wrap: normal;
+    text-wrap: pretty;
 }}
 
 .header-support-link {{
