@@ -730,13 +730,13 @@ section.main {{
 .header-card {{
     margin-top: 0.25rem;
     margin-bottom: 1.35rem;
-    padding: 16px 26px !important;
+    padding: 22px 28px 30px !important;
     border-radius: 22px !important;
     box-sizing: border-box;
 }}
 
 .main-card.header-card {{
-    padding: 16px 26px !important;
+    padding: 22px 28px 30px !important;
     margin-bottom: 1.35rem !important;
     border-radius: 22px !important;
     box-sizing: border-box !important;
@@ -747,7 +747,7 @@ section.main {{
     .main-card.header-card {{
         min-height: 190px !important;
         max-height: none !important;
-        padding: 16px 26px !important;
+        padding: 22px 28px 30px !important;
     }}
 }}
 
@@ -941,7 +941,7 @@ div.header-logo img.textus-logo-image.main-logo,
 .header-card .header-support-text {{
     margin: 0 0 0.6rem;
     font-family: "Inter", "Segoe UI", system-ui, sans-serif;
-    font-size: 0.82rem !important;
+    font-size: 0.94rem !important;
     line-height: 1.5 !important;
     font-weight: 700 !important;
     color: #5f574b;
@@ -3184,7 +3184,7 @@ div[data-testid="stForm"] {{
 
     /* Header: a logó kerüljön középre, a szöveg alá */
     .main-card.header-card {{
-        padding: 14px 14px 12px !important;
+        padding: 16px 14px 22px !important;
         margin-bottom: 1rem !important;
     }}
 
@@ -3267,7 +3267,7 @@ div[data-testid="stForm"] {{
     }}
 
     .header-card .header-support-text {{
-        font-size: 0.78rem !important;
+        font-size: 0.86rem !important;
         line-height: 1.45 !important;
         text-align: left;
     }}
