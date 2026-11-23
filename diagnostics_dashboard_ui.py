@@ -39,10 +39,12 @@ _C_CENTER_BG = "#fffdf9"
 
 
 def ensure_dashboard_styles() -> None:
-    """A munkatérkép-specifikus CSS egyszeri beszúrása."""
-    if st.session_state.get(_DASH_STYLE_FLAG):
-        return
-    st.session_state[_DASH_STYLE_FLAG] = True
+    """A munkatérkép-specifikus CSS beszúrása — minden futásban.
+
+    2026-11-23: a korábbi, _DASH_STYLE_FLAG-gel védett egyszeri beszúrás után
+    a Streamlit a következő futás végén eltávolította a <style> elemet. A flag
+    konstans csak a régi sessionök értelmezhetősége miatt maradt meg.
+    """
     st.markdown(
         """
 <style>

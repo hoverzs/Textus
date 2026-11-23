@@ -3290,9 +3290,10 @@ _DIAG_STYLES_FLAG = "_sw_diag_ui_styles"
 
 
 def _ensure_diag_styles() -> None:
-    if st.session_state.get(_DIAG_STYLES_FLAG):
-        return
-    st.session_state[_DIAG_STYLES_FLAG] = True
+    # 2026-11-23: minden futásban kirajzoljuk. A korábbi _DIAG_STYLES_FLAG-es
+    # egyszeri injektálás után a Streamlit a következő futás végén eltávolította
+    # a <style> elemet, így a diagnosztikai chipek stílusa elveszett. A flag
+    # konstans csak a régi sessionök értelmezhetősége miatt maradt meg.
     st.markdown(
         """
 <style>

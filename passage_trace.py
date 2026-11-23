@@ -12,7 +12,8 @@ Cloud "Manage app" logs). Only stage names, timings, memory and the passage
 REFERENCE (e.g. "Jn 3,16", sanitised, max 40 chars) are logged — never
 secrets, tokens, user data or generated content.
 
-Switch off without a code change: set env ``TEXTUS_PASSAGE_TRACE=0``.
+Off by default (since 2026-11-23). Switch on without a code change: set env
+``TEXTUS_PASSAGE_TRACE=1`` (also accepted: ``true``, ``on``, ``yes``).
 Remove entirely with ``git revert`` of the commit that added this file.
 """
 
@@ -27,7 +28,9 @@ import threading
 import time
 from typing import Any, Callable, Iterator
 
-_ENABLED = os.environ.get("TEXTUS_PASSAGE_TRACE", "1").strip() not in {"0", "false", "off", ""}
+# 2026-11-23: alapértelmezésben KIKAPCSOLVA. Bekapcsolás: TEXTUS_PASSAGE_TRACE=1
+# (vagy true/on/yes). Minden más érték, illetve a változó hiánya: kikapcsolva.
+_ENABLED = os.environ.get("TEXTUS_PASSAGE_TRACE", "0").strip().lower() in {"1", "true", "on", "yes"}
 _MARK = "[PASSAGE_TRACE]"
 _state = {"run": 0, "banner": False, "faulthandler": False}
 _lock = threading.Lock()

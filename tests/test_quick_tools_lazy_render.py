@@ -70,6 +70,10 @@ def greek_block_counter(monkeypatch: pytest.MonkeyPatch) -> list[str]:
         real_emit(message)
 
     monkeypatch.setattr(passage_trace, "emit", recording_emit)
+    # 2026-11-23: a nyomkövetés alapértelmezésben ki van kapcsolva
+    # (TEXTUS_PASSAGE_TRACE=1 kapcsolja be). A számláló a trace-varraton át
+    # működik, ezért erre a tesztre — és csak erre — bekapcsoljuk.
+    monkeypatch.setattr(passage_trace, "_ENABLED", True)
     return entered
 
 
