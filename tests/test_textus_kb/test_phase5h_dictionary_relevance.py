@@ -15,6 +15,7 @@ from textus_kb.dictionary_relevance import (
 from textus_kb.canonical_reference import CanonicalReference
 from textus_kb.manifest import load_manifest
 from textus_kb.retrieval import retrieve
+from tests.local_data import requires_aquifer_dictionary_db
 
 NOISE_TITLES = ("Abba", "Aegean Sea", "Adam (Person)")
 
@@ -178,6 +179,7 @@ def test_exact_entity_match_still_works() -> None:
     )
 
 
+@requires_aquifer_dictionary_db
 def test_source_trace_scope_is_not_rewritten_to_request() -> None:
     packet = retrieve("Rom.8.28-30")
     dict_items = [

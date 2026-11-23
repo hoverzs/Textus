@@ -10,6 +10,7 @@ import pytest
 from textus_kb.canonical_reference import CanonicalReference
 from textus_kb.health import run_health_check
 from textus_kb.manifest import ManifestValidationError, load_manifest
+from tests.local_data import requires_aquifer_dictionary_db, requires_aquifer_study_notes_db
 
 
 @pytest.mark.parametrize(
@@ -52,6 +53,8 @@ def test_health_paths_are_repo_relative_not_absolute() -> None:
         assert not Path(source.path).is_absolute()
 
 
+@requires_aquifer_dictionary_db
+@requires_aquifer_study_notes_db
 def test_disabled_ruf_missing_does_not_degrade_health(tmp_path: Path) -> None:
     manifest_path = tmp_path / "kb_manifest.json"
     base = json.loads(

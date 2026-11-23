@@ -31,6 +31,7 @@ from textus_kb.pilot_registry import JOHN_4_PILOT, LUKE_10_PILOT, find_pilot
 from textus_kb.repositories.aquifer_dictionary_repository import AquiferDictionaryRepository
 from textus_kb.repositories.aquifer_study_notes_repository import AquiferStudyNotesRepository
 from textus_kb.retrieval import retrieve
+from tests.local_data import requires_aquifer_dictionary_db, requires_aquifer_study_notes_db
 
 THIRD_PASSAGE = "Acts.2.1-13"
 NO_DATA_PASSAGE = "3John.1.15"
@@ -40,6 +41,7 @@ LUKE_SN_BUNDLE = Path("data/kb/aquifer/luke_10_25_37_study_notes.json")
 LUKE_DICT_BUNDLE = Path("data/kb/aquifer/luke_10_25_37_bible_dictionary.json")
 
 
+@requires_aquifer_study_notes_db
 def test_study_notes_sqlite_store_exists() -> None:
     assert SN_DB.is_file()
     validation = validate_study_notes_database(SN_DB)
@@ -47,6 +49,7 @@ def test_study_notes_sqlite_store_exists() -> None:
     assert validation.chunk_count > validation.article_count
 
 
+@requires_aquifer_dictionary_db
 def test_dictionary_sqlite_store_exists() -> None:
     assert DICT_DB.is_file()
     validation = validate_dictionary_database(DICT_DB)
@@ -64,6 +67,8 @@ def test_manifest_points_to_sqlite_stores() -> None:
     assert di.resolved_path.suffix == ".sqlite3"
 
 
+@requires_aquifer_dictionary_db
+@requires_aquifer_study_notes_db
 def test_adapters_use_sqlite_backend() -> None:
     manifest = load_manifest()
     sn = AquiferStudyNotesAdapter(manifest.source_by_id("aquifer_open_study_notes"))
@@ -72,6 +77,7 @@ def test_adapters_use_sqlite_backend() -> None:
     assert di.backend == "sqlite"
 
 
+@requires_aquifer_study_notes_db
 def test_john4_parity_study_notes_article_ids() -> None:
     bundle = load_sn_bundle(JOHN_SN_BUNDLE)
     pilot_ids = {note["article_id"] for note in bundle["notes"]}
@@ -80,6 +86,7 @@ def test_john4_parity_study_notes_article_ids() -> None:
     assert pilot_ids.issubset(sqlite_ids)
 
 
+@requires_aquifer_dictionary_db
 def test_john4_parity_dictionary_article_ids() -> None:
     bundle = load_dict_bundle(JOHN_DICT_BUNDLE)
     pilot_ids = {entry["article_id"] for entry in bundle["entries"]}
@@ -88,6 +95,7 @@ def test_john4_parity_dictionary_article_ids() -> None:
         assert repo.article_by_id(article_id) is not None
 
 
+@requires_aquifer_study_notes_db
 def test_luke10_parity_study_notes_article_ids() -> None:
     bundle = load_sn_bundle(LUKE_SN_BUNDLE)
     pilot_ids = {note["article_id"] for note in bundle["notes"]}
@@ -96,6 +104,7 @@ def test_luke10_parity_study_notes_article_ids() -> None:
         assert repo.article_by_id(article_id) is not None
 
 
+@requires_aquifer_dictionary_db
 def test_luke10_parity_dictionary_article_ids() -> None:
     bundle = load_dict_bundle(LUKE_DICT_BUNDLE)
     pilot_ids = {entry["article_id"] for entry in bundle["entries"]}
@@ -104,6 +113,7 @@ def test_luke10_parity_dictionary_article_ids() -> None:
         assert repo.article_by_id(article_id) is not None
 
 
+@requires_aquifer_study_notes_db
 def test_third_passage_without_pilot_registry() -> None:
     assert find_pilot(THIRD_PASSAGE) is None
     packet = retrieve(THIRD_PASSAGE)
@@ -127,6 +137,7 @@ def test_no_data_passage_graceful() -> None:
     assert packet.passage_canonical == "3John.1.15"
 
 
+@requires_aquifer_dictionary_db
 def test_stable_dictionary_evidence_ids() -> None:
     packet = retrieve("Jn 4,1-42")
     dict_items = [item for item in packet.evidence_items if item.relation_type == "dictionary_background"]
@@ -160,6 +171,8 @@ def test_john4_regression_entities_and_budget() -> None:
     assert historical.estimated_tokens <= 3500
 
 
+@requires_aquifer_dictionary_db
+@requires_aquifer_study_notes_db
 def test_health_includes_aquifer_stores() -> None:
     report = run_health_check()
     assert report.aquifer_study_notes_store is not None
@@ -186,6 +199,8 @@ def test_import_idempotent_study_notes(tmp_path: Path) -> None:
     assert first.content_hash == second.content_hash
 
 
+@requires_aquifer_dictionary_db
+@requires_aquifer_study_notes_db
 def test_passage_query_performance_smoke() -> None:
     repo_sn = AquiferStudyNotesRepository(SN_DB)
     repo_di = AquiferDictionaryRepository(DICT_DB)

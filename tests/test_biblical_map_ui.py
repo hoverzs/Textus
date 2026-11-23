@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import importlib
 import json
 import sys
@@ -609,7 +610,24 @@ def test_map_call_is_in_igehely_panel_after_overview_button() -> None:
 def test_bible_text_editor_has_no_map_callback_or_renderer() -> None:
     bible_text_source = BIBLE_TEXT_UI_SOURCE.read_text(encoding="utf-8")
 
-    assert "Callable" not in bible_text_source
+    # 2026-11-23: korábban ``assert "Callable" not in bible_text_source``. A
+    # bb6400d (Phase 2E héber) és a 002d8a0 (Phase 2C görög) commit óta a modul
+    # szándékosan két Callable-paramétert fogad: a kontextuális nyelvi elemzés
+    # generáló függvényét. A teszt célja (nincs térképes vagy egyéb, a Bibliai
+    # szöveg után futó visszahívás) változatlan; a tilalmat pontosítjuk: Callable
+    # típusú paraméter csak a két bizonyítottan legitim elemzőfüggvény lehet.
+    allowed_callable_params = {
+        "hebrew_contextual_analysis_generate_fn",
+        "greek_contextual_analysis_generate_fn",
+    }
+    callable_params = {
+        arg.arg
+        for node in ast.walk(ast.parse(bible_text_source))
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        for arg in (*node.args.args, *node.args.kwonlyargs, *node.args.posonlyargs)
+        if arg.annotation is not None and "Callable" in ast.unparse(arg.annotation)
+    }
+    assert callable_params <= allowed_callable_params, callable_params - allowed_callable_params
     assert "after_bible_text" not in bible_text_source
     assert "render_biblical_map_prototype" not in bible_text_source
 

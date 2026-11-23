@@ -96,3 +96,6 @@ data/generated/kb_grounded_compare.sqlite3-*
 # ruf_bible_local_db.py modul-docstringjét.
 data/raw/
 data/biblical_places/raw/
+
+# Tesztfutás mellékterméke (tests/test_textus_kb/conftest.py, phase2a_manifest fixture) — 2026-11-22
+tests/fixtures/kb/tmp_manifest_*.json

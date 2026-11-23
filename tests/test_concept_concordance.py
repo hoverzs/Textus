@@ -5,6 +5,7 @@ import sys
 from unittest.mock import patch
 
 import concept_concordance as cc
+from tests.local_data import requires_ruf_bible_db
 
 
 def test_extract_json_plain() -> None:
@@ -22,6 +23,7 @@ def test_extract_json_invalid_returns_none() -> None:
     assert cc._extract_json("not json at all") is None
 
 
+@requires_ruf_bible_db
 def test_validate_reference_valid() -> None:
     validated = cc._validate_reference("Lk 17,3-4")
     assert validated is not None
@@ -80,6 +82,7 @@ def test_search_concept_invalid_json_returns_error() -> None:
     assert result.references == []
 
 
+@requires_ruf_bible_db
 def test_search_concept_validates_and_dedupes_references() -> None:
     import app as app_mod
 
@@ -115,6 +118,7 @@ def test_search_concept_validates_and_dedupes_references() -> None:
     assert result.references[0].relation_label == "árnyalja a fogalmat"
 
 
+@requires_ruf_bible_db
 def test_search_concept_unknown_relation_defaults_to_megerosit() -> None:
     import app as app_mod
 
@@ -136,6 +140,7 @@ def test_search_concept_unknown_relation_defaults_to_megerosit() -> None:
     assert result.references[0].relation == "megerosit"
 
 
+@requires_ruf_bible_db
 def test_search_concept_keyword_hits_exclude_already_shown_verses() -> None:
     import app as app_mod
 
