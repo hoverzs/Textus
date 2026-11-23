@@ -92,11 +92,11 @@ def test_sermon_section_statuses_ai_suggested_and_labels():
     assert statuses["Lezárás és megérkezés"] == "own_emphasis"
     assert statuses["Emberi helyzet és kegyelmi válasz"] == "ai_ready"
 
-    assert _STEP_STATE_LABEL["ai_ready"] == "AI által kidolgozható"
-    assert _STEP_STATE_LABEL["ai_suggested"] == "AI-javaslat elkészült"
+    assert _STEP_STATE_LABEL["ai_ready"] == "MI által kidolgozható"  # UI/UX-audit 2026-11-23: egységes MI-terminológia
+    assert _STEP_STATE_LABEL["ai_suggested"] == "MI-javaslat elkészült"
     assert _STEP_STATE_LABEL["own_emphasis"] == "Saját hangsúly hozzáadva"
     assert _STEP_STATE_LABEL["approved"] == "Jóváhagyva"
-    assert _STEP_STATE_LABEL["pending"] == "AI által kidolgozható"
+    assert _STEP_STATE_LABEL["pending"] == "MI által kidolgozható"
 
 
 def test_sermon_completed_sections_ignores_empty_defaults():

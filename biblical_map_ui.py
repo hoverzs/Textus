@@ -970,6 +970,18 @@ def _render_styles(st: Any) -> None:
   font-size: 1.02rem !important;
   letter-spacing: 0.01em !important;
 }
+/* A fejléc a közös, sötétkék színátmenetes lenyitóstílust kapja, ezért a
+   felirata fehér, mint a többi lenyitóé (UI/UX-audit 2026-11-23, V9). A
+   nyitott lenyitó világos hátterű tartalma sötét marad (fenti szabály). */
+.st-key-biblical_map_cta [data-testid="stExpander"] summary,
+.st-key-biblical_map_cta [data-testid="stExpander"] summary p,
+.st-key-biblical_map_cta [data-testid="stExpander"] summary span,
+.st-key-biblical_map_cta details summary,
+.st-key-biblical_map_cta details summary p,
+.st-key-biblical_map_cta details summary span {
+  color: #ffffff !important;
+  text-shadow: 0 1px 0 rgba(18, 32, 48, 0.35) !important;
+}
 .st-key-biblical_map_cta [data-testid="stExpander"]:hover,
 .st-key-biblical_map_cta details:hover {
   border-color: rgba(90, 122, 168, 0.62) !important;

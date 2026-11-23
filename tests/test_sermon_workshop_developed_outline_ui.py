@@ -2111,7 +2111,7 @@ def test_origin_caption_shows_ai_generated_when_not_manually_edited():
     _accept_fresh_outline(app)
 
     captions = [c.value for c in app.caption]
-    assert "AI által generált, még nem szerkesztett vázlat." in captions
+    assert "MI által generált, még nem szerkesztett vázlat." in captions
 
 
 def test_origin_caption_shows_manually_updated_after_edit():
@@ -2123,7 +2123,7 @@ def test_origin_caption_shows_manually_updated_after_edit():
 
     captions = [c.value for c in app.caption]
     assert any(c.startswith("Kézzel módosítva:") for c in captions)
-    assert "AI által generált, még nem szerkesztett vázlat." not in captions
+    assert "MI által generált, még nem szerkesztett vázlat." not in captions
 
 
 # -----------------------------------------------------------------------

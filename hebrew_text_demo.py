@@ -546,7 +546,7 @@ def render_hebrew_contextual_analysis_panel(
     if verse is None:
         return
 
-    st.markdown("#### Nyelvtani és mondattani elemzés (AI)")
+    st.markdown("#### Nyelvtani és mondattani elemzés (MI)")
 
     dataset_signature = bundle_service.dataset_version_signature()
     contextual_cache = _hebrew_contextual_analysis_cache()

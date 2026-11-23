@@ -383,7 +383,7 @@ def get_or_create_translation(
         )
     if generate_fn is None:
         return TranslationOutcome(
-            status="no_generate_fn", message="Nincs elérhető AI-hívás a fordításhoz."
+            status="no_generate_fn", message="Nincs elérhető MI-hívás a fordításhoz."
         )
 
     work_title = detail.work_title

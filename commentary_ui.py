@@ -621,13 +621,37 @@ def _ensure_results(
     return store[_CACHE_RESULTS_KEY]
 
 
+_UNAVAILABLE_USER_TITLE = "A kommentárgyűjtemény most nem érhető el"
+_UNAVAILABLE_USER_BODY = (
+    "A klasszikus kommentárok jelenleg nem tölthetők be. Próbáld újra "
+    "később; a Textus többi része addig is zavartalanul használható."
+)
+
+
+def _is_developer_environment() -> bool:
+    """Helyi fejlesztői futtatás-e (fail-closed: kétes esetben nem)."""
+    try:
+        from auth_config import is_local_runtime
+
+        return bool(is_local_runtime())
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def _render_missing_db(status: commentary_runtime.CommentaryRuntimeStatus) -> None:
-    reason = _STATUS_REASON_LABELS_HU.get(status.reason, status.reason)
+    """Az adatbázis elérhetetlensége — közérthető tájékoztatás.
+
+    A felhasználó nem kap buildparancsot vagy belső okot (UI/UX-audit
+    2026-11-23, V4). A technikai ok és a buildparancs csak helyi fejlesztői
+    futtatáskor jelenik meg, külön feliratban."""
     render_info_panel(
-        title="Commentary adatbázis nem elérhető",
-        body=f"{reason} {_BUILD_HINT}",
+        title=_UNAVAILABLE_USER_TITLE,
+        body=_UNAVAILABLE_USER_BODY,
         tone="warning",
     )
+    if _is_developer_environment():
+        reason = _STATUS_REASON_LABELS_HU.get(status.reason, status.reason)
+        st.caption(f"Fejlesztői részletek: {reason} {_BUILD_HINT}")
 
 
 def _render_no_passage() -> None:
@@ -644,7 +668,7 @@ def _render_no_match(passage: str) -> None:
         body=(
             f"A jelenleg elérhető kommentárforrások egyike sem tartalmaz közvetlen "
             f"kommentárt erre a helyre: {passage}. A rendszer nem tér át szövegkeresésre "
-            "vagy AI-pótlásra — csak a valódi, hozzárendelt kommentárszakaszokat mutatja."
+            "vagy MI-pótlásra — csak a valódi, hozzárendelt kommentárszakaszokat mutatja."
         ),
         tone="neutral",
     )
@@ -869,7 +893,7 @@ def _render_family_reader(
     with lang_caption_col:
         if lang == _READER_LANG_HU:
             st.caption(
-                "AI által készített magyar fordítás — az eredeti angol szöveg gépi "
+                "MI által készített magyar fordítás — az eredeti angol szöveg gépi "
                 "fordítása, nem összefoglalás."
             )
 
@@ -981,7 +1005,7 @@ def render_commentary_panel(
         body=(
             "Klasszikus kommentárok az aktuális igeszakaszhoz -- forrásonként "
             "kiválasztva olvashatók. Az eredeti angol szöveg mindig közvetlenül "
-            "a forrásból származik; a magyar szöveg AI-fordítás (nem "
+            "a forrásból származik; a magyar szöveg MI-fordítás (nem "
             "összefoglalás) ugyanarról a szövegről."
         ),
         context="Textusműhely",
@@ -1036,7 +1060,7 @@ def render_commentary_panel(
     with work_surface("commentary_compare_section"):
         st.caption(
             "Ez a fenti közvetlen olvasótól elkülönülő funkció: a kiválasztott "
-            "forrásokból AI-szintézist készít, nem a nyers forrásszöveget mutatja."
+            "forrásokból MI-szintézist készít, nem a nyers forrásszöveget mutatja."
         )
         enabled_sources = _render_source_filter(results)
         ordered_enabled_sources = [s for s in _sources_present(results) if s in enabled_sources]

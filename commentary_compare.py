@@ -366,7 +366,7 @@ def run_commentary_compare(
         return CompareResult(status="ineligible", message=readiness.message)
 
     if generate_fn is None:
-        return CompareResult(status="no_generate_fn", message="Nincs elérhető AI-hívás ehhez a funkcióhoz.")
+        return CompareResult(status="no_generate_fn", message="Nincs elérhető MI-hívás ehhez a funkcióhoz.")
 
     ordered_grouped = {
         name: grouped[name] for name in ordered if name in readiness.sources_to_compare
@@ -404,7 +404,7 @@ def render_commentary_compare_section(
     render_work_section(
         title="Kommentárok összehasonlítása",
         body=(
-            "AI által készített, kizárólag a fenti kommentárszakaszok szó szerinti "
+            "MI által készített, kizárólag a fenti kommentárszakaszok szó szerinti "
             "szövegére épülő, forrásalapú összehasonlítás — nem generál a kommentárok "
             "tartalmán túli, forrás nélküli állítást."
         ),
@@ -465,7 +465,7 @@ def render_commentary_compare_section(
         ctx = store.get(_CONTEXT_KEY) or {}
         if is_result_current_for_passage(result, ctx, passage):
             st.caption(
-                "AI által készített, forrásalapú összehasonlítás — "
+                "MI által készített, forrásalapú összehasonlítás — "
                 f"{', '.join(ctx.get('sources', ()))} · {ctx.get('passage_display', '')}"
             )
             st.markdown(

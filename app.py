@@ -5,6 +5,7 @@ import base64
 import difflib
 import json
 import io
+import html
 import os
 import re
 import time
@@ -95,6 +96,7 @@ from ui_theme import premium_overlay_css, premium_tokens_css
 from auth_config import (
     DEFAULT_CLOUD_APP_URL,
     apply_oauth_redirect_uri,
+    is_local_runtime,
     oauth_redirect_uri_for,
     safe_streamlit_login,
 )
@@ -2465,6 +2467,16 @@ div[data-testid="stForm"] {{
     border-radius: 12px !important;
     font-family: "Lora", Georgia, serif !important;
     color: #3a2c1d !important;
+}}
+
+/* Az űrlapküldő gomb a `.stFormSubmitButton` konténerben van, így a primer
+   gombok `.stButton`-hoz kötött fehér felirat-szabálya nem hat rá, a globális
+   `p` szín pedig sötétre festette (UI/UX-audit 2026-11-23, V9). */
+[data-testid="stForm"] button[kind="primaryFormSubmit"],
+[data-testid="stForm"] button[kind="primaryFormSubmit"] p,
+[data-testid="stForm"] button[kind="primaryFormSubmit"]:hover p {{
+    color: #ffffff !important;
+    text-shadow: 0 1px 0 rgba(18, 32, 48, 0.3) !important;
 }}
 
 [data-testid="stForm"] button[kind="primaryFormSubmit"] {{
@@ -4878,7 +4890,7 @@ def generate_section(key: str) -> bool:
     _sync_inputs_to_last()
 
     if not _resolve_api_key().strip():
-        st.warning("Először add meg az API kulcsot a Beállítások fülön.")
+        st.warning("Először add meg az API-kulcsot a Beállításokban (fogaskerék ikon).")
         return False
     if not st.session_state.get("last_igehely"):
         st.warning("Add meg az igeszakaszt az „Igehely” fülön, mielőtt itt generálsz.")
@@ -5314,6 +5326,23 @@ def _persist_passage_input_across_views() -> None:
     igehely = (ss.get("igehely_input") or "").strip()
     if igehely:
         ss["last_igehely"] = igehely
+
+
+_SETTINGS_WIDGET_KEYS_TO_KEEP: tuple[str, ...] = ("enable_cache",)
+
+
+def _keep_settings_widgets_alive() -> None:
+    """A Beállítások widgetjeinek értéke maradjon meg akkor is, ha a widget
+    nem rajzolódik ki (a Beállítások zárva, vagy a haladó rész csukva).
+
+    A Streamlit egy nem kirajzolt widget állapotát törli; a `defaults` ilyenkor
+    visszaállította az alapértéket, így a kikapcsolt cache a Beállítások
+    elhagyása után csendben újra bekapcsolt. A haladó rész bevezetésével
+    (UI/UX-audit 2026-11-23) ez a Beállításokon belül is előfordulna."""
+    ss = st.session_state
+    for key in _SETTINGS_WIDGET_KEYS_TO_KEEP:
+        if key in ss:
+            ss[key] = ss[key]
 
 
 def _apply_project_data_to_session(project_data: dict) -> None:
@@ -6086,8 +6115,11 @@ def _render_project_status_bar() -> None:
         except Exception:
             user_label = "Bejelentkezett felhasználó"
 
-    # Vendég sáv csak akkor, ha az auth nincs beállítva (secrets hiány).
-    if not logged_in and not auth_ok:
+    # Vendég sáv csak akkor, ha az auth nincs beállítva (secrets hiány) — és
+    # csak fejlesztői (helyi) környezetben: a konfigurációs utasítás nem a
+    # felhasználóknak szól (UI/UX-audit 2026-11-23, V6). A „Vendég mód”
+    # felirat az eszköztárban így is látszik.
+    if not logged_in and not auth_ok and is_local_runtime():
         st.markdown(
             '<div class="tx-guest-strip">Vendég mód · a felhő-bejelentkezéshez '
             "a Streamlit Secrets-ben be kell állítani az <code>[auth]</code> blokkot."
@@ -6104,7 +6136,9 @@ def _render_project_status_bar() -> None:
             st.markdown(
                 '<div class="tx-projects-empty">'
                 "<p>A felhőprojektekhez jelentkezz be.</p>"
-                "<p>Vendégként a munka a böngészőben marad.</p>"
+                "<p>Vendégként a munka csak ebben a munkamenetben él: az oldal "
+                "frissítése vagy bezárása után elveszhet. Megőrzéshez mentsd "
+                "fájlba a Beállításokban (Munkamenet mentése).</p>"
                 "</div>",
                 unsafe_allow_html=True,
             )
@@ -7194,7 +7228,7 @@ def generate_text(
     """
     api_key = _resolve_api_key().strip()
     if not api_key:
-        return "⚠️ **Hiányzó API kulcs.** Add meg a Beállítások fülön a Gemini API kulcsot, mielőtt elindítanád az elemzést."
+        return "⚠️ **Hiányzó API kulcs.** Add meg a Gemini API-kulcsot a Beállításokban (fogaskerék ikon), mielőtt elindítanád az elemzést."
 
     model = resolve_gemini_model_for_tab(tab_label)
     st.session_state["model_name"] = model
@@ -7602,7 +7636,7 @@ def generate_text(
         if sc in (401, 403):
             return (
                 "⚠️ **Érvénytelen vagy lejárt API kulcs (státusz: "
-                f"{sc}).** Generálj újat a Google AI Studio-ban, és cseréld a Beállítások fülön.\n\n"
+                f"{sc}).** Generálj újat a Google AI Studio-ban, és cseréld le a Beállításokban (fogaskerék ikon).\n\n"
                 f"**Google API üzenet:**\n```\n{err_msg}\n```"
             )
         if sc == 400:
@@ -8036,10 +8070,10 @@ def render_footer_and_feedback() -> None:
     <div class="ars-stations">
         <div class="ars-station">
             <div class="ars-numeral">I &middot; Saját API kulcs</div>
-            <div class="ars-station-title">Beállítások fülön</div>
+            <div class="ars-station-title">A Beállításokban</div>
             <div class="ars-station-text">
-                Ha rendelkezel saját Google API kulccsal, a
-                <strong>Beállítások</strong> fülön bármikor megadhatod.
+                Ha rendelkezel saját Google API-kulccsal, a
+                <strong>Beállításokban</strong> (fogaskerék ikon) bármikor megadhatod.
             </div>
         </div>
         <div class="ars-station">
@@ -8047,8 +8081,8 @@ def render_footer_and_feedback() -> None:
             <div class="ars-station-title">Ingyen igényelhető</div>
             <div class="ars-station-text">
                 A Google fiókoddal pár kattintással igényelhetsz egyet — a pontos
-                leírást és segítséget szintén a <strong>Beállítások</strong> fül
-                alatt találod.
+                leírást és segítséget szintén a <strong>Beállításokban</strong>
+                találod.
             </div>
         </div>
         <div class="ars-station">
@@ -8161,6 +8195,7 @@ _apply_pending_project_widget_sync()
 # A beírt igehely nézetváltáskor se vesszen el (a pending szinkron UTÁN, a
 # widgetek ELŐTT — lásd `_persist_passage_input_across_views`).
 _persist_passage_input_across_views()
+_keep_settings_widgets_alive()
 
 # Állandó projekt-sáv (mentés / dirty / projektek) — a tabok előtt
 _render_project_status_bar()
@@ -8243,11 +8278,12 @@ def render_igehely_panel(analysis_visible: bool = True) -> None:
 
     with work_surface("igehely_overview"):
         render_info_panel(
-            title="Tabonkénti generálás",
+            title="Bibliai háttér összegzése",
             body=(
-                "Itt csak az Áttekintést kéred le. A többi szekciót az adott fülön, "
-                "külön gombbal indíthatod. "
-                f"Két API-hívás között legalább {GEMINI_COOLDOWN_S} másodperc várakozás van."
+                "Az alábbi gomb csak a szakasz bibliai hátterének rövid összegzését "
+                "készíti el. Az exegézist, a kortörténetet, a teológiát és a többi "
+                "elemzést a saját fülén, külön gombbal indíthatod. "
+                f"Két MI-kérés között legalább {GEMINI_COOLDOWN_S} másodperc várakozás van."
             ),
             tone="info",
         )
@@ -8330,7 +8366,7 @@ def render_original_text_panel() -> None:
                 _sync_inputs_to_last()
                 _igehely_now = (st.session_state.get("last_igehely") or "").strip()
                 if not _resolve_api_key().strip():
-                    st.warning("Először add meg az API kulcsot a Beállítások fülön.")
+                    st.warning("Először add meg az API-kulcsot a Beállításokban (fogaskerék ikon).")
                 elif not _igehely_now:
                     st.warning("Add meg az igeszakaszt az „Igehely” fülön, mielőtt itt generálsz.")
                 else:
@@ -8421,6 +8457,111 @@ if st.session_state.get("ui_mode") not in (
 ):
     st.session_state["ui_mode"] = "workshop"
 
+def _render_advanced_settings() -> None:
+    """Haladó, technikai beállítások: aktív közös alapprompt, cache és
+    cooldown, Gemini-debugnapló. Változatlan tartalom — korábban a
+    Beállítások fő részében volt (UI/UX-audit 2026-11-23, V5/K4)."""
+    with st.expander("Aktív közös alap prompt"):
+        st.text_area(
+            "Ez kerül minden MI-hívás elé",
+            BASE_SYSTEM_PROMPT,
+            height=360,
+            disabled=True
+        )
+
+    st.markdown("**Cache és cooldown**")
+    st.caption(
+        f"Globális cooldown két API-hívás közt: **{GEMINI_COOLDOWN_S} mp**. "
+        "Ha túl gyorsan kattintasz, az alkalmazás megvár, és figyelmeztet."
+    )
+
+    cache_col1, cache_col2 = st.columns([2, 1])
+    with cache_col1:
+        # Az alapértéket a `defaults` adja, az értéket pedig a
+        # `_keep_settings_widgets_alive` őrzi meg — ezért nincs `value=`
+        # (a kettő együtt Streamlit-figyelmeztetést adna).
+        st.checkbox(
+            "Cache azonos kérésekre (igehely + tab + beállítások)",
+            key="enable_cache",
+            help=(
+                "Ha be van kapcsolva, ugyanaz a kérés (azonos prompt és "
+                "kreativitás-beállítás) nem indít új API-hívást — a korábbi "
+                "választ adja vissza azonnal. Csak az aktuális munkamenetre érvényes."
+            ),
+        )
+    with cache_col2:
+        cache_size = len(st.session_state.get("_call_cache", {}))
+        st.metric("Cache-elt válaszok", cache_size)
+
+    if st.button("Cache törlése", key="clear_cache_btn", use_container_width=True):
+        st.session_state["_call_cache"] = {}
+        st.success("Cache kiürítve.")
+        st.rerun()
+
+    # ─── Debug log ───────────────────────────────────────────────────
+    debug_log = st.session_state.get("_debug_log", [])
+    with st.expander(
+        f"Gemini debug log — utolsó {len(debug_log)} bejegyzés",
+        expanded=False,
+    ):
+        st.caption(
+            "Minden Gemini-hívás előtt és után egy bejegyzés készül. "
+            "Egyetlen gombnyomás max. **1 logikai hívást** indít; ha "
+            "`attempt > 1` látható, az automatikus 429-retry történt."
+        )
+        _mid = st.session_state.get("model_name", LOCKED_MODEL)
+        _mdisp = GEMINI_MODEL_DISPLAY_BY_ID.get(_mid, _mid)
+        st.caption(
+            f"Session: `{_get_session_id()}` · "
+            f"Kulcs: `{_mask_api_key(_resolve_api_key())}` "
+            f"({_api_key_source_label()}) · "
+            f"Utolsó hívás modellje: **{_mdisp}** (`{_mid}`)"
+        )
+        if not debug_log:
+            st.info("Még nincs API-hívás ebben a munkamenetben.")
+        else:
+            rows = []
+            for e in reversed(debug_log[-30:]):
+                rows.append({
+                    "Idő": e.get("ts", ""),
+                    "Session": e.get("session_id", ""),
+                    "Kulcs": e.get("key_masked", ""),
+                    "Forrás": e.get("key_source", ""),
+                    "Tab": e.get("tab", ""),
+                    "Próba": e.get("attempt", ""),
+                    "Státusz": e.get("status", ""),
+                    "Modell": e.get("model", ""),
+                    "Prompt (kar.)": e.get("prompt_chars", ""),
+                    "Válasz (kar.)": e.get("response_chars", ""),
+                    "Latency (ms)": e.get("latency_ms", ""),
+                    "Auth": e.get("auth_ok", ""),
+                    "Hibaüzenet": e.get("error_message", ""),
+                })
+            st.dataframe(rows, hide_index=True, use_container_width=True)
+
+        if st.button("Debug log ürítése", key="clear_debug_log_btn"):
+            st.session_state["_debug_log"] = []
+            st.rerun()
+
+
+def _model_summary_html(
+    models: list[tuple[str, str]], *, prefix: str = "", suffix: str = ""
+) -> str:
+    """A Gemini-modell sor tartalma HTML-ként.
+
+    A sor egy HTML-blokkban jelenik meg, ahol a Markdown nem dolgozódik fel —
+    korábban a `**…**` és a `` `…` `` jelölés nyersen látszott (UI/UX-audit
+    2026-11-23, V5). `models`: (megjelenített név, modellazonosító) párok;
+    üres azonosító esetén csak a név jelenik meg."""
+    parts = []
+    for name, model_id in models:
+        part = f"<strong>{html.escape(name)}</strong>"
+        if model_id:
+            part += f" (<code>{html.escape(model_id)}</code>)"
+        parts.append(part)
+    return html.escape(prefix) + " vagy ".join(parts) + html.escape(suffix)
+
+
 def _render_settings_panel() -> None:
     """Beállítások panel — fiókmenüből / shell_panel."""
     # ─── 0) Opcionális Google-bejelentkezés (nem kapu — vendégként is teljes app) ──
@@ -8448,12 +8589,19 @@ def _render_settings_panel() -> None:
             )
     elif not _auth_secrets_configured():
         st.info(
-            "A Google-bejelentkezéshez add meg az `[auth]` beállításokat a Streamlit Cloud "
-            "**Secrets** felületén (`client_id`, `client_secret`, `cookie_secret`, "
-            f'`TEXTUS_PUBLIC_URL = "{DEFAULT_CLOUD_APP_URL}"`, '
-            f'`redirect_uri = "{oauth_redirect_uri_for(DEFAULT_CLOUD_APP_URL)}"`). '
-            "Vendégként az app továbbra is használható."
+            "A bejelentkezés ezen a példányon nem érhető el. "
+            "Vendégként a Textus minden funkciója használható."
         )
+        # Fejlesztői konfigurációs útmutató — csak helyi futtatáskor
+        # (UI/UX-audit 2026-11-23, V5).
+        if is_local_runtime():
+            st.caption(
+                "Fejlesztői megjegyzés: a Google-bejelentkezéshez add meg az `[auth]` "
+                "beállításokat a Streamlit Cloud **Secrets** felületén (`client_id`, "
+                "`client_secret`, `cookie_secret`, "
+                f'`TEXTUS_PUBLIC_URL = "{DEFAULT_CLOUD_APP_URL}"`, '
+                f'`redirect_uri = "{oauth_redirect_uri_for(DEFAULT_CLOUD_APP_URL)}"`).'
+            )
     else:
         st.caption(
             "A bejelentkezés opcionális. Vendégként is teljes mértékben használhatod a TEXTUS-t; "
@@ -8611,20 +8759,25 @@ def _render_settings_panel() -> None:
         )
         choice = st.session_state.get("user_model_choice", OWN_KEY_MODEL_AUTO)
         if choice == OWN_KEY_MODEL_AUTO:
-            model_summary = (
-                f"**Alapértelmezett** — **{LOCKED_MODEL_DISPLAY}** "
-                f"vagy **Gemini 2.5 Flash Lite** (fül szerint)"
+            model_summary = _model_summary_html(
+                [(LOCKED_MODEL_DISPLAY, ""), ("Gemini 2.5 Flash Lite", "")],
+                prefix="Alapértelmezett — ",
+                suffix=" (fül szerint)",
             )
             pill = "saját kulcs · alap"
         else:
             display = OWN_KEY_MODEL_OPTIONS.get(choice, choice)
-            model_summary = f"**{display}** (`{choice}`) — minden hívásra"
+            model_summary = _model_summary_html(
+                [(display, choice)], suffix=" — minden hívásra"
+            )
             pill = "saját kulcs · egyedi"
     else:
         st.session_state["user_model_choice"] = OWN_KEY_MODEL_AUTO
-        model_summary = (
-            f"**{LOCKED_MODEL_DISPLAY}** (`{LOCKED_MODEL}`) "
-            f"vagy **Gemini 2.5 Flash Lite** (`{GEMINI_MODEL_FLASH_LITE}`)"
+        model_summary = _model_summary_html(
+            [
+                (LOCKED_MODEL_DISPLAY, LOCKED_MODEL),
+                ("Gemini 2.5 Flash Lite", GEMINI_MODEL_FLASH_LITE),
+            ]
         )
         pill = "közös kulcs · rögzített"
 
@@ -8666,87 +8819,18 @@ def _render_settings_panel() -> None:
         icon="📝",
     )
 
-    with st.expander("Aktív közös alap prompt"):
-        st.text_area(
-            "Ez kerül minden AI-hívás elé",
-            BASE_SYSTEM_PROMPT,
-            height=360,
-            disabled=True
-        )
-
-    # ─── Cache & cooldown ────────────────────────────────────────────
+    # ─── Haladó, technikai beállítások (UI/UX-audit 2026-11-23, V5/K4) ──
+    # Az alapprompt, a cache és a debugnapló nem tűnik el, csak egy külön,
+    # alapértelmezetten csukott haladó részbe kerül. Jogosultságot nem
+    # változtat: ami eddig mindenkinek elérhető volt, az most is az.
     st.divider()
-    st.subheader("Cache és cooldown")
-    st.caption(
-        f"Globális cooldown két API-hívás közt: **{GEMINI_COOLDOWN_S} mp**. "
-        "Ha túl gyorsan kattintasz, az alkalmazás megvár, és figyelmeztet."
+    st.subheader("Haladó beállítások")
+    show_advanced = st.toggle(
+        "Technikai részletek megjelenítése (alapprompt, cache, debugnapló)",
+        key="settings_show_advanced",
     )
-
-    cache_col1, cache_col2 = st.columns([2, 1])
-    with cache_col1:
-        st.checkbox(
-            "Cache azonos kérésekre (igehely + tab + beállítások)",
-            value=bool(st.session_state.get("enable_cache", True)),
-            key="enable_cache",
-            help=(
-                "Ha be van kapcsolva, ugyanaz a kérés (azonos prompt és "
-                "kreativitás-beállítás) nem indít új API-hívást — a korábbi "
-                "választ adja vissza azonnal. Csak az aktuális munkamenetre érvényes."
-            ),
-        )
-    with cache_col2:
-        cache_size = len(st.session_state.get("_call_cache", {}))
-        st.metric("Cache-elt válaszok", cache_size)
-
-    if st.button("Cache törlése", key="clear_cache_btn", use_container_width=True):
-        st.session_state["_call_cache"] = {}
-        st.success("Cache kiürítve.")
-        st.rerun()
-
-    # ─── Debug log ───────────────────────────────────────────────────
-    debug_log = st.session_state.get("_debug_log", [])
-    with st.expander(
-        f"Gemini debug log — utolsó {len(debug_log)} bejegyzés",
-        expanded=False,
-    ):
-        st.caption(
-            "Minden Gemini-hívás előtt és után egy bejegyzés készül. "
-            "Egyetlen gombnyomás max. **1 logikai hívást** indít; ha "
-            "`attempt > 1` látható, az automatikus 429-retry történt."
-        )
-        _mid = st.session_state.get("model_name", LOCKED_MODEL)
-        _mdisp = GEMINI_MODEL_DISPLAY_BY_ID.get(_mid, _mid)
-        st.caption(
-            f"Session: `{_get_session_id()}` · "
-            f"Kulcs: `{_mask_api_key(_resolve_api_key())}` "
-            f"({_api_key_source_label()}) · "
-            f"Utolsó hívás modellje: **{_mdisp}** (`{_mid}`)"
-        )
-        if not debug_log:
-            st.info("Még nincs API-hívás ebben a munkamenetben.")
-        else:
-            rows = []
-            for e in reversed(debug_log[-30:]):
-                rows.append({
-                    "Idő": e.get("ts", ""),
-                    "Session": e.get("session_id", ""),
-                    "Kulcs": e.get("key_masked", ""),
-                    "Forrás": e.get("key_source", ""),
-                    "Tab": e.get("tab", ""),
-                    "Próba": e.get("attempt", ""),
-                    "Státusz": e.get("status", ""),
-                    "Modell": e.get("model", ""),
-                    "Prompt (kar.)": e.get("prompt_chars", ""),
-                    "Válasz (kar.)": e.get("response_chars", ""),
-                    "Latency (ms)": e.get("latency_ms", ""),
-                    "Auth": e.get("auth_ok", ""),
-                    "Hibaüzenet": e.get("error_message", ""),
-                })
-            st.dataframe(rows, hide_index=True, use_container_width=True)
-
-        if st.button("Debug log ürítése", key="clear_debug_log_btn"):
-            st.session_state["_debug_log"] = []
-            st.rerun()
+    if show_advanced:
+        _render_advanced_settings()
 
     if st.button("API kapcsolat tesztelése"):
         with st.spinner("Kapcsolat ellenőrzése…"):
@@ -9100,7 +9184,7 @@ with tabs[8]:
         disabled=_songs_running,
     ):
         if not _resolve_api_key().strip():
-            st.warning("Először add meg az API kulcsot a Beállítások fülön.")
+            st.warning("Először add meg az API-kulcsot a Beállításokban (fogaskerék ikon).")
         elif not igehely_song.strip():
             st.warning("Add meg az igeszakaszt.")
         else:

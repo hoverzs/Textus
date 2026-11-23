@@ -18,7 +18,7 @@ from __future__ import annotations
 import html
 import re
 from datetime import datetime, timezone
-from typing import Any, Callable, MutableMapping
+from typing import Any, Callable, Mapping, MutableMapping
 
 import streamlit as st
 
@@ -687,6 +687,26 @@ def _render_ruf_error_retry() -> None:
             _fetch_ruf_for_current_reference(retry_ref)
 
 
+MANUAL_TEXT_LABEL = "kézi beillesztés"
+
+
+def _is_manual_text(snap: Mapping[str, str]) -> bool:
+    """Kézzel beillesztett (felülírt) szöveg van-e megjelenítve."""
+    return snap.get("passage_text_source") == SOURCE_TYPE_USER_OVERRIDE and bool(
+        normalize_passage_text(snap.get("passage_text")).strip()
+    )
+
+
+def _passage_header_markdown(reference: str, snap: Mapping[str, str]) -> str:
+    """Az „Igehely · Fordítás” sor. Kézzel beillesztett szövegnél nem állít
+    fordítást (a tárolt `bible_translation` ilyenkor is „RÚF 2014”, de a
+    szöveg nem a RÚF-forrásból jött — UI/UX-audit 2026-11-23, V11)."""
+    if _is_manual_text(snap):
+        return f"**Igehely:** {reference}  ·  **Forrás:** {MANUAL_TEXT_LABEL}"
+    translation = (snap.get("bible_translation") or TRANSLATION_NAME).strip() or TRANSLATION_NAME
+    return f"**Igehely:** {reference}  ·  **Fordítás:** {translation}"
+
+
 def _render_source_caption(session_state: MutableMapping[str, Any]) -> None:
     snap = get_bible_text_snapshot(session_state)
     if not normalize_passage_text(snap["passage_text"]).strip():
@@ -841,7 +861,11 @@ def render_bible_text_editor(
 
     render_work_section(
         title="Bibliai szöveg",
-        body="RÚF 2014",
+        body=(
+            "Kézzel beillesztett szöveg"
+            if _is_manual_text(get_bible_text_snapshot(st.session_state))
+            else "RÚF 2014"
+        ),
         show_rule=False,
     )
 
@@ -892,11 +916,10 @@ def render_bible_text_preview(*, expanded: bool = False) -> None:
     _ensure_bible_text_styles()
     snap = get_bible_text_snapshot(st.session_state)
     passage = snap["passage"] or "—"
-    translation = snap["bible_translation"] or TRANSLATION_NAME
     text = snap["passage_text"]
 
     with st.expander("Bibliai szöveg", expanded=expanded):
-        st.markdown(f"**Igehely:** {passage}  ·  **Fordítás:** {translation}")
+        st.markdown(_passage_header_markdown(passage, snap))
         if text.strip():
             render_formatted_bible_text(text)
             _render_source_caption(st.session_state)
@@ -929,10 +952,8 @@ def render_bible_text_reading_block(
     snap = get_bible_text_snapshot(st.session_state)
     reference = (snap.get("passage") or "").strip()
     text = snap.get("passage_text") or ""
-    translation = (snap.get("bible_translation") or TRANSLATION_NAME).strip() or TRANSLATION_NAME
-
     if reference:
-        st.markdown(f"**Igehely:** {reference}  ·  **Fordítás:** {translation}")
+        st.markdown(_passage_header_markdown(reference, snap))
 
     if str(text).strip():
         try:

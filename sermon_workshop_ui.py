@@ -3013,7 +3013,7 @@ def _regenerate_outline_part_and_save(
     from sermon_workshop_outline_synth_ai import regenerate_outline_part
 
     if generate_fn is None:
-        st.warning("A részleges újraíráshoz AI-generálás szükséges.")
+        st.warning("A részleges újraíráshoz MI-generálás szükséges.")
         return
     sw = ensure_sermon_workshop_state(st.session_state)
     current = normalize_sermon_outline(sw.get("sermon_outline"))
@@ -12880,7 +12880,7 @@ def _render_developed_outline_canonical_readonly() -> None:
         if manually_updated_at:
             st.caption(f"Kézzel módosítva: {_format_human_timestamp(manually_updated_at)}.")
         else:
-            st.caption("AI által generált, még nem szerkesztett vázlat.")
+            st.caption("MI által generált, még nem szerkesztett vázlat.")
 
         stale, reference_changed, stored_reference, current_reference = (
             _developed_outline_freshness(st.session_state)

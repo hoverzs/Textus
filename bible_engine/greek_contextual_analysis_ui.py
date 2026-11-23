@@ -85,7 +85,7 @@ def render_greek_contextual_analysis_panel(
     if verse is None:
         return
 
-    st.markdown("#### Nyelvtani és mondattani elemzés (AI)")
+    st.markdown("#### Nyelvtani és mondattani elemzés (MI)")
 
     from bible_engine.greek_dataset_version import greek_dataset_version_signature
 

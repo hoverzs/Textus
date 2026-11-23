@@ -124,10 +124,10 @@ _STEP_STATE_LABEL: dict[str, str] = {
     "active": "Munkában",
     "approved": "Jóváhagyva",
     "own_emphasis": "Saját hangsúly hozzáadva",
-    "ai_suggested": "AI-javaslat elkészült",
-    "ai_ready": "AI által kidolgozható",
+    "ai_suggested": "MI-javaslat elkészült",
+    "ai_ready": "MI által kidolgozható",
     "done": "Jóváhagyva",
-    "pending": "AI által kidolgozható",
+    "pending": "MI által kidolgozható",
 }
 
 # Progress / „kész” számlálóhoz: saját hangsúly vagy jóváhagyás.

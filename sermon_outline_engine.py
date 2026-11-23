@@ -2619,10 +2619,10 @@ def _ai_generate_structured(
     try:
         raw = _call_generate(generate_fn, prompt, temperature=0.3, as_json=False)
     except Exception as exc:  # noqa: BLE001
-        warnings.append(f"Vázlat AI-hívás sikertelen: {exc}")
+        warnings.append(f"Vázlat MI-hívás sikertelen: {exc}")
         return None, warnings, 0, "", "ai_call_failed"
     if _is_api_error_text(raw or ""):
-        warnings.append("A vázlat AI-válasz hibát jelzett.")
+        warnings.append("A vázlat MI-válasza hibát jelzett.")
         return None, warnings, 0, "", "ai_call_failed"
     if (raw or "").strip() == _OUTLINE_INCOMPLETE_SENTINEL:
         logger.warning(
@@ -2632,7 +2632,7 @@ def _ai_generate_structured(
             mode,
         )
         warnings.append(
-            "A vázlat AI-válasza félbeszakadt (túllépte a kimeneti korlátot). "
+            "A vázlat MI-válasza félbeszakadt (túllépte a kimeneti korlátot). "
             "Próbáld újra a generálást."
         )
         return None, warnings, 0, "", "ai_invalid_response"
