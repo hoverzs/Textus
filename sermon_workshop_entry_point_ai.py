@@ -19,6 +19,7 @@ import json
 import re
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Mapping, Sequence
+from llm_text_utils import is_llm_error_text
 
 MISSING = "nincs adat"
 
@@ -148,11 +149,9 @@ def _format_block(block: Any, *, max_chars: int) -> str:
     return _display(block, max_chars=max_chars)
 
 
-def _is_api_error_text(text: str) -> bool:
-    t = (text or "").strip()
-    if not t:
-        return True
-    return t.startswith(("⚠️", "⏳", "Hiba", "❌"))
+# 2026-11-23: a korábbi helyi másolat helyett a közös, viselkedésében
+# azonos is_llm_error_text (llm_text_utils.py; azonosság: tests/test_llm_text_utils.py).
+_is_api_error_text = is_llm_error_text
 
 
 # ---------------------------------------------------------------------------

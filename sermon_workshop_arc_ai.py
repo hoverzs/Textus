@@ -51,6 +51,7 @@ from dataclasses import dataclass, replace
 from typing import Any, Callable, Mapping, MutableMapping
 
 from sermon_workshop_data import _ARC_POINT_KEYS, store_generated_arc_result
+from llm_text_utils import starts_with_provider_warning
 
 GenerateFn = Callable[..., str]
 
@@ -385,9 +386,9 @@ def validate_and_normalize_arc_response(raw: Any) -> dict[str, str] | None:
     return points
 
 
-def _looks_like_api_error(raw: Any) -> bool:
-    text = str(raw or "")
-    return text.startswith("⚠️") or text.startswith("⏳")
+# 2026-11-23: a korábbi helyi másolat helyett a közös, viselkedésében
+# azonos starts_with_provider_warning (llm_text_utils.py; azonosság: tests/test_llm_text_utils.py).
+_looks_like_api_error = starts_with_provider_warning
 
 
 # =============================================================================

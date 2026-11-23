@@ -34,6 +34,7 @@ from bible_engine.greek_contextual_analysis import (
     resolve_construction_evidence,
     token_syntax_coverage,
 )
+from llm_text_utils import is_provider_failure_text
 
 STATUS_OK = "ok"
 STATUS_UNAVAILABLE = "unavailable"
@@ -364,11 +365,9 @@ class GreekContextualAnalysisResult:
     warnings: tuple[str, ...] = ()
 
 
-def _looks_like_provider_failure(text: str) -> bool:
-    raw = (text or "").strip()
-    if not raw:
-        return True
-    return raw.startswith(("⚠️", "⏳"))
+# 2026-11-23: a korábbi helyi másolat helyett a közös, viselkedésében
+# azonos is_provider_failure_text (llm_text_utils.py; azonosság: tests/test_llm_text_utils.py).
+_looks_like_provider_failure = is_provider_failure_text
 
 
 _FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE | re.MULTILINE)

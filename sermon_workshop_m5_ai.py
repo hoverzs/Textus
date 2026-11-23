@@ -11,6 +11,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Mapping, Sequence
 
 from sermon_workshop_m4_ai import extract_json_object
+from llm_text_utils import is_llm_error_text
 
 MISSING = "nincs adat"
 TAB_SUGGEST = "Hallgatói feszültség — javaslat"
@@ -235,11 +236,11 @@ def _safe_truncate(text: str, max_chars: int) -> str:
     return raw[: max_chars - 1].rstrip() + "…"
 
 
-def _is_api_error_text(text: str) -> bool:
-    t = (text or "").strip()
-    if not t:
-        return True
-    return t.startswith(("⚠️", "⏳", "Hiba", "❌"))
+# 2026-11-23: a korábbi helyi másolat helyett a közös, viselkedésében
+# azonos is_llm_error_text (llm_text_utils.py; azonosság: tests/test_llm_text_utils.py).
+# KOMPATIBILITÁSI ALIAS — 14 modul innen importálja (`from sermon_workshop_m5_ai
+# import _is_api_error_text`); a név ne tűnjön el.
+_is_api_error_text = is_llm_error_text
 
 
 def _as_str_list(value: Any, *, max_items: int | None = None) -> list[str]:

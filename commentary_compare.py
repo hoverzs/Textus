@@ -37,6 +37,7 @@ from textus_kb.repositories.commentary_repository import (
 )
 from textus_kb.retrieval import retrieve_commentary_evidence
 from ui_components import action_row, render_info_panel, render_work_section, work_surface
+from llm_text_utils import is_provider_failure_text
 
 MIN_COMPARE_SOURCES = 2
 MAX_COMPARE_SOURCES = 3
@@ -198,17 +199,9 @@ def is_result_current_for_passage(
     return bool(context) and context.get("passage") == passage
 
 
-def _looks_like_provider_failure(text: str) -> bool:
-    """``generate_text`` (app.py) returns a warning STRING rather than
-    raising on a blocking condition (missing API key, cooldown, etc.) --
-    same convention ``bible_engine.original_language_analysis._looks_
-    like_provider_failure`` already guards against. Without this check a
-    "⚠️ Hiányzó API kulcs…" string would be stored and displayed as if it
-    were a genuine, grounded comparison."""
-    raw = (text or "").strip()
-    if not raw:
-        return True
-    return raw.startswith(("⚠️", "⏳"))
+# 2026-11-23: a korábbi helyi másolat helyett a közös, viselkedésében
+# azonos is_provider_failure_text (llm_text_utils.py; azonosság: tests/test_llm_text_utils.py).
+_looks_like_provider_failure = is_provider_failure_text
 
 
 def group_evidence_by_source(

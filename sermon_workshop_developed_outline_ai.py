@@ -67,6 +67,7 @@ from sermon_workshop_data import (
     normalize_blueprint,
     store_generated_developed_outline_result,
 )
+from llm_text_utils import starts_with_provider_warning
 
 GenerateFn = Callable[..., str]
 
@@ -631,9 +632,9 @@ def validate_developed_outline_response(
     return DevelopedOutlineValidationResult(ok=True, outline=outline)
 
 
-def _looks_like_api_error(raw: Any) -> bool:
-    text = str(raw or "")
-    return text.startswith("⚠️") or text.startswith("⏳")
+# 2026-11-23: a korábbi helyi másolat helyett a közös, viselkedésében
+# azonos starts_with_provider_warning (llm_text_utils.py; azonosság: tests/test_llm_text_utils.py).
+_looks_like_api_error = starts_with_provider_warning
 
 
 # =============================================================================
