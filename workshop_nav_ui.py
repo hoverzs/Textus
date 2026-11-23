@@ -124,10 +124,10 @@ _STEP_STATE_LABEL: dict[str, str] = {
     "active": "Munkában",
     "approved": "Jóváhagyva",
     "own_emphasis": "Saját hangsúly hozzáadva",
-    "ai_suggested": "AI-javaslat elkészült",
-    "ai_ready": "AI által kidolgozható",
+    "ai_suggested": "MI-javaslat elkészült",
+    "ai_ready": "MI által kidolgozható",
     "done": "Jóváhagyva",
-    "pending": "AI által kidolgozható",
+    "pending": "MI által kidolgozható",
 }
 
 # Progress / „kész” számlálóhoz: saját hangsúly vagy jóváhagyás.
@@ -617,6 +617,31 @@ def render_primary_view_switcher(
             f"{scope} .stButton button{{min-height:46px!important;}}"
             f"{scope} .stButton button [data-testid='stMarkdownContainer'] p{{"
             "font-size:0.86rem!important;}"
+            "}"
+            # Mobilnézet (UI/UX-audit 2026-11-23, V13): keskeny képernyőn a
+            # három egyenlő szegmensbe nem fér ki egy sorban az „Igehirdetési
+            # műhely” — levágás helyett két sorba törik, középre igazítva.
+            "@media (max-width:520px){"
+            f"{scope} .stButton button{{"
+            "padding:0.3rem 0.35rem!important;min-height:50px!important;"
+            "height:auto!important;}"
+            f"{scope} .stButton button [data-testid='stMarkdownContainer'],"
+            f"{scope} .stButton button [data-testid='stMarkdownContainer'] p{{"
+            "white-space:normal!important;overflow:visible!important;"
+            "text-overflow:clip!important;text-align:center!important;"
+            "line-height:1.15!important;max-width:100%!important;"
+            "overflow-wrap:normal!important;word-break:normal!important;"
+            "hyphens:none!important;}"
+            f"{scope} .stButton button [data-testid='stMarkdownContainer'] p{{"
+            "font-size:0.84rem!important;}"
+            "}"
+            # 400 px alatt az egyszavas „Textusműhely” félkövéren sem törhet
+            # szó közben: kisebb betű és belső margó.
+            "@media (max-width:400px){"
+            f"{scope} [data-testid='stHorizontalBlock']{{padding:4px!important;gap:3px!important;}}"
+            f"{scope} .stButton button{{padding:0.3rem 0.2rem!important;}}"
+            f"{scope} .stButton button [data-testid='stMarkdownContainer'] p{{"
+            "font-size:0.78rem!important;letter-spacing:0!important;}"
             "}"
             "</style>",
             unsafe_allow_html=True,

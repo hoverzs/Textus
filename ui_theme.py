@@ -648,6 +648,26 @@ div.header-logo img.textus-logo-image.main-logo,
         min-height: 52px !important;
         height: 56px !important;
         max-height: none !important;
+        padding: 0 10px !important;
+        gap: 7px !important;
+    }
+    /* Mobilnézet (UI/UX-audit 2026-11-23, V13): keskeny, kétoszlopos rácsban
+       a hosszabb címkék („Eredeti szöveg tanulmányozása”, „Igehirdetési
+       sorozat tervező”) két sorba törnek a levágás helyett. Szót nem vágunk. */
+    .st-key-quick_tools_grid [data-baseweb="tab"] [data-testid="stMarkdownContainer"] p,
+    .st-key-quick_tools_grid [data-baseweb="tab"] p,
+    .st-key-quick_tools_grid [data-testid="stTab"] [data-testid="stMarkdownContainer"] p,
+    .st-key-quick_tools_grid [data-testid="stTab"] p,
+    .tx-quick-tools [data-baseweb="tab"] p,
+    .tx-quick-tools [data-testid="stTab"] p,
+    .tx-quick-tools-root [data-baseweb="tab"] p,
+    .tx-quick-tools-root [data-testid="stTab"] p {
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        font-size: 0.84rem !important;
+        line-height: 1.15 !important;
+        gap: 7px !important;
     }
 }
 
@@ -1725,22 +1745,28 @@ div[data-baseweb="popover"]:has([class*="st-key-project_picker_content"]) [class
         max-width: 100% !important;
         min-width: 0 !important;
     }
+    /* Mobilnézet (UI/UX-audit 2026-11-23, V13): a „…” menü (actions) nem
+       kap saját, harmadik sort — a mentés/projektek csoport mellé, jobbra
+       igazítva kerül, így az eszköztár két sorban elfér. */
     .st-key-textus_app_toolbar > [data-testid="stLayoutWrapper"]:has(.st-key-tx_toolbar_actions),
     .st-key-tx_toolbar_actions {
-        flex: 1 1 100% !important;
-        width: 100% !important;
+        flex: 0 0 auto !important;
+        width: auto !important;
         max-width: 100% !important;
-        margin-left: 0 !important;
+        margin-left: auto !important;
         min-width: 0 !important;
     }
     .st-key-tx_toolbar_main,
-    .st-key-tx_toolbar_actions,
-    .st-key-tx_toolbar_main[data-testid="stHorizontalBlock"],
-    .st-key-tx_toolbar_actions[data-testid="stHorizontalBlock"] {
+    .st-key-tx_toolbar_main[data-testid="stHorizontalBlock"] {
         flex-wrap: nowrap !important;
         overflow-x: visible !important;
         width: 100% !important;
         max-width: 100% !important;
+    }
+    .st-key-tx_toolbar_actions,
+    .st-key-tx_toolbar_actions[data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+        overflow-x: visible !important;
     }
     .st-key-textus_app_toolbar .st-key-bar_new_work,
     .st-key-textus_app_toolbar .st-key-tx_appbar_settings,

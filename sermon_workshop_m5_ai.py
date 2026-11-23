@@ -11,6 +11,10 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Mapping, Sequence
 
 from sermon_workshop_m4_ai import extract_json_object
+from llm_text_utils import (
+    call_generate_with_session_temperature,
+    is_llm_error_text,
+)
 
 MISSING = "nincs adat"
 TAB_SUGGEST = "Hallgatói feszültség — javaslat"
@@ -235,11 +239,11 @@ def _safe_truncate(text: str, max_chars: int) -> str:
     return raw[: max_chars - 1].rstrip() + "…"
 
 
-def _is_api_error_text(text: str) -> bool:
-    t = (text or "").strip()
-    if not t:
-        return True
-    return t.startswith(("⚠️", "⏳", "Hiba", "❌"))
+# 2026-11-23: a korábbi helyi másolat helyett a közös, viselkedésében
+# azonos is_llm_error_text (llm_text_utils.py; azonosság: tests/test_llm_text_utils.py).
+# KOMPATIBILITÁSI ALIAS — 14 modul innen importálja (`from sermon_workshop_m5_ai
+# import _is_api_error_text`); a név ne tűnjön el.
+_is_api_error_text = is_llm_error_text
 
 
 def _as_str_list(value: Any, *, max_items: int | None = None) -> list[str]:
@@ -569,37 +573,17 @@ def _call_generate(
     tab_label: str,
     temperature: float | None = DEFAULT_TEMPERATURE,
 ) -> str:
-    prev_temp = None
-    touched_temp = False
-    if temperature is not None:
-        try:
-            import streamlit as st
-
-            prev_temp = st.session_state.get("temperature")
-            st.session_state["temperature"] = float(temperature)
-            touched_temp = True
-        except Exception:
-            touched_temp = False
-    try:
-        return generate_fn(
-            prompt,
-            enable_google_search=False,
-            tab_label=tab_label,
-            use_cache=False,
-            system_bundle=M5_SYSTEM_BUNDLE,
-            include_brevity_directive=False,
-        )
-    finally:
-        if touched_temp:
-            try:
-                import streamlit as st
-
-                if prev_temp is None:
-                    st.session_state.pop("temperature", None)
-                else:
-                    st.session_state["temperature"] = prev_temp
-            except Exception:
-                pass
+    # 2026-11-23: a korábbi helyi törzs helyett a közös, viselkedésében azonos
+    # call_generate_with_session_temperature (llm_text_utils.py; azonosság:
+    # tests/test_llm_call_wrapper.py). A modul saját system_bundle-je és
+    # DEFAULT_TEMPERATURE alapértéke itt marad.
+    return call_generate_with_session_temperature(
+        generate_fn,
+        prompt,
+        tab_label=tab_label,
+        temperature=temperature,
+        system_bundle=M5_SYSTEM_BUNDLE,
+    )
 
 
 def fallback_listener_tension_suggestion(

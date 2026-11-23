@@ -41,6 +41,7 @@ from textus_kb.commentary_translation_store import (
     save_translation as _store_save_translation,
 )
 from textus_kb.repositories.commentary_repository import CommentaryRepository
+from llm_text_utils import is_provider_failure_text
 
 DEFAULT_LANGUAGE = "hu"
 TRANSLATION_TAB_LABEL = "Kommentár fordítás (HU)"
@@ -69,17 +70,9 @@ class TranslationOutcome:
     created_at: str = ""
 
 
-def _looks_like_provider_failure(text: str) -> bool:
-    """Same warning-string convention guarded against elsewhere (ld.
-    ``commentary_compare._looks_like_provider_failure``) -- ``generate_
-    text`` (app.py) returns a warning STRING rather than raising on a
-    blocking condition (missing API key, cooldown, etc.). Without this
-    check a "⚠️ Hiányzó API kulcs…" string would be cached and displayed
-    as if it were a genuine translation."""
-    raw = (text or "").strip()
-    if not raw:
-        return True
-    return raw.startswith(("⚠️", "⏳"))
+# 2026-11-23: a korábbi helyi másolat helyett a közös, viselkedésében
+# azonos is_provider_failure_text (llm_text_utils.py; azonosság: tests/test_llm_text_utils.py).
+_looks_like_provider_failure = is_provider_failure_text
 
 
 # --- Long-section translation batching (task: 2026-09-03 hardening) -------
@@ -390,7 +383,7 @@ def get_or_create_translation(
         )
     if generate_fn is None:
         return TranslationOutcome(
-            status="no_generate_fn", message="Nincs elérhető AI-hívás a fordításhoz."
+            status="no_generate_fn", message="Nincs elérhető MI-hívás a fordításhoz."
         )
 
     work_title = detail.work_title

@@ -8,9 +8,42 @@ meglévő elemzési kulcsokhoz nem nyúl.
 from __future__ import annotations
 
 import copy
+import logging
+import os
 import uuid
 from datetime import datetime
 from typing import Any, Mapping, MutableMapping
+
+_LOG = logging.getLogger(__name__)
+
+
+def _log_swallowed_exception(context: str, exc: BaseException) -> None:
+    """Technikai napló egy szándékosan elnyelt kivételről (2026-11-23).
+
+    A hívó fallback-viselkedése változatlan; ez csak láthatóvá teszi, hogy a
+    fallback ág futott. Adatvédelmi okból KIZÁRÓLAG a kivétel típusát és a
+    keletkezés helyét (fájlnév:sor, függvénynév) naplózza — a kivétel
+    üzenetét és a tracebacket nem, mert azokban vázlat- vagy prédikációszöveg,
+    illetve más felhasználói adat is lehet. A naplózás maga sosem dobhat.
+    """
+    try:
+        tb = exc.__traceback__
+        last = None
+        while tb is not None:
+            last, tb = tb, tb.tb_next
+        where = ""
+        if last is not None:
+            code = last.tb_frame.f_code
+            where = f" at {os.path.basename(code.co_filename)}:{last.tb_lineno} in {code.co_name}"
+        _LOG.warning(
+            "sermon_workshop_data fallback used (%s): %s%s",
+            context,
+            type(exc).__name__,
+            where,
+        )
+    except Exception:  # noqa: BLE001 — a naplózás nem befolyásolhatja a működést
+        pass
+
 
 SERMON_WORKSHOP_KEY = "sermon_workshop"
 
@@ -475,7 +508,8 @@ def _canonical_outline_schema_version() -> str:
         from sermon_outline_engine import SCHEMA_VERSION
 
         return SCHEMA_VERSION
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        _log_swallowed_exception("canonical_outline_schema_version", exc)
         return _SCHEMA_VERSION_IMPORT_FAILURE_FALLBACK
 
 
@@ -1578,7 +1612,8 @@ def _current_passage_context_hash(session_state: Mapping[str, Any]) -> str:
         from sermon_outline_engine import compute_current_passage_context_hash
 
         return compute_current_passage_context_hash(session_state)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        _log_swallowed_exception("current_passage_context_hash", exc)
         return ""
 
 
@@ -2339,7 +2374,8 @@ def _normalize_lection_connection_analysis_field(raw: Any) -> dict[str, Any] | N
         from sermon_workshop_lection_link_ai import (
             normalize_lection_connection_analysis,
         )
-    except Exception:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover
+        _log_swallowed_exception("lection_connection_analysis_import", exc)
         return _normalize_optional_dict(raw) if isinstance(raw, dict) else None
     return normalize_lection_connection_analysis(raw)
 
@@ -2476,8 +2512,8 @@ def save_sermon_outline(
                 normalized["needs_rebuild"] = True
         else:
             normalized["needs_rebuild"] = False
-    except Exception:  # pragma: no cover
-        pass
+    except Exception as exc:  # pragma: no cover
+        _log_swallowed_exception("save_sermon_outline.content_sync", exc)
     normalized["status"] = status or "draft"
     sw["sermon_outline"] = normalized
     sw["sermon_outline_status"] = normalized["status"]
@@ -2488,7 +2524,8 @@ def save_sermon_outline(
         from sermon_outline_engine import mirror_outline_to_session_strings
 
         mirror_outline_to_session_strings(session_state, normalized)
-    except Exception:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover
+        _log_swallowed_exception("save_sermon_outline.mirror_to_session", exc)
         body = _as_str(normalized.get("content"))
         if body:
             session_state["outline"] = body

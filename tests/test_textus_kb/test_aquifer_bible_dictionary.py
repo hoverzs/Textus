@@ -22,6 +22,7 @@ from textus_kb.importers.aquifer_bible_dictionary import (
 )
 from textus_kb.manifest import load_manifest
 from textus_kb.retrieval import retrieve, retrieve_to_json
+from tests.local_data import requires_aquifer_dictionary_db
 
 PILOT_BUNDLE = Path("data/kb/aquifer/john_4_1_42_bible_dictionary.json")
 PACKET_WITH_DICTIONARY = Path("tests/fixtures/kb/john_4_1_42_packet_with_dictionary.json")
@@ -97,6 +98,7 @@ def test_original_english_content_unchanged() -> None:
     assert "sychar" in chunk.content_plain.lower()
 
 
+@requires_aquifer_dictionary_db
 def test_retrieval_includes_dictionary_evidence_deterministically() -> None:
     first = json.loads(retrieve_to_json("Jn 4,1-42"))
     second = json.loads(retrieve_to_json("Jn 4,1-42"))
@@ -205,6 +207,7 @@ def test_hard_token_max_not_exceeded() -> None:
     assert historical.estimated_tokens <= 3500
 
 
+@requires_aquifer_dictionary_db
 def test_phase3c_golden_fixtures() -> None:
     assert PACKET_WITH_DICTIONARY.exists()
     assert EXEGESIS_PHASE3C.exists()

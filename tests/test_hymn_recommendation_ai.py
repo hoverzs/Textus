@@ -599,7 +599,7 @@ def test_llm_network_error_message_returns_ranking_unavailable() -> None:
     assert result.status == "ranking_unavailable"
     assert result.recommendations == ()
     assert repo.validated_ids == []
-    assert "AI-rangsorolás jelenleg nem elérhető" in result.markdown
+    assert "MI-rangsorolás jelenleg nem elérhető" in result.markdown  # UI/UX-audit 2026-11-23: egységes MI-terminológia
     assert "nem adott vissza ellenőrzött hymn_id-t" not in result.markdown
 
 

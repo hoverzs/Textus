@@ -23,6 +23,7 @@ from textus_kb.importers.acai_entities import (
 )
 from textus_kb.manifest import load_manifest
 from textus_kb.retrieval import retrieve, retrieve_to_json
+from tests.local_data import requires_any_aquifer_db
 
 PILOT_BUNDLE = Path("data/kb/acai/john_4_1_42_entities.json")
 PACKET_WITH_ENTITIES = Path("tests/fixtures/kb/john_4_1_42_packet_with_entities.json")
@@ -137,6 +138,7 @@ def test_generic_entities_flagged_not_in_context_summaries() -> None:
         assert external_id not in GENERIC_ACAI_IDS
 
 
+@requires_any_aquifer_db
 def test_disabled_acai_graceful(tmp_path: Path) -> None:
     manifest_path = tmp_path / "manifest.json"
     base = json.loads(Path("textus_kb/data/kb_manifest.json").read_text(encoding="utf-8"))

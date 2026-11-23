@@ -26,6 +26,7 @@ from textus_kb.context_selection import (
 )
 from textus_kb.importers.aquifer_study_notes import AQUIFER_SOURCE_ID
 from textus_kb.retrieval import retrieve
+from tests.local_data import requires_aquifer_dictionary_db
 
 PHASE3C_EXEGESIS = Path("tests/fixtures/kb/john_4_1_42_exegesis_context_phase3c.json")
 PHASE3C_HISTORICAL = Path("tests/fixtures/kb/john_4_1_42_historical_context_phase3c.json")
@@ -100,6 +101,7 @@ def test_redundant_near_duplicate_dropped() -> None:
     assert stats.dropped_redundant >= 1
 
 
+@requires_aquifer_dictionary_db
 def test_per_source_type_budget_respected(full_evidence) -> None:
     context = build_context_from_evidence(full_evidence, PROFILE_EXEGESIS)
     profile = ContextProfile.load(PROFILE_EXEGESIS)
@@ -188,6 +190,7 @@ def test_selection_deterministic(full_evidence) -> None:
     assert first == second
 
 
+@requires_aquifer_dictionary_db
 def test_selection_diagnostics_present(full_evidence) -> None:
     context = build_context_from_evidence(full_evidence, PROFILE_EXEGESIS)
     stats = context.selection_stats

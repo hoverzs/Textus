@@ -99,7 +99,8 @@ _EXPECTED_MARKERS: dict[int, str] = {
     # retrieval UI.
     6: "render_illustration_search_action(generate_fn=generate_text)",
     7: 'key="actualization"',
-    8: 'st.header("Énekajánló")',
+    # UI/UX-audit 2026-11-23 (V7): egységes `render_work_section` fejléc.
+    8: 'title="Énekajánló"',
     9: '"Igehirdetési sorozat tervező"',
     10: "render_text_main_idea_section(",
     11: 'st.header("📖 Útmutatás")',

@@ -231,7 +231,7 @@ def recommend_hymns(
         return HymnRecommendationResult(
             status="no_valid_ranked_hymns",
             markdown=(
-                "⚠️ **Az AI-rangsorolás nem adott vissza ellenőrzött hymn_id-t.**\n\n"
+                "⚠️ **Az MI-rangsorolás nem adott vissza ellenőrzött hymn_id-t.**\n\n"
                 "A hibás vagy nem létező azonosítókat eldobtam, és nem készítek "
                 "szabad, adatbázison kívüli énekajánlást."
             ),
@@ -751,9 +751,9 @@ def _unavailable_markdown(status: HymnRepositoryStatus) -> str:
 def _ranking_unavailable_markdown(reason: str) -> str:
     detail = f" (`{reason}`)" if reason else ""
     return (
-        f"⚠️ **Az AI-rangsorolás jelenleg nem elérhető{detail}.**\n\n"
+        f"⚠️ **Az MI-rangsorolás jelenleg nem elérhető{detail}.**\n\n"
         "Az ellenőrzött énekjelöltek megvannak a helyi adatbázisból, "
-        "de a rangsorolási AI-hívás nem adott feldolgozható JSON választ. "
+        "de a rangsorolási MI-hívás nem adott feldolgozható JSON választ. "
         "Nem készítek szabad LLM-alapú éneklistát, mert az énekszám és a "
         "kezdősor csak validált adatbázisrekordból származhat."
     )

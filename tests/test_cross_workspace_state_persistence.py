@@ -171,7 +171,9 @@ def test_c_both_uis_see_the_same_canonical_value():
     app.run()
 
     # 3. Ugyanaz az érték jelenik meg a Textusműhely widgetjében.
-    idx_tw = _idx_by_label(app, TEXT_MAIN_IDEA_LABEL)
+    # UI/UX-audit 2026-11-23 (V15): a Textusműhely mezője látható, pontosabb
+    # címkét kapott, ezért itt a kulcsa alapján keressük.
+    idx_tw = _idx_by_key(app, "tw_main_idea_input")
     assert app.text_area[idx_tw].value == "Első verzió — Igehirdetési műhelyből."
 
     # 4. Módosítás a MÁSIK (Textusműhely) UI-ban.

@@ -18,7 +18,7 @@ from __future__ import annotations
 import html
 import re
 from datetime import datetime, timezone
-from typing import Any, Callable, MutableMapping
+from typing import Any, Callable, Mapping, MutableMapping
 
 import streamlit as st
 
@@ -74,6 +74,8 @@ KEY_TRANSLATION_SELECT = "bible_translation_select"
 KEY_TRANSLATION_OTHER = "bible_translation_other"
 RESYNC_FLAG = "_bible_text_ui_resync"
 FLASH_KEY = "_bible_text_flash"
+# Régi, már nem használt session-kulcs (2026-11-23 előtt egyszeri CSS-injektálást
+# jelzett); a név megmarad, hogy a régi sessionökben ülő érték értelmezhető legyen.
 STYLES_FLAG = "_bible_text_styles_injected"
 RUF_LAST_ERROR_KEY = "_bible_text_ruf_last_error"
 RUF_LAST_ERROR_REF_KEY = "_bible_text_ruf_last_error_ref"
@@ -171,21 +173,26 @@ _BIBLE_TEXT_CSS = """
   text-shadow: 0 1px 0 rgba(18, 32, 48, 0.25) !important;
 }
 
+/* Tipográfia (2026-11-23): bibliai szöveg 1.15rem ≈ 18.4 px, sorköz 1.62.
+   A .bible-reader előtagú szelektorok (0,2,0) szándékosan erősebbek az
+   app.py globális ".stMarkdown p" szabályánál (0,1,1), amely különben a
+   bekezdéses sorokat és a forrásmegjelölést törzsszöveg-méretre állítaná. */
 .bible-reader {
   margin: 0.12rem 0 0.4rem 0;
   padding: 0.1rem 0;
-  max-width: 74ch;
+  max-width: 70ch;
   max-height: min(58vh, 520px);
   overflow-y: auto;
   box-sizing: border-box;
+  font-family: "Lora", Georgia, serif;
 }
 
 .bible-verse {
   display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-  margin: 0 0 0.28rem 0;
-  line-height: 1.52;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0 0 0.34rem 0;
+  line-height: 1.62;
 }
 
 .bible-verse:last-child,
@@ -193,44 +200,46 @@ _BIBLE_TEXT_CSS = """
   margin-bottom: 0;
 }
 
-.bible-verse-num {
+.bible-reader .bible-verse-num {
   flex: 0 0 auto;
-  width: 2.1rem;
-  font-size: 0.86rem;
+  width: 2.2rem;
+  font-size: 0.82rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: #746a5e;
-  line-height: 1.52;
-  padding-top: 0.02em;
+  line-height: 1.62;
   user-select: none;
   text-align: right;
 }
 
-.bible-verse-text {
+.bible-reader .bible-verse-text {
   flex: 1 1 auto;
   min-width: 0;
-  font-size: 1.04rem;
-  font-weight: 450;
+  font-size: 1.15rem;
+  font-weight: 400;
   color: #2a241c;
-  line-height: 1.52;
+  line-height: 1.62;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
-.bible-para {
-  margin: 0 0 0.42rem 0;
-  font-size: 1.04rem;
-  font-weight: 450;
+.bible-reader .bible-para {
+  max-width: none;
+  margin: 0 0 0.5rem 0;
+  font-family: inherit;
+  font-size: 1.15rem;
+  font-weight: 400;
   color: #2a241c;
-  line-height: 1.52;
+  line-height: 1.62;
+  letter-spacing: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
-.bible-reader-continuous {
-  font-size: 1.04rem;
-  font-weight: 450;
-  line-height: 1.52;
+.bible-reader.bible-reader-continuous {
+  font-size: 1.15rem;
+  font-weight: 400;
+  line-height: 1.66;
   color: #2a241c;
 }
 
@@ -249,10 +258,20 @@ _BIBLE_TEXT_CSS = """
   vertical-align: 0.06em;
 }
 
-.bible-source-note {
-  margin: 0.04rem 0 0.12rem 0;
-  font-size: 0.75rem;
-  line-height: 1.3;
+/* Forrásmegjelölés: lábjegyzetszerű, 0.78rem ≈ 12.5 px. A "p.bible-source-note"
+   (0,2,1) a globális ".stMarkdown p" (0,1,1) betűméretét, sorközét, margóját és
+   betűtípusát is felülírja. */
+.stMarkdown p.bible-source-note,
+p.bible-source-note.bible-source-note {
+  max-width: 70ch;
+  margin: 0.3rem 0 0.6rem 0;
+  padding-top: 0.3rem;
+  border-top: 1px solid rgba(122, 108, 92, 0.22);
+  font-family: "Inter", "Segoe UI", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: normal;
   color: #7a6c5c;
 }
 
@@ -296,9 +315,10 @@ _BIBLE_TEXT_CSS = """
     gap: 0.45rem;
     margin-bottom: 0.22rem;
   }
-  .bible-verse-text,
-  .bible-para {
-    font-size: 1rem;
+  .bible-reader .bible-verse-text,
+  .bible-reader .bible-para,
+  .bible-reader.bible-reader-continuous {
+    font-size: 1.125rem;
   }
 }
 </style>
@@ -513,9 +533,14 @@ def get_bible_text_snapshot(session_state: MutableMapping[str, Any]) -> dict[str
 
 
 def _ensure_bible_text_styles() -> None:
-    if st.session_state.get(STYLES_FLAG):
-        return
-    st.session_state[STYLES_FLAG] = True
+    """A Bibliai szöveg stíluslapjának kirajzolása — MINDEN futásban.
+
+    2026-11-23: korábban egy session_state-flag (STYLES_FLAG) csak az első
+    futásban engedte kirajzolni. A Streamlit viszont minden futás végén
+    eltávolítja azokat az elemeket, amelyeket az adott futás nem rajzolt ki
+    újra, így a stílus az első interakció után elveszett. Az azonos
+    <style>-blokk egy futáson belüli ismétlése ártalmatlan.
+    """
     st.markdown(_BIBLE_TEXT_CSS, unsafe_allow_html=True)
 
 
@@ -660,6 +685,26 @@ def _render_ruf_error_retry() -> None:
         retry_ref = _current_reference(st.session_state) or ref
         if retry_ref:
             _fetch_ruf_for_current_reference(retry_ref)
+
+
+MANUAL_TEXT_LABEL = "kézi beillesztés"
+
+
+def _is_manual_text(snap: Mapping[str, str]) -> bool:
+    """Kézzel beillesztett (felülírt) szöveg van-e megjelenítve."""
+    return snap.get("passage_text_source") == SOURCE_TYPE_USER_OVERRIDE and bool(
+        normalize_passage_text(snap.get("passage_text")).strip()
+    )
+
+
+def _passage_header_markdown(reference: str, snap: Mapping[str, str]) -> str:
+    """Az „Igehely · Fordítás” sor. Kézzel beillesztett szövegnél nem állít
+    fordítást (a tárolt `bible_translation` ilyenkor is „RÚF 2014”, de a
+    szöveg nem a RÚF-forrásból jött — UI/UX-audit 2026-11-23, V11)."""
+    if _is_manual_text(snap):
+        return f"**Igehely:** {reference}  ·  **Forrás:** {MANUAL_TEXT_LABEL}"
+    translation = (snap.get("bible_translation") or TRANSLATION_NAME).strip() or TRANSLATION_NAME
+    return f"**Igehely:** {reference}  ·  **Fordítás:** {translation}"
 
 
 def _render_source_caption(session_state: MutableMapping[str, Any]) -> None:
@@ -816,7 +861,11 @@ def render_bible_text_editor(
 
     render_work_section(
         title="Bibliai szöveg",
-        body="RÚF 2014",
+        body=(
+            "Kézzel beillesztett szöveg"
+            if _is_manual_text(get_bible_text_snapshot(st.session_state))
+            else "RÚF 2014"
+        ),
         show_rule=False,
     )
 
@@ -867,11 +916,10 @@ def render_bible_text_preview(*, expanded: bool = False) -> None:
     _ensure_bible_text_styles()
     snap = get_bible_text_snapshot(st.session_state)
     passage = snap["passage"] or "—"
-    translation = snap["bible_translation"] or TRANSLATION_NAME
     text = snap["passage_text"]
 
     with st.expander("Bibliai szöveg", expanded=expanded):
-        st.markdown(f"**Igehely:** {passage}  ·  **Fordítás:** {translation}")
+        st.markdown(_passage_header_markdown(passage, snap))
         if text.strip():
             render_formatted_bible_text(text)
             _render_source_caption(st.session_state)
@@ -904,10 +952,8 @@ def render_bible_text_reading_block(
     snap = get_bible_text_snapshot(st.session_state)
     reference = (snap.get("passage") or "").strip()
     text = snap.get("passage_text") or ""
-    translation = (snap.get("bible_translation") or TRANSLATION_NAME).strip() or TRANSLATION_NAME
-
     if reference:
-        st.markdown(f"**Igehely:** {reference}  ·  **Fordítás:** {translation}")
+        st.markdown(_passage_header_markdown(reference, snap))
 
     if str(text).strip():
         try:

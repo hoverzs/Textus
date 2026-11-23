@@ -19,6 +19,7 @@ from writing_desk_data import (
     normalize_writing_desk,
     set_writing_desk_extract,
 )
+from llm_text_utils import is_llm_error_text
 
 GenerateFn = Callable[..., str]
 
@@ -221,11 +222,9 @@ def build_extract_prompt(extract_key: str, source_text: str) -> str:
     )
 
 
-def _is_api_error_text(text: str) -> bool:
-    t = (text or "").strip()
-    if not t:
-        return True
-    return t.startswith(("⚠️", "⏳", "Hiba", "❌"))
+# 2026-11-23: a korábbi helyi másolat helyett a közös, viselkedésében
+# azonos is_llm_error_text (llm_text_utils.py; azonosság: tests/test_llm_text_utils.py).
+_is_api_error_text = is_llm_error_text
 
 
 def _is_output_limit_response(text: str) -> bool:

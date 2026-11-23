@@ -470,20 +470,19 @@ def render_text_main_idea_section(
     )
 
     with work_surface("tw_main_idea"):
+        # Látható mezőcímke és egymás melletti, balra zárt műveleti gombok
+        # (UI/UX-audit 2026-11-23, V15). A kulcsok és a műveletek változatlanok.
         st.text_area(
-            "A textus fő gondolata",
+            "Fogalmazd meg a textus fő gondolatát egy mondatban",
             key=_KEY_IDEA_INPUT,
             height=90,
-            label_visibility="collapsed",
             placeholder="Egyetlen, világos mondat…",
         )
 
         with action_row("tw_main_idea"):
-            b1, b2 = st.columns(2)
-            with b1:
+            with st.container(horizontal=True, gap="small"):
                 if st.button("Mentés vázlatként", key="tw_main_idea_save_draft_btn"):
                     _save_main_idea_as_draft()
-            with b2:
                 if st.button(
                     "Jóváhagyom és átadom",
                     type="primary",

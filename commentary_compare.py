@@ -37,6 +37,7 @@ from textus_kb.repositories.commentary_repository import (
 )
 from textus_kb.retrieval import retrieve_commentary_evidence
 from ui_components import action_row, render_info_panel, render_work_section, work_surface
+from llm_text_utils import is_provider_failure_text
 
 MIN_COMPARE_SOURCES = 2
 MAX_COMPARE_SOURCES = 3
@@ -198,17 +199,9 @@ def is_result_current_for_passage(
     return bool(context) and context.get("passage") == passage
 
 
-def _looks_like_provider_failure(text: str) -> bool:
-    """``generate_text`` (app.py) returns a warning STRING rather than
-    raising on a blocking condition (missing API key, cooldown, etc.) --
-    same convention ``bible_engine.original_language_analysis._looks_
-    like_provider_failure`` already guards against. Without this check a
-    "⚠️ Hiányzó API kulcs…" string would be stored and displayed as if it
-    were a genuine, grounded comparison."""
-    raw = (text or "").strip()
-    if not raw:
-        return True
-    return raw.startswith(("⚠️", "⏳"))
+# 2026-11-23: a korábbi helyi másolat helyett a közös, viselkedésében
+# azonos is_provider_failure_text (llm_text_utils.py; azonosság: tests/test_llm_text_utils.py).
+_looks_like_provider_failure = is_provider_failure_text
 
 
 def group_evidence_by_source(
@@ -373,7 +366,7 @@ def run_commentary_compare(
         return CompareResult(status="ineligible", message=readiness.message)
 
     if generate_fn is None:
-        return CompareResult(status="no_generate_fn", message="Nincs elérhető AI-hívás ehhez a funkcióhoz.")
+        return CompareResult(status="no_generate_fn", message="Nincs elérhető MI-hívás ehhez a funkcióhoz.")
 
     ordered_grouped = {
         name: grouped[name] for name in ordered if name in readiness.sources_to_compare
@@ -411,7 +404,7 @@ def render_commentary_compare_section(
     render_work_section(
         title="Kommentárok összehasonlítása",
         body=(
-            "AI által készített, kizárólag a fenti kommentárszakaszok szó szerinti "
+            "MI által készített, kizárólag a fenti kommentárszakaszok szó szerinti "
             "szövegére épülő, forrásalapú összehasonlítás — nem generál a kommentárok "
             "tartalmán túli, forrás nélküli állítást."
         ),
@@ -472,7 +465,7 @@ def render_commentary_compare_section(
         ctx = store.get(_CONTEXT_KEY) or {}
         if is_result_current_for_passage(result, ctx, passage):
             st.caption(
-                "AI által készített, forrásalapú összehasonlítás — "
+                "MI által készített, forrásalapú összehasonlítás — "
                 f"{', '.join(ctx.get('sources', ()))} · {ctx.get('passage_display', '')}"
             )
             st.markdown(

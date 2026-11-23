@@ -1117,7 +1117,12 @@ def _render_writing_desk_john_compact() -> None:
     real_tbesg = greek_ui.load_tbesg_lexicon_entry
     real_factory = st.components.v2.component
 
-    def spy_panel(selected, lexicon_entries, tbesg_lexicon_loader, *, key_prefix, display_mode="full"):
+    # 2026-11-23: a 002d8a0 (Phase 2C) óta a _render_analysis_panel további
+    # kulcsszavas argumentumokat kap (reference, contextual_analysis_*). A régi,
+    # szűk szignatúrájú spy TypeError-t dobott, amelyet a bible_text_ui elnyelt,
+    # így a panel sosem futott. A spy most minden további argumentumot
+    # változatlanul továbbad; az állítások nem változtak.
+    def spy_panel(selected, lexicon_entries, tbesg_lexicon_loader, *, key_prefix, display_mode="full", **kwargs):
         st.session_state["_writing_desk_analysis_display_mode"] = display_mode
         st.session_state["_writing_desk_analysis_key_prefix"] = key_prefix
         st.session_state["_writing_desk_analysis_form"] = selected.greek_form
@@ -1127,6 +1132,7 @@ def _render_writing_desk_john_compact() -> None:
             tbesg_lexicon_loader,
             key_prefix=key_prefix,
             display_mode=display_mode,
+            **kwargs,
         )
 
     def spy_factory(name, **kwargs):

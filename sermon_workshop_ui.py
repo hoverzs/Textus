@@ -3013,7 +3013,7 @@ def _regenerate_outline_part_and_save(
     from sermon_workshop_outline_synth_ai import regenerate_outline_part
 
     if generate_fn is None:
-        st.warning("A részleges újraíráshoz AI-generálás szükséges.")
+        st.warning("A részleges újraíráshoz MI-generálás szükséges.")
         return
     sw = ensure_sermon_workshop_state(st.session_state)
     current = normalize_sermon_outline(sw.get("sermon_outline"))
@@ -3290,9 +3290,10 @@ _DIAG_STYLES_FLAG = "_sw_diag_ui_styles"
 
 
 def _ensure_diag_styles() -> None:
-    if st.session_state.get(_DIAG_STYLES_FLAG):
-        return
-    st.session_state[_DIAG_STYLES_FLAG] = True
+    # 2026-11-23: minden futásban kirajzoljuk. A korábbi _DIAG_STYLES_FLAG-es
+    # egyszeri injektálás után a Streamlit a következő futás végén eltávolította
+    # a <style> elemet, így a diagnosztikai chipek stílusa elveszett. A flag
+    # konstans csak a régi sessionök értelmezhetősége miatt maradt meg.
     st.markdown(
         """
 <style>
@@ -12879,7 +12880,7 @@ def _render_developed_outline_canonical_readonly() -> None:
         if manually_updated_at:
             st.caption(f"Kézzel módosítva: {_format_human_timestamp(manually_updated_at)}.")
         else:
-            st.caption("AI által generált, még nem szerkesztett vázlat.")
+            st.caption("MI által generált, még nem szerkesztett vázlat.")
 
         stale, reference_changed, stored_reference, current_reference = (
             _developed_outline_freshness(st.session_state)

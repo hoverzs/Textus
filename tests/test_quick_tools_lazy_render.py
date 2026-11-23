@@ -70,6 +70,10 @@ def greek_block_counter(monkeypatch: pytest.MonkeyPatch) -> list[str]:
         real_emit(message)
 
     monkeypatch.setattr(passage_trace, "emit", recording_emit)
+    # 2026-11-23: a nyomkövetés alapértelmezésben ki van kapcsolva
+    # (TEXTUS_PASSAGE_TRACE=1 kapcsolja be). A számláló a trace-varraton át
+    # működik, ezért erre a tesztre — és csak erre — bekapcsoljuk.
+    monkeypatch.setattr(passage_trace, "_ENABLED", True)
     return entered
 
 
@@ -124,7 +128,10 @@ def test_greek_analysis_renders_once_per_run_never_twice(greek_block_counter):
     _open_tab(at, ORIGINAL)
     original_open = len(greek_block_counter)
 
-    assert igehely_open == 1, igehely_open
+    # UI/UX-audit 2026-11-23 (V2, elfogadott javítás): a görög/héber panel már
+    # csak az Eredeti szöveg fülön jelenik meg, az Igehely fülön egyáltalán nem.
+    # Korábbi elvárás: igehely_open == 1.
+    assert igehely_open == 0, igehely_open
     assert original_open == 1, original_open  # previously 2 (Igehely + Eredeti szöveg)
 
 

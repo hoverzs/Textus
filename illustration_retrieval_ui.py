@@ -238,7 +238,7 @@ def render_illustration_search_action(*, generate_fn: Callable[..., str] | None 
         body=(
             "A meglévő textus alapján keres a Textus saját, ember és gép "
             "által ellenőrzött illusztráció-adatbázisában. A történet "
-            "mindig az adatbázisból származik -- az AI csak rangsorol és "
+            "mindig az adatbázisból származik -- az MI csak rangsorol és "
             "magyarázza a kapcsolódást, sosem talál ki új történetet."
         ),
         context="Textusműhely",
@@ -266,7 +266,7 @@ def render_illustration_search_action(*, generate_fn: Callable[..., str] | None 
                 if not passage:
                     st.warning("Add meg az igeszakaszt az „Igehely” fülön, mielőtt keresel.")
                 elif generate_fn is None:
-                    st.warning("Nincs elérhető AI-hívás ehhez a funkcióhoz.")
+                    st.warning("Nincs elérhető MI-hívás ehhez a funkcióhoz.")
                 else:
                     with st.spinner("Illusztrációk keresése…"):
                         passage_text = str(st.session_state.get("passage_text") or "")

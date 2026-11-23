@@ -42,7 +42,61 @@ felsorolt tesztfájlok `import app` hívásai nem változtak."""
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import pytest
+
+_TEST_SECRETS_FILE = Path(__file__).resolve().parent / "fixtures" / "secrets.test.toml"
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Hermetikus titokkezelés a teljes tesztfutásra (2026-11-22, tesztalapvonal).
+
+    1. A Streamlit alapból a felhasználói szintű ``~/.streamlit/secrets.toml``-t
+       ÉS a projekt ``.streamlit/secrets.toml``-ját is betölti — a fejlesztő
+       gépén ezekben éles Supabase-, bejelentkezési és Gemini-kulcsok lehetnek.
+       A ``secrets.files`` beállítást ezért, még a gyűjtés előtt, kizárólag a
+       ``tests/fixtures/secrets.test.toml`` álkulcs-fájlra rögzítjük.
+    2. A ``SUPABASE*`` környezeti változókat ebből a folyamatból eltávolítjuk,
+       hogy egyetlen teszt se érhesse el az éles adatbázist.
+
+    Csak a pytest-folyamatot érinti; a felhasználói/rendszer-beállításokhoz,
+    az ``app.py``-hoz és az üzleti logikához nem nyúl.
+    """
+    for name in [key for key in os.environ if key.upper().startswith("SUPABASE")]:
+        del os.environ[name]
+
+    import streamlit.config as st_config
+
+    st_config.set_option("secrets.files", [str(_TEST_SECRETS_FILE)])
+
+
+@pytest.fixture(autouse=True)
+def _restore_commentary_ui_seams():
+    """Visszaállítja a ``commentary_ui`` modul felülírható varratfüggvényeit
+    minden teszt után (2026-11-22, tesztalapvonal).
+
+    Gyökérok (bizonyítva): a ``tests/test_commentary_ui.py`` AppTest-segédfüggvényei
+    a ``commentary_ui._get_repository`` / ``_get_status`` /
+    ``_translation_database_path`` függvényeket közvetlen értékadással, visszaállítás
+    nélkül cserélik le. A felülírás a teszt után is a modulban marad, ezért a
+    később futó ``tests/test_textus_kb/test_commentary_runtime_consumer_wiring.py``
+    két tesztje a teljes futásban elbukik, külön futtatva viszont zöld
+    (reprodukció: a két fájl együttes futtatása). A fixture a tesztek tartalmát
+    nem változtatja, csak a modulállapotot állítja vissza."""
+    try:
+        import commentary_ui
+    except Exception:  # noqa: BLE001 — import-hiba esetén a teszt maga jelez
+        yield
+        return
+    names = ("_get_repository", "_get_status", "_translation_database_path")
+    saved = {name: getattr(commentary_ui, name) for name in names if hasattr(commentary_ui, name)}
+    try:
+        yield
+    finally:
+        for name, value in saved.items():
+            setattr(commentary_ui, name, value)
 
 
 @pytest.fixture(autouse=True)

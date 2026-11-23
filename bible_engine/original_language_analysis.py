@@ -33,6 +33,7 @@ from bible_engine.hebrew_books import HebrewReferenceError, parse_hebrew_referen
 from bible_engine.hebrew_morphology_hu import format_hebrew_morphology_rows_hu
 from bible_engine.hebrew_token_repository import HebrewTokenRepository
 from bible_engine.morphology_hu import parse_morphology_hu
+from llm_text_utils import is_provider_failure_text
 
 STATUS_GROUNDED = "grounded_language_data"
 STATUS_AI_FALLBACK = "ai_fallback_language_analysis"
@@ -637,11 +638,9 @@ def plan_original_language_analysis(
     )
 
 
-def _looks_like_provider_failure(text: str) -> bool:
-    raw = (text or "").strip()
-    if not raw:
-        return True
-    return raw.startswith(("⚠️", "⏳"))
+# 2026-11-23: a korábbi helyi másolat helyett a közös, viselkedésében
+# azonos is_provider_failure_text (llm_text_utils.py; azonosság: tests/test_llm_text_utils.py).
+_looks_like_provider_failure = is_provider_failure_text
 
 
 def run_original_language_analysis(
