@@ -51,7 +51,10 @@ from dataclasses import dataclass, replace
 from typing import Any, Callable, Mapping, MutableMapping
 
 from sermon_workshop_data import _ARC_POINT_KEYS, store_generated_arc_result
-from llm_text_utils import starts_with_provider_warning
+from llm_text_utils import (
+    extract_json_object_strict_root,
+    starts_with_provider_warning,
+)
 
 GenerateFn = Callable[..., str]
 
@@ -292,42 +295,14 @@ def build_arc_generation_prompt(context: ArcGenerationContext) -> str:
 
 
 def _extract_json_object(raw: Any) -> dict[str, Any] | None:
-    """Önálló, kis JSON-kinyerő — szándékosan NEM importál a régi
-    section-szintű MI-modulokból (pl. a M4-es `extract_json_object`-ből),
-    hogy ez a modul teljesen független maradjon.
-
-    Megengedett, szűk tűrés: whitespace trim, markdown code-fence
-    eltávolítás, egyetlen jól azonosítható JSON-object kibontása, és a
-    záró vessző (trailing comma) levágása objektum/lista végén (LOCAL
-    MANUAL QA FIX, 2.3) — UGYANAZ a szűk normalizálás, mint a `textus_
-    summary_ai`/`sermon_workshop_blueprint_ai` saját kinyerőjében."""
-    if raw is None:
-        return None
-    text = str(raw).strip()
-    if not text:
-        return None
-    fence = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
-    if fence:
-        text = fence.group(1).strip()
-    try:
-        obj = json.loads(text)
-        return obj if isinstance(obj, dict) else None
-    except json.JSONDecodeError:
-        pass
-    start = text.find("{")
-    end = text.rfind("}")
-    if start >= 0 and end > start:
-        candidate = text[start : end + 1]
-        candidate_fixed = re.sub(r",\s*}", "}", candidate)
-        candidate_fixed = re.sub(r",\s*]", "]", candidate_fixed)
-        for attempt in (candidate, candidate_fixed):
-            try:
-                obj = json.loads(attempt)
-                if isinstance(obj, dict):
-                    return obj
-            except json.JSONDecodeError:
-                continue
-    return None
+    """Saját, önálló JSON-kinyerő belépési pontja — NEM a régi M4-es
+    `extract_json_object`-et használja. 2026-11-23 óta a korábbi helyi
+    másolattal viselkedésében azonos, modulfüggetlen
+    `llm_text_utils.extract_json_object_strict_root`-ot hívja (azonosság:
+    tests/test_llm_json_extractors.py). Szűk tűrés: whitespace trim,
+    markdown code-fence eltávolítás, egyetlen JSON-object kibontása,
+    záró vessző levágása; nem objektum gyökerű érvényes JSON → None."""
+    return extract_json_object_strict_root(raw)
 
 
 def _diagnose_invalid_json_response(raw: Any) -> str:

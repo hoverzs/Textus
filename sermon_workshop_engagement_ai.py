@@ -18,10 +18,9 @@ nem távoli "szentbeszédként" hatni.
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Mapping, Sequence
-from llm_text_utils import is_llm_error_text
+from llm_text_utils import extract_json_object_lenient, is_llm_error_text
 
 MISSING = "nincs adat"
 
@@ -358,36 +357,10 @@ def build_engagement_suggest_prompt(ctx: Mapping[str, str]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def extract_json_object(raw: str) -> dict[str, Any] | None:
-    if not raw or not str(raw).strip():
-        return None
-    text = str(raw).strip()
-
-    fence = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
-    if fence:
-        text = fence.group(1).strip()
-
-    try:
-        obj = json.loads(text)
-        if isinstance(obj, dict):
-            return obj
-    except json.JSONDecodeError:
-        pass
-
-    start = text.find("{")
-    end = text.rfind("}")
-    if start >= 0 and end > start:
-        candidate = text[start : end + 1]
-        candidate_fixed = re.sub(r",\s*}", "}", candidate)
-        candidate_fixed = re.sub(r",\s*]", "]", candidate_fixed)
-        for attempt in (candidate, candidate_fixed):
-            try:
-                obj = json.loads(attempt)
-                if isinstance(obj, dict):
-                    return obj
-            except json.JSONDecodeError:
-                continue
-    return None
+# 2026-11-23: a korábbi helyi másolat helyett a közös, viselkedésében
+# azonos extract_json_object_lenient (llm_text_utils.py; azonosság:
+# tests/test_llm_json_extractors.py).
+extract_json_object = extract_json_object_lenient
 
 
 def _as_str_list(value: Any, *, max_items: int | None = None) -> list[str]:

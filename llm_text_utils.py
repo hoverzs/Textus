@@ -1,4 +1,5 @@
-"""Közös szöveges hibafelismerés a generate_fn (app.generate_text) válaszaihoz.
+"""Közös szöveges hibafelismerés és JSON-kinyerés a generate_fn
+(app.generate_text) válaszaihoz.
 
 A ``generate_text`` szolgáltatói hiba esetén nem kivételt dob, hanem egy
 figyelmeztető szöveget ad vissza (mindig ``⚠️`` vagy ``⏳`` előtaggal). Az
@@ -14,10 +15,29 @@ miatt minden „Hiba” betűsorral kezdődő választ hibának tekint, egy érv
 „Hibaforrás…” vagy „Hibalista…” kezdetű modellválaszt is. (A „Hibás…” és
 „Hibák…” szöveget az „á” betű miatt nem.) A ``generate_text`` ilyen előtagot
 nem ad; a szabály esetleges szűkítése külön, bizonyítékon alapuló döntés.
+
+JSON-kinyerés (2026-11-23, 4. fázis 2. lépés): két, egymástól eltérő, de
+csoporton belül bizonyítottan azonos változat. A kettő ott tér el, ahol a
+teljes szöveg érvényes, de NEM objektum gyökerű JSON (pl. lista):
+
+* ``extract_json_object_lenient`` ilyenkor továbbmegy, és az első ``{`` és
+  az utolsó ``}`` közötti részt próbálja objektumként értelmezni — egy
+  ``[{"a": 1}]`` válaszból tehát ``{"a": 1}`` lesz, ``[{"a":1},{"b":2}]``
+  esetén viszont ``None``;
+* ``extract_json_object_strict_root`` ilyenkor azonnal ``None``-t ad.
+
+A két változat a bemenet ellenőrzésében is eltér (``not raw`` kontra
+``raw is None``), ami nem szöveges bemenetnél számít. Mindkettő tűri a
+markdown kódkerítést és a záró vesszőt. Egyik sem dob kivételt
+szövegbemenetre. A fejlesztett vázlat (sermon_workshop_developed_outline_ai)
+saját kinyerője ETTŐL ELTÉR (nem javítja a záró vesszőt), ezért nem ide
+tartozik.
 """
 
 from __future__ import annotations
 
+import json
+import re
 from typing import Any
 
 # A négyelőtagos szabály előtagjai (korábban 8 modulban bemásolva,
@@ -66,3 +86,80 @@ def starts_with_provider_warning(raw: Any) -> bool:
     _refinement_ai)."""
     text = str(raw or "")
     return text.startswith("⚠️") or text.startswith("⏳")
+
+
+def extract_json_object_lenient(raw: Any) -> dict[str, Any] | None:
+    """Engedékeny JSON-objektum-kinyerés: markdown kódkerítés eltávolítása,
+    közvetlen ``json.loads``; ha az nem ad objektumot (hibás JSON VAGY nem
+    objektum gyökerű, pl. lista), az első ``{`` és az utolsó ``}`` közötti
+    részt próbálja, eredetiben és záró vesszőktől megtisztítva.
+
+    Szó szerint a korábbi ``extract_json_object`` másolatok viselkedése
+    (textus_summary_ai, sermon_workshop_entry_point_ai, sermon_workshop_m4_ai,
+    textus_main_idea_ai, sermon_workshop_engagement_ai)."""
+    if not raw or not str(raw).strip():
+        return None
+    text = str(raw).strip()
+
+    fence = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
+    if fence:
+        text = fence.group(1).strip()
+
+    try:
+        obj = json.loads(text)
+        if isinstance(obj, dict):
+            return obj
+    except json.JSONDecodeError:
+        pass
+
+    start = text.find("{")
+    end = text.rfind("}")
+    if start >= 0 and end > start:
+        candidate = text[start : end + 1]
+        candidate_fixed = re.sub(r",\s*}", "}", candidate)
+        candidate_fixed = re.sub(r",\s*]", "]", candidate_fixed)
+        for attempt in (candidate, candidate_fixed):
+            try:
+                obj = json.loads(attempt)
+                if isinstance(obj, dict):
+                    return obj
+            except json.JSONDecodeError:
+                continue
+    return None
+
+
+def extract_json_object_strict_root(raw: Any) -> dict[str, Any] | None:
+    """Szigorú gyökerű JSON-objektum-kinyerés: mint az engedékeny változat,
+    de ha a (kódkerítés nélküli) teljes szöveg érvényes JSON, csak objektum
+    gyökér esetén ad eredményt — lista vagy más gyökérnél azonnal ``None``,
+    nem keres benne objektumot.
+
+    Szó szerint a korábbi ``_extract_json_object`` másolatok viselkedése
+    (sermon_workshop_arc_ai, sermon_workshop_blueprint_ai)."""
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+    fence = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
+    if fence:
+        text = fence.group(1).strip()
+    try:
+        obj = json.loads(text)
+        return obj if isinstance(obj, dict) else None
+    except json.JSONDecodeError:
+        pass
+    start = text.find("{")
+    end = text.rfind("}")
+    if start >= 0 and end > start:
+        candidate = text[start : end + 1]
+        candidate_fixed = re.sub(r",\s*}", "}", candidate)
+        candidate_fixed = re.sub(r",\s*]", "]", candidate_fixed)
+        for attempt in (candidate, candidate_fixed):
+            try:
+                obj = json.loads(attempt)
+                if isinstance(obj, dict):
+                    return obj
+            except json.JSONDecodeError:
+                continue
+    return None
