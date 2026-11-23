@@ -5286,6 +5286,36 @@ def _apply_pending_project_widget_sync() -> None:
         st.session_state[key] = value
 
 
+def _persist_passage_input_across_views() -> None:
+    """A beírt igehely megőrzése nézetváltáskor (UI/UX-audit 2026-11-23, V1).
+
+    Az `igehely_input` csak a Textusműhely Igehely szakaszában jelenik meg
+    widgetként. A Streamlit egy nem kirajzolt widget állapotát törli, ezért a
+    Textusműhelyből az Igehirdetési műhelybe vagy az Íróasztalra váltva a
+    még szöveg nélküli igehely elveszett. Két lépés, minden futásban:
+
+    1. Az érték önmagának való visszaírása a widget létrehozása ELŐTT —
+       így a kulcs akkor is megmarad, ha a widget ebben a futásban nem
+       rajzolódik ki (a Streamlit dokumentált megoldása).
+    2. A nem üres érték átmásolása a `last_igehely`-be, ahogy a
+       `_sync_inputs_to_last` teszi. Mentett projektnél ez eddig is minden
+       futásban megtörtént (a fejléc mentési állapotának számítása hívja);
+       ideiglenes munkánál csak generáláskor/mentéskor, ezért a csak
+       `last_igehely`-t olvasó nézetek nem látták az új igehelyet.
+
+    A hívás helye: a pending projekt-widget-szinkron UTÁN (projektbetöltés és
+    „Új munka” értéke érvényesül, nem írja felül a régi mezőérték), és minden
+    widget ELŐTT. Üres mező nem törli a `last_igehely`-t — ez a
+    `_sync_inputs_to_last` eddigi szabálya is."""
+    ss = st.session_state
+    if "igehely_input" not in ss:
+        return
+    ss["igehely_input"] = ss["igehely_input"]
+    igehely = (ss.get("igehely_input") or "").strip()
+    if igehely:
+        ss["last_igehely"] = igehely
+
+
 def _apply_project_data_to_session(project_data: dict) -> None:
     """Felhő `project_data` visszaírása; widget-szinkron pending + rerun után."""
     if not isinstance(project_data, dict):
@@ -5394,7 +5424,16 @@ def _set_flash(message: str, kind: str = "success") -> None:
     st.session_state["_flash_message"] = {"type": kind, "text": message}
 
 
-def _render_flash_message() -> None:
+def _render_flash_message(slot: object = None) -> None:
+    """A felvillanó üzenet kirajzolása.
+
+    `slot`: egy MINDEN futásban jelen lévő `st.empty()` helyőrző. Ha az üzenet
+    csak alkalmanként kerülne a projekt-eszköztár (`textus_app_toolbar` kulcsos
+    konténer) elé, eltolná az elemek pozícióját, és a frontend az eszköztár
+    előző példányát is bent hagyná — „Új munka” után dupla eszköztár látszott
+    (UI/UX-audit 2026-11-23, V3). A rögzített helyőrzővel a pozíciók nem
+    változnak. `slot=None` esetén a korábbi viselkedés: közvetlen `st.*`."""
+    target = slot if slot is not None else st
     flash = st.session_state.pop("_flash_message", None)
     if not isinstance(flash, dict):
         return
@@ -5403,13 +5442,13 @@ def _render_flash_message() -> None:
         return
     kind = flash.get("type") or "success"
     if kind == "error":
-        st.error(text)
+        target.error(text)
     elif kind == "warning":
-        st.warning(text)
+        target.warning(text)
     elif kind == "info":
-        st.info(text)
+        target.info(text)
     else:
-        st.success(text)
+        target.success(text)
 
 
 def _mark_project_clean() -> None:
@@ -8110,12 +8149,18 @@ if not logo_file:
         "(vagy textus_logo.png), és ugyanabban a mappában legyen, mint az app.py."
     )
 
-# Flash (mentés/megnyitás utáni üzenet — túléli az st.rerun()-t)
-_render_flash_message()
+# Flash (mentés/megnyitás utáni üzenet — túléli az st.rerun()-t). A helyőrző
+# MINDEN futásban létrejön, így az utána következő elemek pozíciója nem függ
+# attól, hogy éppen van-e üzenet (lásd `_render_flash_message`).
+_render_flash_message(st.empty())
 
 # Projektváltás után a pending widget-értékek a status bar / dirty-check ELŐTT
 # érvényesüljenek (ne írja felül a régi igehely_input az új projektet).
 _apply_pending_project_widget_sync()
+
+# A beírt igehely nézetváltáskor se vesszen el (a pending szinkron UTÁN, a
+# widgetek ELŐTT — lásd `_persist_passage_input_across_views`).
+_persist_passage_input_across_views()
 
 # Állandó projekt-sáv (mentés / dirty / projektek) — a tabok előtt
 _render_project_status_bar()
@@ -8180,11 +8225,21 @@ def render_igehely_panel(analysis_visible: bool = True) -> None:
 
             render_concordance_expander()
 
+        # UI/UX-audit 2026-11-23, V2: a szavankénti görög/héber elemzés
+        # kizárólag az „Eredeti szöveg tanulmányozása” fülön jelenik meg
+        # (ott saját, `textus_original_language` kulcselőtaggal fut). Az
+        # Igehely fülön így a szöveg megadása, betöltése és a kézi
+        # beillesztés kerül előtérbe.
         render_bible_text_editor(
             hebrew_contextual_analysis_generate_fn=generate_hebrew_contextual_analysis_text,
             greek_contextual_analysis_generate_fn=generate_greek_contextual_analysis_text,
-            show_original_language=analysis_visible,
+            show_original_language=False,
         )
+        if analysis_visible and (st.session_state.get("igehely_input") or "").strip():
+            st.caption(
+                "A szavankénti görög és héber elemzés az "
+                "„Eredeti szöveg tanulmányozása” fülön található."
+            )
 
     with work_surface("igehely_overview"):
         render_info_panel(
