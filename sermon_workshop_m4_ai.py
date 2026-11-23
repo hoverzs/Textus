@@ -11,7 +11,11 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Mapping, Sequence
-from llm_text_utils import extract_json_object_lenient, is_llm_error_text
+from llm_text_utils import (
+    call_generate_with_session_temperature,
+    extract_json_object_lenient,
+    is_llm_error_text,
+)
 
 # ---------------------------------------------------------------------------
 # Konstansok
@@ -1249,37 +1253,17 @@ def _call_generate(
     tab_label: str,
     temperature: float | None = DEFAULT_TEMPERATURE,
 ) -> str:
-    prev_temp = None
-    touched_temp = False
-    if temperature is not None:
-        try:
-            import streamlit as st
-
-            prev_temp = st.session_state.get("temperature")
-            st.session_state["temperature"] = float(temperature)
-            touched_temp = True
-        except Exception:
-            touched_temp = False
-    try:
-        return generate_fn(
-            prompt,
-            enable_google_search=False,
-            tab_label=tab_label,
-            use_cache=False,
-            system_bundle=M4_SYSTEM_BUNDLE,
-            include_brevity_directive=False,
-        )
-    finally:
-        if touched_temp:
-            try:
-                import streamlit as st
-
-                if prev_temp is None:
-                    st.session_state.pop("temperature", None)
-                else:
-                    st.session_state["temperature"] = prev_temp
-            except Exception:
-                pass
+    # 2026-11-23: a korábbi helyi törzs helyett a közös, viselkedésében azonos
+    # call_generate_with_session_temperature (llm_text_utils.py; azonosság:
+    # tests/test_llm_call_wrapper.py). A modul saját system_bundle-je és
+    # DEFAULT_TEMPERATURE alapértéke itt marad.
+    return call_generate_with_session_temperature(
+        generate_fn,
+        prompt,
+        tab_label=tab_label,
+        temperature=temperature,
+        system_bundle=M4_SYSTEM_BUNDLE,
+    )
 
 
 def _common_ctx_kwargs(

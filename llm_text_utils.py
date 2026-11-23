@@ -1,5 +1,5 @@
-"""Közös szöveges hibafelismerés és JSON-kinyerés a generate_fn
-(app.generate_text) válaszaihoz.
+"""Közös szöveges hibafelismerés, JSON-kinyerés és hívásburok a generate_fn
+(app.generate_text) használatához.
 
 A ``generate_text`` szolgáltatói hiba esetén nem kivételt dob, hanem egy
 figyelmeztető szöveget ad vissza (mindig ``⚠️`` vagy ``⏳`` előtaggal). Az
@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from typing import Any, Callable
 
 # A négyelőtagos szabály előtagjai (korábban 8 modulban bemásolva,
 # 14 további modul a sermon_workshop_m5_ai-ból importálta).
@@ -163,3 +163,59 @@ def extract_json_object_strict_root(raw: Any) -> dict[str, Any] | None:
             except json.JSONDecodeError:
                 continue
     return None
+
+
+def call_generate_with_session_temperature(
+    generate_fn: Callable[..., str],
+    prompt: str,
+    *,
+    tab_label: str,
+    temperature: float | None,
+    system_bundle: str,
+) -> str:
+    """Közös hívásburok (2026-11-23, 4. fázis 3. lépés).
+
+    Szó szerint a korábbi ``_call_generate`` másolatok törzse
+    (textus_summary_ai, sermon_workshop_entry_point_ai, sermon_workshop_m4_ai,
+    sermon_workshop_m5_ai, sermon_workshop_engagement_ai); egyetlen
+    különbségük, a modul saját ``*_SYSTEM_BUNDLE`` konstansa, paraméterként
+    érkezik. A modulok alapértelmezett hőmérséklete (``DEFAULT_TEMPERATURE``)
+    a modulok saját ``_call_generate`` függvényében marad.
+
+    Ha ``temperature`` nem ``None``, a hívás idejére beállítja
+    ``st.session_state["temperature"]``-t, majd visszaállítja: ha előtte nem
+    volt érték (``None``), törli a kulcsot. Ha a Streamlit vagy a session
+    nem érhető el, a beállítás csendben elmarad. A ``generate_fn`` kivételei
+    változatlanul továbbterjednek; a visszaállítás ekkor is megtörténik.
+    """
+    prev_temp = None
+    touched_temp = False
+    if temperature is not None:
+        try:
+            import streamlit as st
+
+            prev_temp = st.session_state.get("temperature")
+            st.session_state["temperature"] = float(temperature)
+            touched_temp = True
+        except Exception:
+            touched_temp = False
+    try:
+        return generate_fn(
+            prompt,
+            enable_google_search=False,
+            tab_label=tab_label,
+            use_cache=False,
+            system_bundle=system_bundle,
+            include_brevity_directive=False,
+        )
+    finally:
+        if touched_temp:
+            try:
+                import streamlit as st
+
+                if prev_temp is None:
+                    st.session_state.pop("temperature", None)
+                else:
+                    st.session_state["temperature"] = prev_temp
+            except Exception:
+                pass
