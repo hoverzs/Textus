@@ -244,11 +244,36 @@ def send_writing_desk_chat_after_flush(
     )
 
 
+DOCX_EMPTY_NOTICE = (
+    "A DOCX-letöltés még nem használható: a Jegyzet / vázlat mező üres. "
+    "Amint írsz bele szöveget, letöltheted Word-dokumentumként."
+)
+DOCX_EMPTY_HELP = "Üres vázlatból nem készül dokumentum."
+
+# A letiltott gomb eddig aktívnak látszott (teljes átlátszóság, sötét felirat).
+# A stílus minden futásban kirajzolódik, és csak a letiltott állapotra hat
+# (UI/UX-audit 2026-11-23, V16).
+_DOCX_DISABLED_STYLE = """
+<style>
+.st-key-writing_desk_docx_download button:disabled {
+    opacity: 0.6 !important;
+    border-style: dashed !important;
+    background: rgba(47, 42, 36, 0.04) !important;
+    box-shadow: none !important;
+}
+.st-key-writing_desk_docx_download button:disabled p {
+    color: #6f6457 !important;
+}
+</style>
+"""
+
+
 def _render_docx_export() -> None:
     blob, filename = writing_desk_docx_export_payload()
     empty = blob is None
+    st.markdown(_DOCX_DISABLED_STYLE, unsafe_allow_html=True)
     if empty:
-        st.caption("Nincs exportálható szöveg.")
+        st.caption(DOCX_EMPTY_NOTICE)
     st.download_button(
         label="Letöltés DOCX",
         data=blob or b"",
@@ -256,6 +281,7 @@ def _render_docx_export() -> None:
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         key="writing_desk_docx_download",
         disabled=empty,
+        help=DOCX_EMPTY_HELP if empty else None,
         width="stretch",
     )
 

@@ -194,10 +194,16 @@ def test_empty_export_ui_disables_download(monkeypatch):
 
     session: dict = {}
     monkeypatch.setattr(writing_desk_ui, "_render_scripture_block", lambda: None)
-    from test_writing_desk_ui import _patch_streamlit_shell
+    # `tests.`-előtaggal: a pytest.ini `pythonpath = .` beállítása miatt
+    # minden futási sorrendben importálható. A csupasz `test_writing_desk_ui`
+    # csak akkor működött, ha egy másik teszt előbb a tests/ mappát a
+    # sys.path-ra tette (pl. test_greek_analysis_ui), ezért önálló vagy
+    # szűkített futásban ModuleNotFoundError-ral bukott.
+    from tests.test_writing_desk_ui import _patch_streamlit_shell
 
     calls = _patch_streamlit_shell(monkeypatch, st, session)
     writing_desk_ui.render_writing_desk_shell()
     assert calls["download_button"]
     assert calls["download_button"][0]["disabled"] is True
-    assert "Nincs exportálható szöveg." in calls["caption"]
+    # UI/UX-audit 2026-11-23 (V16): közérthetőbb, okot is megnevező jelzés.
+    assert writing_desk_ui.DOCX_EMPTY_NOTICE in calls["caption"]

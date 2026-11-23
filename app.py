@@ -7728,12 +7728,15 @@ def generate_greek_contextual_analysis_text(prompt: str, **kwargs) -> str:
 # =========================================================
 
 def refinement_chat(title, result_key, chat_key):
+    # Generált tartalom nélkül a finomító rész nem jelenik meg: a fül saját
+    # üres állapota már jelzi, mit kell tenni, és a „Finomítás” címsor egy
+    # második, ismétlődő figyelmeztetéssel csak zajt adott (UI/UX-audit
+    # 2026-11-23, V8). Generált tartalomnál a viselkedés változatlan.
+    if not st.session_state.get(result_key):
+        return
+
     st.divider()
     st.subheader(f"💬 Finomítás: {title}")
-
-    if not st.session_state.get(result_key):
-        st.info("Előbb generálj tartalmat ehhez a részhez.")
-        return
 
     for msg in st.session_state[chat_key]:
         with st.chat_message(msg["role"]):
@@ -9121,8 +9124,12 @@ with tabs[1]:
 # =========================================================
 
 with tabs[8]:
-    st.header("Énekajánló")
-    st.caption("Református liturgiai énekajánlás az igeszakaszhoz és az alkalomhoz")
+    # Egységes Textusműhely-fejléc (UI/UX-audit 2026-11-23, V7).
+    render_work_section(
+        title="Énekajánló",
+        body="Református liturgiai énekajánlás az igeszakaszhoz és az alkalomhoz.",
+        context="Textusműhely",
+    )
 
     sync_hymn_passage_from_main_state(st.session_state)
     igehely_song = st.text_input(
@@ -9351,11 +9358,15 @@ with tabs[11]:
 # =========================================================
 
 with tabs[9]:
-    st.header("📅 Igehirdetési sorozat tervező")
-
-    st.info(
-        "Ez a fül **külön** működik az igehely-alapú elemzéstől.",
-        icon="📅",
+    # Egységes Textusműhely-fejléc (UI/UX-audit 2026-11-23, V7); a korábbi
+    # külön tájékoztató sáv szövege a fejléc leírásába került.
+    render_work_section(
+        title="Igehirdetési sorozat tervező",
+        body=(
+            "Egy témából vagy alapötletből tervez több alkalmas sorozatot — "
+            "az igehely-alapú elemzéstől függetlenül működik."
+        ),
+        context="Textusműhely",
     )
 
     st.subheader("Tervezzünk meg egy új sorozatot!")
