@@ -8263,21 +8263,13 @@ def render_igehely_panel(analysis_visible: bool = True) -> None:
 
             render_concordance_expander()
 
-        # UI/UX-audit 2026-11-23, V2: a szavankénti görög/héber elemzés
-        # kizárólag az „Eredeti szöveg tanulmányozása” fülön jelenik meg
-        # (ott saját, `textus_original_language` kulcselőtaggal fut). Az
-        # Igehely fülön így a szöveg megadása, betöltése és a kézi
-        # beillesztés kerül előtérbe.
+        # Az eredeti (görög/héber) szöveg a magyar szöveg alatt jelenik meg;
+        # csak akkor rajzoljuk ki, ha az Igehely fül nyitott.
         render_bible_text_editor(
             hebrew_contextual_analysis_generate_fn=generate_hebrew_contextual_analysis_text,
             greek_contextual_analysis_generate_fn=generate_greek_contextual_analysis_text,
-            show_original_language=False,
+            show_original_language=analysis_visible,
         )
-        if analysis_visible and (st.session_state.get("igehely_input") or "").strip():
-            st.caption(
-                "A szavankénti görög és héber elemzés az "
-                "„Eredeti szöveg tanulmányozása” fülön található."
-            )
 
     with work_surface("igehely_overview"):
         render_info_panel(

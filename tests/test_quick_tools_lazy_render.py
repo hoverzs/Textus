@@ -128,10 +128,9 @@ def test_greek_analysis_renders_once_per_run_never_twice(greek_block_counter):
     _open_tab(at, ORIGINAL)
     original_open = len(greek_block_counter)
 
-    # UI/UX-audit 2026-11-23 (V2, elfogadott javítás): a görög/héber panel már
-    # csak az Eredeti szöveg fülön jelenik meg, az Igehely fülön egyáltalán nem.
-    # Korábbi elvárás: igehely_open == 1.
-    assert igehely_open == 0, igehely_open
+    # Az eredeti szöveg a magyar szöveg alatt az Igehely fülön is megjelenik,
+    # de csak ha az Igehely fül nyitott: egy futásban legfeljebb egyszer fut.
+    assert igehely_open == 1, igehely_open
     assert original_open == 1, original_open  # previously 2 (Igehely + Eredeti szöveg)
 
 
