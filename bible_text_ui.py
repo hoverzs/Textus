@@ -793,6 +793,15 @@ def _render_ruf_load_button() -> None:
     _render_ruf_error_retry()
 
 
+def render_ruf_load_controls() -> None:
+    """RÚF-betöltő gomb + a hozzá tartozó üzenetek (az igehely-mező alá szánva)."""
+    _ensure_bible_text_styles()
+    apply_bible_text_resync_if_needed(st.session_state)
+    _render_flash()
+    _render_reference_mismatch_warning(st.session_state)
+    _render_ruf_load_button()
+
+
 @_traced_stage("bible_text_editor")
 def render_bible_text_editor(
     *,
@@ -803,6 +812,7 @@ def render_bible_text_editor(
     greek_contextual_analysis_model_id: str = "gemini-2.5-flash",
     greek_contextual_analysis_generate_kwargs: dict[str, object] | None = None,
     show_original_language: bool = True,
+    show_load_controls: bool = True,
 ) -> None:
     """Szerkeszthető Bibliai szöveg blokk (Textusműhely / Igehely szakasz).
 
@@ -833,9 +843,8 @@ def render_bible_text_editor(
         show_rule=False,
     )
 
-    _render_flash()
-    _render_reference_mismatch_warning(st.session_state)
-    _render_ruf_load_button()
+    if show_load_controls:
+        render_ruf_load_controls()
 
     display_text = _display_passage_text(st.session_state)
     # Az olvasónézet csak tartós / betöltött szövegnél jelenjen meg —
@@ -985,6 +994,7 @@ __all__ = [
     "save_bible_text_from_widgets",
     "get_bible_text_snapshot",
     "render_bible_text_editor",
+    "render_ruf_load_controls",
     "render_bible_text_preview",
     "render_bible_text_reading_block",
 ]

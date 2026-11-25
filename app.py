@@ -113,6 +113,7 @@ from bible_text_ui import (
     apply_bible_text_resync_if_needed,
     queue_bible_widget_sync_values,
     render_bible_text_editor,
+    render_ruf_load_controls,
     save_bible_text_from_widgets,
 )
 from biblical_map_ui import render_biblical_map_prototype
@@ -8248,6 +8249,10 @@ def render_igehely_panel(analysis_visible: bool = True) -> None:
             key="igehely_input",
         )
 
+        # A RÚF-betöltő gomb közvetlenül az igehely-mező alatt van; alatta
+        # az Igehely keresése és a Konkordancia kibontó.
+        render_ruf_load_controls()
+
         _ps_owner = _owner_sub()
         _ps_fetch = None
         if _ps_owner:
@@ -8269,6 +8274,7 @@ def render_igehely_panel(analysis_visible: bool = True) -> None:
             hebrew_contextual_analysis_generate_fn=generate_hebrew_contextual_analysis_text,
             greek_contextual_analysis_generate_fn=generate_greek_contextual_analysis_text,
             show_original_language=analysis_visible,
+            show_load_controls=False,
         )
 
     with work_surface("igehely_overview"):
