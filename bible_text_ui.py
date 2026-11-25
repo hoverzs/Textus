@@ -642,11 +642,6 @@ def _apply_ruf_fetch_success(result: dict[str, Any]) -> bool:
     warnings = [str(w).strip() for w in result.get("warnings", []) if str(w).strip()]
     if warnings:
         _set_flash("warning", warnings[0])
-    else:
-        _set_flash(
-            "success",
-            "A RÚF 2014 szövege betöltődött. Mentés előtt ellenőrizd az igehelyet és a szöveget.",
-        )
     return True
 
 
@@ -680,7 +675,6 @@ def _render_ruf_error_retry() -> None:
     if not err:
         return
     st.error(err)
-    st.info("A kézi beillesztés továbbra is elérhető; a már megadott igehely és szöveg megmarad.")
     if st.button("Újrapróbálás", key="bible_text_ruf_retry_btn"):
         retry_ref = _current_reference(st.session_state) or ref
         if retry_ref:
@@ -799,36 +793,6 @@ def _render_ruf_load_button() -> None:
     _render_ruf_error_retry()
 
 
-def _render_editor_fields(*, save_label: str = "Bibliai szöveg mentése") -> None:
-    st.text_area(
-        "Teljes bibliai szöveg",
-        key=KEY_PASSAGE_TEXT_INPUT,
-        height=220,
-        placeholder="Töltsd be a RÚF szöveget, vagy illeszd be ide kézzel…",
-    )
-    if st.button(save_label, key="bible_text_save_btn", width="stretch"):
-        saved = save_bible_text_from_widgets(st.session_state)
-        n = len((saved["passage_text"] or "").strip())
-        if n:
-            st.success(
-                f"Bibliai szöveg elmentve ({saved['bible_translation']}) — {n} karakter."
-            )
-        else:
-            st.success("Bibliai szöveg mező elmentve (üres).")
-
-
-def _render_manual_paste_fallback() -> None:
-    expander = st.expander(
-        "Bibliai szöveg kézi beillesztése",
-        expanded=False,
-        key=MANUAL_PASTE_EXPANDER_KEY,
-        on_change="rerun",
-    )
-    if expander.open:
-        with expander:
-            _render_editor_fields()
-
-
 @_traced_stage("bible_text_editor")
 def render_bible_text_editor(
     *,
@@ -894,7 +858,6 @@ def render_bible_text_editor(
                 greek_contextual_analysis_model_id=greek_contextual_analysis_model_id,
                 greek_contextual_analysis_generate_kwargs=greek_contextual_analysis_generate_kwargs,
             )
-        _render_manual_paste_fallback()
     else:
         _render_source_caption(st.session_state)
         if show_original_language:
@@ -908,7 +871,6 @@ def render_bible_text_editor(
                 greek_contextual_analysis_model_id=greek_contextual_analysis_model_id,
                 greek_contextual_analysis_generate_kwargs=greek_contextual_analysis_generate_kwargs,
             )
-        _render_manual_paste_fallback()
 
 
 def render_bible_text_preview(*, expanded: bool = False) -> None:

@@ -197,13 +197,13 @@ def _open_tab(at: AppTest, index: int) -> AppTest:
     return _ok(at.run())
 
 
-def test_igehely_tab_no_longer_renders_the_greek_panel(greek_block_counter):
+def test_igehely_tab_renders_the_original_language_panel_under_the_text(greek_block_counter):
     at = _app_with_passage("Jn 3,16")
     greek_block_counter.clear()
     _open_tab(at, IGEHELY)
-    assert greek_block_counter == []
-    captions = "\n".join(c.value for c in at.caption)
-    assert "„Eredeti szöveg tanulmányozása” fülön" in captions
+    assert len(greek_block_counter) == 1
+    captions = " ".join(c.value for c in at.caption)
+    assert "fülön található" not in captions
 
 
 def test_original_text_tab_still_renders_the_greek_panel(greek_block_counter):
@@ -213,18 +213,12 @@ def test_original_text_tab_still_renders_the_greek_panel(greek_block_counter):
     assert len(greek_block_counter) == 1
 
 
-def test_igehely_tab_keeps_text_loading_and_manual_paste():
+def test_igehely_tab_keeps_text_loading_without_manual_paste():
     at = _app_with_passage("Jn 3,16")
     _open_tab(at, IGEHELY)
     labels = [b.label for b in at.button]
     assert "RÚF-szöveg betöltése" in labels
-    assert "Bibliai szöveg kézi beillesztése" in [e.label for e in at.expander]
-
-
-def test_pointer_caption_needs_a_passage():
-    at = _fresh_app()
-    captions = "\n".join(c.value for c in at.caption)
-    assert "Eredeti szöveg tanulmányozása” fülön" not in captions
+    assert "Bibliai szöveg kézi beillesztése" not in [e.label for e in at.expander]
 
 
 # --- 3. Felvillanó üzenet: nem tolja el a projekt-eszköztárat -------------------

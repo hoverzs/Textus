@@ -51,7 +51,7 @@ STALE_CACHE_WARNING = (
     "A Szentírás.eu jelenleg nem érhető el; a korábban eltárolt szöveget jelenítjük meg."
 )
 API_NOT_CONFIGURED_MESSAGE = (
-    "A RÚF automatikus betöltése nincs beállítva. A kézi beillesztés továbbra is használható."
+    "A RÚF automatikus betöltése nincs beállítva."
 )
 
 RETRYABLE_HTTP_STATUS = {429, 500, 502, 503, 504}

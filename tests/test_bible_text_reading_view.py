@@ -132,28 +132,17 @@ def test_ruf_button_click_does_not_refetch_on_plain_rerun() -> None:
         bible_text_ui.fetch_ruf_passage = original_fetch
 
 
-def test_manual_text_area_is_hidden_by_default() -> None:
+def test_manual_paste_section_is_not_rendered() -> None:
     app = AppTest.from_function(_render_empty_bible_text_editor).run()
 
     assert not app.exception
     assert len(app.text_area) == 0
     assert all(button.label != "Bibliai szöveg mentése" for button in app.button)
-    assert any(
+    assert not any(
         expander.label == "Bibliai szöveg kézi beillesztése"
         for expander in app.expander
     )
     assert not any(SOURCE_ATTRIBUTION in markdown.value for markdown in app.markdown)
-
-
-def test_manual_text_area_renders_when_expander_is_open() -> None:
-    app = AppTest.from_function(_render_empty_bible_text_editor).run()
-
-    app.session_state["_bible_text_manual_paste_expander"] = True
-    app.run()
-
-    assert len(app.text_area) == 1
-    assert app.text_area[0].label == "Teljes bibliai szöveg"
-    assert any(button.label == "Bibliai szöveg mentése" for button in app.button)
 
 
 def test_manual_text_save_still_works_and_survives_rerun() -> None:
@@ -167,15 +156,6 @@ def test_manual_text_save_still_works_and_survives_rerun() -> None:
     assert saved["passage_text"] == "16. Mert úgy szerette Isten a világot."
     assert state["passage_text"] == "16. Mert úgy szerette Isten a világot."
     assert state["passage_text_input"] == "16Mert úgy szerette Isten a világot."
-
-    app = AppTest.from_function(_render_empty_bible_text_editor).run()
-    app.session_state["_bible_text_manual_paste_expander"] = True
-    app.session_state["passage_text_input"] = "16Mert úgy szerette Isten a világot."
-    app.run()
-
-    assert app.text_area[0].value == "16Mert úgy szerette Isten a világot."
-    app.run()
-    assert app.session_state["passage_text_input"] == "16Mert úgy szerette Isten a világot."
 
 
 def test_successful_ruf_load_does_not_open_manual_section() -> None:
@@ -437,7 +417,7 @@ def test_ruf_error_does_not_open_manual_section() -> None:
     assert not app.exception
     assert len(app.text_area) == 0
     assert any(button.label == "Újrapróbálás" for button in app.button)
-    assert any(
+    assert not any(
         expander.label == "Bibliai szöveg kézi beillesztése"
         for expander in app.expander
     )
