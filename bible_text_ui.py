@@ -216,7 +216,7 @@ _BIBLE_TEXT_CSS = """
   flex: 1 1 auto;
   min-width: 0;
   font-size: 1.15rem;
-  font-weight: 400;
+  font-weight: 600;
   color: #2a241c;
   line-height: 1.62;
   overflow-wrap: anywhere;
@@ -228,7 +228,7 @@ _BIBLE_TEXT_CSS = """
   margin: 0 0 0.5rem 0;
   font-family: inherit;
   font-size: 1.15rem;
-  font-weight: 400;
+  font-weight: 600;
   color: #2a241c;
   line-height: 1.62;
   letter-spacing: normal;
@@ -238,7 +238,7 @@ _BIBLE_TEXT_CSS = """
 
 .bible-reader.bible-reader-continuous {
   font-size: 1.15rem;
-  font-weight: 400;
+  font-weight: 600;
   line-height: 1.66;
   color: #2a241c;
 }
@@ -263,7 +263,7 @@ _BIBLE_TEXT_CSS = """
    betűtípusát is felülírja. */
 .stMarkdown p.bible-source-note,
 p.bible-source-note.bible-source-note {
-  max-width: 70ch;
+  max-width: 100%;
   margin: 0.3rem 0 0.6rem 0;
   padding-top: 0.3rem;
   border-top: 1px solid rgba(122, 108, 92, 0.22);
@@ -722,7 +722,7 @@ def _render_source_caption(session_state: MutableMapping[str, Any]) -> None:
     if url:
         safe_url = html.escape(url, quote=True)
         st.markdown(
-            f'<p class="bible-source-note">{caption}<br/>'
+            f'<p class="bible-source-note">{caption} &middot; '
             f'<a href="{safe_url}" target="_blank" rel="noopener noreferrer">'
             "Megnyitás a forrásoldalon</a></p>",
             unsafe_allow_html=True,
@@ -793,6 +793,15 @@ def _render_ruf_load_button() -> None:
     _render_ruf_error_retry()
 
 
+def render_ruf_load_controls() -> None:
+    """RÚF-betöltő gomb + a hozzá tartozó üzenetek (az igehely-mező alá szánva)."""
+    _ensure_bible_text_styles()
+    apply_bible_text_resync_if_needed(st.session_state)
+    _render_flash()
+    _render_reference_mismatch_warning(st.session_state)
+    _render_ruf_load_button()
+
+
 @_traced_stage("bible_text_editor")
 def render_bible_text_editor(
     *,
@@ -803,6 +812,7 @@ def render_bible_text_editor(
     greek_contextual_analysis_model_id: str = "gemini-2.5-flash",
     greek_contextual_analysis_generate_kwargs: dict[str, object] | None = None,
     show_original_language: bool = True,
+    show_load_controls: bool = True,
 ) -> None:
     """Szerkeszthető Bibliai szöveg blokk (Textusműhely / Igehely szakasz).
 
@@ -833,9 +843,8 @@ def render_bible_text_editor(
         show_rule=False,
     )
 
-    _render_flash()
-    _render_reference_mismatch_warning(st.session_state)
-    _render_ruf_load_button()
+    if show_load_controls:
+        render_ruf_load_controls()
 
     display_text = _display_passage_text(st.session_state)
     # Az olvasónézet csak tartós / betöltött szövegnél jelenjen meg —
@@ -985,6 +994,7 @@ __all__ = [
     "save_bible_text_from_widgets",
     "get_bible_text_snapshot",
     "render_bible_text_editor",
+    "render_ruf_load_controls",
     "render_bible_text_preview",
     "render_bible_text_reading_block",
 ]
