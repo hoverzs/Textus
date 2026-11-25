@@ -180,7 +180,7 @@ _BIBLE_TEXT_CSS = """
 .bible-reader {
   margin: 0.12rem 0 0.4rem 0;
   padding: 0.1rem 0;
-  max-width: 70ch;
+  max-width: 100%;
   max-height: min(58vh, 520px);
   overflow-y: auto;
   box-sizing: border-box;
