@@ -216,7 +216,7 @@ _BIBLE_TEXT_CSS = """
   flex: 1 1 auto;
   min-width: 0;
   font-size: 1.15rem;
-  font-weight: 400;
+  font-weight: 600;
   color: #2a241c;
   line-height: 1.62;
   overflow-wrap: anywhere;
@@ -228,7 +228,7 @@ _BIBLE_TEXT_CSS = """
   margin: 0 0 0.5rem 0;
   font-family: inherit;
   font-size: 1.15rem;
-  font-weight: 400;
+  font-weight: 600;
   color: #2a241c;
   line-height: 1.62;
   letter-spacing: normal;
@@ -238,7 +238,7 @@ _BIBLE_TEXT_CSS = """
 
 .bible-reader.bible-reader-continuous {
   font-size: 1.15rem;
-  font-weight: 400;
+  font-weight: 600;
   line-height: 1.66;
   color: #2a241c;
 }

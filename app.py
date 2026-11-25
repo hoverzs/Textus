@@ -560,7 +560,7 @@ _WS_DONE_CSS = "\n".join(
 
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Lora:ital,wght@0,500;1,500;1,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Lora:ital,wght@0,500;0,600;1,500;1,600&display=swap');
 @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css');
 
 :root {{
