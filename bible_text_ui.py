@@ -263,7 +263,7 @@ _BIBLE_TEXT_CSS = """
    betűtípusát is felülírja. */
 .stMarkdown p.bible-source-note,
 p.bible-source-note.bible-source-note {
-  max-width: 70ch;
+  max-width: 100%;
   margin: 0.3rem 0 0.6rem 0;
   padding-top: 0.3rem;
   border-top: 1px solid rgba(122, 108, 92, 0.22);
@@ -722,7 +722,7 @@ def _render_source_caption(session_state: MutableMapping[str, Any]) -> None:
     if url:
         safe_url = html.escape(url, quote=True)
         st.markdown(
-            f'<p class="bible-source-note">{caption}<br/>'
+            f'<p class="bible-source-note">{caption} &middot; '
             f'<a href="{safe_url}" target="_blank" rel="noopener noreferrer">'
             "Megnyitás a forrásoldalon</a></p>",
             unsafe_allow_html=True,
